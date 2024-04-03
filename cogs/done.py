@@ -39,7 +39,7 @@ class done(commands.Cog):
             user_record['streaks'][activity.lower()] = user_record['streaks'].get(activity.lower(), 0) + 1
             collection.update_one({'user_id': user_id}, {'$set': user_record}, upsert=True)
             
-            embed = discord.Embed(title="Aktywność", color=0xffa500)
+            embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(name="", value=f"🔥 To {user_record['streaks'][activity.lower()]} {activity} w tym miesiącu!")
             
             if ctx.author.avatar:

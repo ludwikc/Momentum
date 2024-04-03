@@ -2,6 +2,7 @@ import discord
 from pymongo import MongoClient
 from discord.ext import commands
 from linkdb import link_db
+from datetime import datetime
 
 mongo_client = MongoClient(link_db)
 db = mongo_client['activity_db']
@@ -22,15 +23,22 @@ class done(commands.Cog):
         if not user_record:
             user_record = {
                 'user_id': user_id,
-                'streaks': {act_type: 0 for act_type in act}
+                'streaks': {act_type: 0 for act_type in act},
+                'last_reset': datetime.utcnow().strftime('%Y-%m-%d')
             }
+            
+        today = datetime.utcnow()
+        last_reset = datetime.strptime(user_record['last_reset'], '%Y-%m-%d')
+        if today.month != last_reset.month:
+            user_record['streaks'] = {act_type: 0 for act_type in act}
+            user_record['last_reset'] = today.strftime('%Y-%m-%d')
             
         if activity.lower() in act:
             user_record['streaks'][activity.lower()] = user_record['streaks'].get(activity.lower(), 0) + 1
             collection.update_one({'user_id': user_id}, {'$set': user_record}, upsert=True)
             
             embed = discord.Embed(title="Aktywność", color=0xffa500)
-            embed.add_field(name="", value=f"🔥To twój {user_record['streaks'][activity.lower()]} dzień {activity} w tym miesiącu!")
+            embed.add_field(name="", value=f"🔥To {user_record['streaks'][activity.lower()]} dzień {activity} w tym miesiącu!")
             
             if ctx.author.avatar:
                 embed.set_thumbnail(url=ctx.author.avatar.url)

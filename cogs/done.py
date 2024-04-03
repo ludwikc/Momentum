@@ -26,6 +26,8 @@ class done(commands.Cog):
                 'streaks': {act_type: 0 for act_type in act},
                 'last_reset': datetime.utcnow().strftime('%Y-%m-%d')
             }
+        else:
+            user_record.setdefault('last_reset', datetime.utcnow().strftime('%Y-%m-%d'))
             
         today = datetime.utcnow()
         last_reset = datetime.strptime(user_record['last_reset'], '%Y-%m-%d')

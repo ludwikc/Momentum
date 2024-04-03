@@ -40,7 +40,7 @@ class done(commands.Cog):
             collection.update_one({'user_id': user_id}, {'$set': user_record}, upsert=True)
             
             embed = discord.Embed(title="Aktywność", color=0xffa500)
-            embed.add_field(name="", value=f"🔥To {user_record['streaks'][activity.lower()]} {activity} w tym miesiącu!")
+            embed.add_field(name="", value=f"🔥 To {user_record['streaks'][activity.lower()]} {activity} w tym miesiącu!")
             
             if ctx.author.avatar:
                 embed.set_thumbnail(url=ctx.author.avatar.url)

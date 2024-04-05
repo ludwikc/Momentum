@@ -13,7 +13,6 @@ mongo_client = MongoClient(link_db)
 db = mongo_client["wakeup_db"]
 collection = db["wake_ups"]
 
-
 class gm(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -27,12 +26,13 @@ class gm(commands.Cog):
         user_id = str(ctx.author.id)
         user_record = self.collection.find_one({"user_id": user_id})
 
-        current_time = datetime.utcnow()
-        current_time_polish = current_time.astimezone(self.polish_timezone)
+        current_time_polish = datetime.now(self.polish_timezone)
+        start_time = current_time_polish.replace(hour=4, minute=0, second=0, microsecond=0)
+        end_time = current_time_polish.replace(hour=6, minute=0, second=0, microsecond=0)
         previous_wakeup = (
             user_record["last_wakeup"]
             if user_record
-            else current_time - timedelta(days=1)
+            else current_time_polish - timedelta(days=1)
         )
         streak_wakeups = user_record["streak_wakeups"] if user_record else 0
 
@@ -40,7 +40,7 @@ class gm(commands.Cog):
             await ctx.respond("Za mało kawy? Tylko raz można się obudzić ☕️")
             return
 
-        if 4 <= current_time_polish.hour < 6:
+        if start_time < current_time_polish < end_time:
             if (
                 streak_wakeups == 0
             ):  # If someone's starting their streak, change it to 1
@@ -82,7 +82,7 @@ class gm(commands.Cog):
                 {"user_id": user_id},
                 {
                     "$set": {
-                        "last_wakeup": current_time,
+                        "last_wakeup": current_time_polish,
                         "streak_wakeups": streak_wakeups,
                     }
                 },
@@ -106,7 +106,7 @@ class gm(commands.Cog):
                 {"user_id": user_id},
                 {
                     "$set": {
-                        "last_wakeup": current_time,
+                        "last_wakeup": current_time_polish,
                         "streak_wakeups": streak_wakeups,
                     }
                 },
@@ -114,7 +114,6 @@ class gm(commands.Cog):
             )
 
         await ctx.respond(embed=reply_message)
-
 
 def setup(bot: commands.Bot):
     bot.add_cog(gm(bot))

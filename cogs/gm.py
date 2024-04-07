@@ -34,7 +34,12 @@ class gm(commands.Cog):
             if user_record
             else current_time_polish - timedelta(days=1)
         )
-        streak_wakeups = user_record["streak_wakeups"] if user_record else 0
+        if user_record:
+            streak_momentum = user_record.get("streak_momentum")
+            streak_wakeups = user_record.get("streak_wakeups")
+        else:
+            streak_momentum = 0
+            streak_wakeups = 0
 
         if current_time_polish.date() == previous_wakeup.date():
             await ctx.respond("Za mało kawy? Tylko raz można się obudzić ☕️")
@@ -42,9 +47,14 @@ class gm(commands.Cog):
 
         if start_time < current_time_polish < end_time:
             if (
-                streak_wakeups == 0
-            ):  # If someone's starting their streak, change it to 1
-                streak_wakeups = 1
+                streak_wakeups >= 0
+            ):  # If someone's starting their streak, add 1 to it
+                streak_wakeups += 1
+                
+            if (
+                streak_momentum >= 0
+            ):  # Starting the streak
+                streak_momentum += 1
 
                 embed_start = Embed(title="Twoje pobudki!", color=0xA3FFB4)
                 embed_start.add_field(
@@ -53,6 +63,9 @@ class gm(commands.Cog):
                 )
                 embed_start.add_field(
                     name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
+                )
+                embed_start.add_field(
+                    name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
                 )
                 if ctx.author.avatar:
                     embed_start.set_thumbnail(url=ctx.author.avatar.url)
@@ -63,13 +76,17 @@ class gm(commands.Cog):
 
             else:  # Adds 1 to the streak
                 streak_wakeups += 1
+                streak_momentum += 1
 
                 embed_streak = Embed(title="Twoje pobudki!", color=0xA3FFB4)
                 embed_streak.add_field(
                     name="", value="🙌 " + random.choice(random_message)
                 )
                 embed_streak.add_field(
-                    name="", value=f"🌅 Poranki: {streak_wakeups}", inline=False
+                    name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
+                )
+                embed_streak.add_field(
+                    name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
                 )
                 if ctx.author.avatar:
                     embed_streak.set_thumbnail(url=ctx.author.avatar.url)
@@ -84,34 +101,41 @@ class gm(commands.Cog):
                     "$set": {
                         "last_wakeup": current_time_polish,
                         "streak_wakeups": streak_wakeups,
+                        "streak_momentum": streak_momentum,
                     }
                 },
                 upsert=True,
             )
             updated_record = self.collection.find_one({"user_id": user_id})
             streak_wakeups = updated_record["streak_wakeups"]
+            
         else:
-            reply_message = Embed(title="Dzień dobry!", color=0xFEF65B)
-            reply_message.add_field(name="", value=f"🙌 Co dobrego Cię dzisiaj spotka?")
-            reply_message.add_field(
-                name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
-            )
-            if ctx.author.avatar:
-                reply_message.set_thumbnail(url=ctx.author.avatar.url)
-            else:
-                reply_message.set_thumbnail(url=ctx.author.default_avatar.url)
-
-            streak_wakeups = 0
+            
+            streak_momentum = 0
             self.collection.update_one(
                 {"user_id": user_id},
                 {
                     "$set": {
                         "last_wakeup": current_time_polish,
                         "streak_wakeups": streak_wakeups,
+                        "streak_momentum": streak_momentum,
                     }
                 },
                 upsert=True,
             )
+            
+            reply_message = Embed(title="Dzień dobry!", color=0xFEF65B)
+            reply_message.add_field(name="", value=f"🙌 " + random.choice(random_message))
+            reply_message.add_field(
+                name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
+            )
+            reply_message.add_field(
+                name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
+            )
+            if ctx.author.avatar:
+                reply_message.set_thumbnail(url=ctx.author.avatar.url)
+            else:
+                reply_message.set_thumbnail(url=ctx.author.default_avatar.url) 
 
         await ctx.respond(embed=reply_message)
 

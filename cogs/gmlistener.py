@@ -56,7 +56,7 @@ class gmlistener(commands.Cog):
                 if streak_momentum >= 0:
                     streak_momentum += 1
                     reply_message = (
-                        "🌅 **Dzień dobry!** "
+                        f"🌅 **Dzień dobry {message.author.mention}!** "
                         + random.choice(random_message)
                         + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
                     )
@@ -64,7 +64,7 @@ class gmlistener(commands.Cog):
                     streak_wakeups += 1
                     streak_momentum += 1
                     reply_message = (
-                        "🌅 **Dzień dobry!** "
+                        f"🌅 **Dzień dobry {message.author.mention}!** "
                         + random.choice(random_message)
                         + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
                     )
@@ -96,7 +96,7 @@ class gmlistener(commands.Cog):
                     },
                     upsert=True,
                 )
-                reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + " :raised_hands:"
+                reply_message = f"🌅 **Dzień dobry {message.author.mention}!** " + random.choice(random_message) + " :raised_hands:"
 
             await message.channel.send(reply_message)
             

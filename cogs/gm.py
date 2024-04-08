@@ -55,13 +55,13 @@ class gm(commands.Cog):
             ):  # Starting the streak
                 streak_momentum += 1
 
-                reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
 
             else:  # Adds 1 to the streak
                 streak_wakeups += 1
                 streak_momentum += 1
 
-                reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
 
             self.collection.update_one(
                 {"user_id": user_id},
@@ -92,7 +92,7 @@ class gm(commands.Cog):
                 upsert=True,
             )
             
-            reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + " :raised_hands:"
+            reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + " :raised_hands:"
 
         await ctx.respond(reply_message)
 

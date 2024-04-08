@@ -3,7 +3,6 @@ from discord.ext import commands
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from linkdb import link_db
-from discord import Embed
 import random
 from emoji import *
 import pytz
@@ -56,44 +55,13 @@ class gm(commands.Cog):
             ):  # Starting the streak
                 streak_momentum += 1
 
-                embed_start = Embed(title="Twoje pobudki!", color=0xA3FFB4)
-                embed_start.add_field(
-                    name="",
-                    value="🙌 Mocny początek! Witaj w swoim rannym streaku, jesteśmy z Tobą!",
-                )
-                embed_start.add_field(
-                    name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
-                )
-                embed_start.add_field(
-                    name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
-                )
-                if ctx.author.avatar:
-                    embed_start.set_thumbnail(url=ctx.author.avatar.url)
-                else:
-                    embed_start.set_thumbnail(url=ctx.author.default_avatar.url)
-
-                reply_message = embed_start
+                reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
 
             else:  # Adds 1 to the streak
                 streak_wakeups += 1
                 streak_momentum += 1
 
-                embed_streak = Embed(title="Twoje pobudki!", color=0xA3FFB4)
-                embed_streak.add_field(
-                    name="", value="🙌 " + random.choice(random_message)
-                )
-                embed_streak.add_field(
-                    name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
-                )
-                embed_streak.add_field(
-                    name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
-                )
-                if ctx.author.avatar:
-                    embed_streak.set_thumbnail(url=ctx.author.avatar.url)
-                else:
-                    embed_streak.set_thumbnail(url=ctx.author.default_avatar.url)
-
-                reply_message = embed_streak
+                reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
 
             self.collection.update_one(
                 {"user_id": user_id},
@@ -124,20 +92,9 @@ class gm(commands.Cog):
                 upsert=True,
             )
             
-            reply_message = Embed(title="Dzień dobry!", color=0xFEF65B)
-            reply_message.add_field(name="", value=f"🙌 " + random.choice(random_message))
-            reply_message.add_field(
-                name=f"🌅 Poranki: {streak_wakeups}", value="", inline=False
-            )
-            reply_message.add_field(
-                name=f"{momentum_emoji} Twoje momentum wynosi: {streak_momentum}", value="", inline=False
-            )
-            if ctx.author.avatar:
-                reply_message.set_thumbnail(url=ctx.author.avatar.url)
-            else:
-                reply_message.set_thumbnail(url=ctx.author.default_avatar.url) 
+            reply_message = "🌅 **Dzień dobry!** " + random.choice(random_message) + " :raised_hands:"
 
-        await ctx.respond(embed=reply_message)
+        await ctx.respond(reply_message)
 
 def setup(bot: commands.Bot):
     bot.add_cog(gm(bot))

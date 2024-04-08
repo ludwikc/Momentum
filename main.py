@@ -1,10 +1,12 @@
 import discord
+from discord.ext import commands
 import os
 from private import *
 
 intents = discord.Intents.all()
 intents.members = True
-bot = discord.Bot()
+intents.message_content = True
+bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():

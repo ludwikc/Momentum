@@ -4,8 +4,6 @@ import os
 from private import *
 
 intents = discord.Intents.all()
-intents.members = True
-intents.message_content = True
 bot = discord.Bot(intents=intents)
 
 @bot.event

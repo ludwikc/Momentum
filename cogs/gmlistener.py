@@ -24,8 +24,8 @@ class gmlistener(commands.Cog):
     async def on_message(self, message):
         if message.author == self.bot.user:
             return
-        
-        if "GM" in message.content:
+            
+        if "gm".lower() in message.content.lower():
             user_id = str(message.author.id)
             user_record = self.collection.find_one({"user_id": user_id})
 

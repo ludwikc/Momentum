@@ -15,8 +15,21 @@ class done(commands.Cog):
         self.bot = bot
         self.collection = MongoClient(link_db)['activity_db']['activities']
         
+    dropdown_box = discord.Option(
+        description="Wybierz aktywność", 
+        type=discord.OptionChoice.__str__, 
+        required=False, 
+        choices=[
+            discord.OptionChoice(
+                name=f"{act_emoji} {act_type.capitalize()}",
+                value=act_type
+            ) 
+            for act_type, act_emoji in act.items()
+        ]
+    )
+        
     @discord.slash_command(description=f'Lista aktywności: {", ".join(act)}')
-    async def done(self, ctx, activity: str):
+    async def done(self, ctx, activity: discord.Option = dropdown_box):
         user_id = str(ctx.author.id)
         user_record = collection.find_one({'user_id': user_id})
         
@@ -34,7 +47,7 @@ class done(commands.Cog):
         if today.month != last_reset.month:
             user_record['streaks'] = {act_type: 0 for act_type in act}
             user_record['last_reset'] = today.strftime('%Y-%m-%d')
-            
+
         if activity.lower() in act:
             user_record['streaks'][activity.lower()] = user_record['streaks'].get(activity.lower(), 0) + 1
             collection.update_one({'user_id': user_id}, {'$set': user_record}, upsert=True)

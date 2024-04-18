@@ -7,6 +7,7 @@ from linkdb import link_db
 from emoji import *
 from random_msg import random_message
 import random
+import re
 
 mongo_client = MongoClient(link_db)
 db = mongo_client["wakeup_db"]
@@ -25,7 +26,7 @@ class gmlistener(commands.Cog):
         if message.author == self.bot.user:
             return
             
-        if "gm".lower() in message.content.lower():
+        if re.search(r'\bgm\b', message.content, re.IGNORECASE):
             user_id = str(message.author.id)
             user_record = self.collection.find_one({"user_id": user_id})
 

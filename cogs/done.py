@@ -8,7 +8,7 @@ mongo_client = MongoClient(link_db)
 db = mongo_client['activity_db']
 collection = db['activities']
 
-act = {'trening': '💪', 'medytacja': '🧘', 'sukces': '💎'}
+act = {'trening': '💪', 'medytacja': '🧘', 'sukces': '💎', 'dziennik': '📝'}
 
 class done(commands.Cog):
     def __init__(self, bot:commands.Bot):

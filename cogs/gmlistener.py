@@ -13,6 +13,7 @@ mongo_client = MongoClient(link_db)
 db = mongo_client["wakeup_db"]
 collection = db["wake_ups"]
 
+
 class gmlistener(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -20,40 +21,46 @@ class gmlistener(commands.Cog):
         self.polish_timezone = pytz.timezone(
             "Europe/Warsaw"
         )  # Set the correct timezone
-        
+
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author == self.bot.user:
             return
-            
-        if re.search(r'\bgm\b', message.content, re.IGNORECASE):
+
+        if re.search(r"\bgm\b", message.content, re.IGNORECASE):
             user_id = str(message.author.id)
             user_record = self.collection.find_one({"user_id": user_id})
 
             current_time_polish = datetime.now(self.polish_timezone)
-            start_time = current_time_polish.replace(hour=4, minute=0, second=0, microsecond=0)
-            end_time = current_time_polish.replace(hour=6, minute=0, second=0, microsecond=0)
+            start_time = current_time_polish.replace(
+                hour=4, minute=0, second=0, microsecond=0
+            )
+            end_time = current_time_polish.replace(
+                hour=6, minute=0, second=0, microsecond=0
+            )
             previous_wakeup = (
                 user_record["last_wakeup"]
                 if user_record
                 else current_time_polish - timedelta(days=1)
             )
-            
+
             if user_record:
                 streak_momentum = user_record.get("streak_momentum")
                 streak_wakeups = user_record.get("streak_wakeups")
             else:
                 streak_momentum = 0
                 streak_wakeups = 0
-                
+
             if current_time_polish.date() == previous_wakeup.date():
-                await message.channel.send("Za mało kawy? Tylko raz można się obudzić ☕️")
+                await message.channel.send(
+                    "Za mało kawy? Tylko raz można się obudzić ☕️"
+                )
                 return
-            
+
             if start_time < current_time_polish < end_time:
                 if streak_wakeups >= 0:
                     streak_wakeups += 1
-                
+
                 if streak_momentum >= 0:
                     streak_momentum += 1
                     reply_message = (
@@ -83,7 +90,7 @@ class gmlistener(commands.Cog):
                 )
                 updated_record = self.collection.find_one({"user_id": user_id})
                 streak_wakeups = updated_record["streak_wakeups"]
-            
+
             else:
                 streak_momentum = 0
                 self.collection.update_one(
@@ -97,9 +104,14 @@ class gmlistener(commands.Cog):
                     },
                     upsert=True,
                 )
-                reply_message = f"🌅 **Dzień dobry {message.author.mention}!** " + random.choice(random_message) + " :raised_hands:"
+                reply_message = (
+                    f"🌅 **Dzień dobry {message.author.mention}!** "
+                    + random.choice(random_message)
+                    + " :raised_hands:"
+                )
 
             await message.channel.send(reply_message)
-            
+
+
 def setup(bot: commands.Bot):
     bot.add_cog(gmlistener(bot))

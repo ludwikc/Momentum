@@ -12,6 +12,7 @@ mongo_client = MongoClient(link_db)
 db = mongo_client["wakeup_db"]
 collection = db["wake_ups"]
 
+
 class gm(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -26,8 +27,12 @@ class gm(commands.Cog):
         user_record = self.collection.find_one({"user_id": user_id})
 
         current_time_polish = datetime.now(self.polish_timezone)
-        start_time = current_time_polish.replace(hour=4, minute=0, second=0, microsecond=0)
-        end_time = current_time_polish.replace(hour=6, minute=0, second=0, microsecond=0)
+        start_time = current_time_polish.replace(
+            hour=4, minute=0, second=0, microsecond=0
+        )
+        end_time = current_time_polish.replace(
+            hour=6, minute=0, second=0, microsecond=0
+        )
         previous_wakeup = (
             user_record["last_wakeup"]
             if user_record
@@ -45,23 +50,27 @@ class gm(commands.Cog):
             return
 
         if start_time < current_time_polish < end_time:
-            if (
-                streak_wakeups >= 0
-            ):  # If someone's starting their streak, add 1 to it
+            if streak_wakeups >= 0:  # If someone's starting their streak, add 1 to it
                 streak_wakeups += 1
-                
-            if (
-                streak_momentum >= 0
-            ):  # Starting the streak
+
+            if streak_momentum >= 0:  # Starting the streak
                 streak_momentum += 1
 
-                reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                reply_message = (
+                    f"🌅 **Dzień dobry {ctx.author.mention}!** "
+                    + random.choice(random_message)
+                    + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                )
 
             else:  # Adds 1 to the streak
                 streak_wakeups += 1
                 streak_momentum += 1
 
-                reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                reply_message = (
+                    f"🌅 **Dzień dobry {ctx.author.mention}!** "
+                    + random.choice(random_message)
+                    + f" To twoja {streak_wakeups} pobudka z samego rana :raised_hands:! Twoje momentum wynosi {streak_momentum} {momentum_emoji}!"
+                )
 
             self.collection.update_one(
                 {"user_id": user_id},
@@ -76,9 +85,9 @@ class gm(commands.Cog):
             )
             updated_record = self.collection.find_one({"user_id": user_id})
             streak_wakeups = updated_record["streak_wakeups"]
-            
+
         else:
-            
+
             streak_momentum = 0
             self.collection.update_one(
                 {"user_id": user_id},
@@ -91,10 +100,15 @@ class gm(commands.Cog):
                 },
                 upsert=True,
             )
-            
-            reply_message = f"🌅 **Dzień dobry {ctx.author.mention}!** " + random.choice(random_message) + " :raised_hands:"
+
+            reply_message = (
+                f"🌅 **Dzień dobry {ctx.author.mention}!** "
+                + random.choice(random_message)
+                + " :raised_hands:"
+            )
 
         await ctx.respond(reply_message)
+
 
 def setup(bot: commands.Bot):
     bot.add_cog(gm(bot))

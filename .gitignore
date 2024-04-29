@@ -5,4 +5,5 @@
 /__pycache__
 /cogs/__pycache__
 /random_msg.py
-/images.py
+images.py
+.vscode

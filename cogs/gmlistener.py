@@ -26,6 +26,10 @@ class gmlistener(commands.Cog):
     async def on_message(self, message):
         if message.author == self.bot.user:
             return
+        
+        # Ignore Optimus messages
+        if message.author.id == 1085613437020815411:
+            return
 
         if re.search(r"\bgm\b", message.content, re.IGNORECASE):
             user_id = str(message.author.id)

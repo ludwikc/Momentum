@@ -5,7 +5,7 @@ import pytz
 
 CHANNEL_ID = 1120658406160732160  # Target text channel ID
 
-class ReminderCog(commands.Cog):
+class DailyReminderCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.polish_timezone = pytz.timezone("Europe/Warsaw")  # Ensure correct timezone
@@ -41,4 +41,4 @@ class ReminderCog(commands.Cog):
 
 
 def setup(bot: commands.Bot):
-    bot.add_cog(ReminderCog(bot))
+    bot.add_cog(DailyReminderCog(bot))

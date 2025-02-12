@@ -1,93 +1,105 @@
 import discord
 from discord.ext import commands
+import asyncio
 
 class QueueCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # Each entry is a tuple (member, join_number)
-        self.queue = []
-        self.counter = 0  # Unique join number counter
-        # Use the dedicated text channel ID for queue updates
-        self.target_channel_id = 1120658406160732160
-        # Optional TTS flag for speaker announcements (default off)
-        self.tts_enabled = False
+        self.queue = []  # Lista uczestników jako krotki: (member, join_number)
+        self.counter = 0  # Unikalny licznik dla pozycji w kolejce
+        self.target_channel_id = 1120658406160732160  # Kanał do komunikatów
+        self.current_speaker_id = None  # Aktualnie mówiący
+        self.speaking_times = {}  # Śledzenie czasu rozpoczęcia mówienia
 
     def get_target_channel(self):
-        channel = self.bot.get_channel(self.target_channel_id)
-        return channel
+        return self.bot.get_channel(self.target_channel_id)
 
     def format_queue(self):
-        """Returns a string with the complete queue listing."""
+        """Formatowanie kolejki, pogrubia aktualnie mówiącego"""
         if not self.queue:
-            return "Nikt nie ma nic do dodania?."
+            return "Nikt nie ma nic do dodania."
         lines = ["Kolejka:"]
-        for member, join_number in self.queue:
-            lines.append(f"{join_number}. {member.display_name}")
+        for index, (member, join_number) in enumerate(self.queue):
+            if self.current_speaker_id and member.id == self.current_speaker_id:
+                line = f"{join_number}. **{member.display_name}**"
+            else:
+                line = f"{join_number}. {member.display_name}"
+            lines.append(line)
         return "\n".join(lines)
 
     @commands.command(name="kolejka")
     async def kolejka(self, ctx):
-        """
-        Join the speaking queue.
-        If the user is already in the queue, a message is sent indicating that.
-        Otherwise, the user is added and the updated queue is posted.
-        """
+        """Dodanie użytkownika do kolejki"""
         target_channel = self.get_target_channel() or ctx.channel
-
-        # Prevent duplicate queue entries.
         if any(entry[0].id == ctx.author.id for entry in self.queue):
-            await target_channel.send(f"{ctx.author.mention}, już jesteś w kolejce, spokojnie! ;) ")
+            await target_channel.send(f"{ctx.author.mention}, już jesteś w kolejce! 😉")
             return
-
         self.counter += 1
         self.queue.append((ctx.author, self.counter))
         await target_channel.send(self.format_queue())
 
-    @commands.command(name="settts")
-    async def settts(self, ctx, mode: str):
-        """
-        Toggle text-to-speech announcements for speaker updates.
-        Usage: !settts on / !settts off
-        """
-        mode = mode.lower()
-        if mode not in ("on", "off"):
-            await ctx.send("Usage: !settts on OR !settts off")
+    @commands.command(name="kolejka_next")
+    async def kolejka_next(self, ctx):
+        """Przesuwa kolejkę do następnej osoby"""
+        target_channel = self.get_target_channel() or ctx.channel
+        if not self.queue:
+            await target_channel.send("Kolejka jest pusta.")
             return
+        self.current_speaker_id = None
+        self.queue.pop(0)  # Usunięcie pierwszej osoby z kolejki
+        if self.queue:
+            await target_channel.send(f"{self.queue[0][0].mention}, Twoja kolej!")
+            await target_channel.send(self.format_queue())
+        else:
+            await target_channel.send("No i kolejka opustoszała.")
+            self.counter = 0
 
-        self.tts_enabled = (mode == "on")
-        status = "włączone" if self.tts_enabled else "wyłączone"
-        await ctx.send(f"Powiadomienia głosowe: {status}.")
+    @commands.command(name="kolejka_done")
+    async def kolejka_done(self, ctx):
+        """Pozwala użytkownikowi zakończyć swoją kolej bez mutowania"""
+        target_channel = self.get_target_channel() or ctx.channel
+        if self.current_speaker_id != ctx.author.id:
+            await target_channel.send(f"{ctx.author.mention}, to nie Twoja kolej! 😉")
+            return
+        await self.kolejka_next(ctx)  # Przejście do kolejnej osoby
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        """
-        Listen for voice state updates. If a user unmutes (i.e. goes from self-muted to unmuted)
-        and is in the queue, remove them and announce that they are speaking,
-        along with the next speakers in the queue.
-        """
-        # Only process if the user changed from self-muted to unmuted.
+        """Monitoruje mute/unmute, ignoruje krótkie przerwy na komentarze"""
+        target_channel = self.get_target_channel()
+        if not target_channel:
+            return
+
+        # Użytkownik odmutował się (muted → unmuted)
         if before.self_mute and not after.self_mute:
-            # Find and remove the member from the queue.
-            for entry in self.queue:
-                if entry[0].id == member.id:
-                    self.queue.remove(entry)
-                    target_channel = self.get_target_channel() or member.guild.system_channel
-                    if not target_channel:
-                        return  # No channel available to send updates.
+            if self.queue and self.queue[0][0].id == member.id:
+                self.current_speaker_id = member.id
+                self.speaking_times[member.id] = asyncio.get_event_loop().time()  # Rejestrujemy czas rozpoczęcia mówienia
+                await target_channel.send(f"{member.display_name} mówi.")
+                await target_channel.send(self.format_queue())
 
-                    # Build the announcement message.
-                    lines = [f"{member.display_name} mówi."]
-                    if self.queue:
-                        lines.append("\nNastępny Lifehacker:")
-                        for m, join_number in self.queue:
-                            lines.append(f"{join_number}. {m.display_name}")
-                    else:
-                        lines.append("\nNo i kolejka opustoszała.")
+        # Użytkownik wyciszył się (unmuted → muted)
+        if not before.self_mute and after.self_mute:
+            if self.current_speaker_id == member.id:
+                # Sprawdzamy, ile mówił użytkownik
+                start_time = self.speaking_times.get(member.id, 0)
+                speaking_duration = asyncio.get_event_loop().time() - start_time
 
-                    announcement = "\n".join(lines)
-                    # Use TTS if enabled.
-                    await target_channel.send(announcement, tts=self.tts_enabled)
-                    break
+                # Jeśli użytkownik mówił mniej niż 5 sekund, traktujemy to jako komentarz
+                if speaking_duration < 5:
+                    return
+
+                await self.kolejka_next(commands.Context(bot=self.bot, message=None))  # Przejście do kolejnej osoby
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        """Zapobiega przypadkowemu wpisaniu "kolejka" bez wykrzyknika"""
+        if message.author.bot:
+            return
+        if message.content.strip().lower() == "kolejka":
+            await message.channel.send(f"{message.author.mention}, aby dołączyć do kolejki, użyj `!kolejka`.")
+            return
+        await self.bot.process_commands(message)
 
 def setup(bot):
     bot.add_cog(QueueCog(bot))

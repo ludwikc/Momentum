@@ -47,3 +47,48 @@
 2025-05-09 13:28:19,970 - momentum_bot - INFO - Connected to 2 servers
 2025-05-09 13:28:20,345 - momentum_bot - INFO - Synced 8 command(s)
 2025-05-09 13:30:24,347 - momentum_bot - INFO - Bot shutdown by user
+2025-05-09 13:56:16,627 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:56:16,828 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: Extension 'cogs.gmlistener' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:56:16,829 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: SyntaxError: invalid syntax (gm.py, line 3)
+2025-05-09 13:56:16,830 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: Extension 'cogs.dailyreminder' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:56:16,830 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: SyntaxError: invalid syntax (qacog.py, line 3)
+2025-05-09 13:56:16,831 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:56:16,831 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: SyntaxError: invalid syntax (queue_cog.py, line 3)
+2025-05-09 13:56:16,832 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 13:56:16,833 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: SyntaxError: invalid syntax (leaderboard.py, line 4)
+2025-05-09 13:56:16,833 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: SyntaxError: invalid syntax (done.py, line 4)
+2025-05-09 13:56:16,833 - discord.client - INFO - logging in using static token
+2025-05-09 13:56:17,049 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 13:56:17,079 - asyncio - ERROR - Unclosed connector
+connections: ['[(<aiohttp.client_proto.ResponseHandler object at 0x7fe9bda5bb80>, 9638040.728393529)]']
+connector: <aiohttp.connector.TCPConnector object at 0x7fe9bdab9720>
+2025-05-09 13:57:09,122 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:57:09,268 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: Extension 'cogs.gmlistener' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:57:09,268 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: SyntaxError: invalid syntax (gm.py, line 3)
+2025-05-09 13:57:09,269 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: Extension 'cogs.dailyreminder' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:57:09,320 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: SyntaxError: invalid syntax (qacog.py, line 3)
+2025-05-09 13:57:09,321 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:57:09,321 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: SyntaxError: invalid syntax (queue_cog.py, line 3)
+2025-05-09 13:57:09,322 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 13:57:09,322 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: SyntaxError: invalid syntax (leaderboard.py, line 4)
+2025-05-09 13:57:09,322 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: SyntaxError: invalid syntax (done.py, line 4)
+2025-05-09 13:57:09,323 - discord.client - INFO - logging in using static token
+2025-05-09 13:57:09,515 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 13:57:09,540 - asyncio - ERROR - Unclosed connector
+connections: ['[(<aiohttp.client_proto.ResponseHandler object at 0x7fa49fc4bb80>, 9638093.194440449)]']
+connector: <aiohttp.connector.TCPConnector object at 0x7fa49f79d4b0>
+2025-05-09 13:57:20,137 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:57:20,353 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: Extension 'cogs.gmlistener' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:57:20,353 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: SyntaxError: invalid syntax (gm.py, line 3)
+2025-05-09 13:57:20,354 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: Extension 'cogs.dailyreminder' raised an error: ModuleNotFoundError: No module named 'pytz'
+2025-05-09 13:57:20,355 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: SyntaxError: invalid syntax (qacog.py, line 3)
+2025-05-09 13:57:20,420 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:57:20,421 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: SyntaxError: invalid syntax (queue_cog.py, line 3)
+2025-05-09 13:57:20,422 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 13:57:20,422 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: SyntaxError: invalid syntax (leaderboard.py, line 4)
+2025-05-09 13:57:20,422 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: SyntaxError: invalid syntax (done.py, line 4)
+2025-05-09 13:57:20,422 - discord.client - INFO - logging in using static token
+2025-05-09 13:57:20,610 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 13:57:20,637 - asyncio - ERROR - Unclosed connector
+connections: ['[(<aiohttp.client_proto.ResponseHandler object at 0x7fa0ba343b80>, 9638104.289960748)]']
+connector: <aiohttp.connector.TCPConnector object at 0x7fa0b9e954e0>

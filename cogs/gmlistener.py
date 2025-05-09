@@ -105,5 +105,5 @@ class GMListener(commands.Cog):
 
             await message.channel.send(reply_message)
 
-def setup(bot: commands.Bot):
-    bot.add_cog(GMListener(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(GMListener(bot))

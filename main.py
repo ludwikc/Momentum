@@ -67,25 +67,34 @@ async def on_error(event, *args, **kwargs):
 
 # List of extensions to load
 EXTENSIONS = [
-    # Temporarily disable all extensions for testing
-    # "cogs.sekret",
+    # Temporarily only load the test cog
+    "cogs.test_cog",
+    # "cogs.sekret",  # Commented out due to AppCommandOptionType error
     # "cogs.gmlistener",
     # "cogs.gm",
     # "cogs.dailyreminder",
-    # "cogs.qacog",
+    # "cogs.qacog",  # Commented out due to AppCommandOptionType error
     # "cogs.auto_assign_role",
-    # "cogs.queue_cog",
+    # "cogs.queue_cog",  # Commented out due to AppCommandOptionType error
     # "cogs.prefixdone",
-    # "cogs.leaderboard",
-    # "cogs.done",
+    # "cogs.leaderboard",  # Commented out due to AppCommandOptionType error
+    # "cogs.done",  # Commented out due to AppCommandOptionType error
 ]
 
 async def main():
     """Main entry point for the bot."""
+    # Try a different approach for loading extensions
     for ext in EXTENSIONS:
         try:
-            await bot.load_extension(ext)
-            logger.info(f"Loaded extension {ext}")
+            # Use importlib to import the module directly
+            import importlib
+            module = importlib.import_module(ext)
+            # Call setup function directly
+            if hasattr(module, 'setup'):
+                module.setup(bot)
+                logger.info(f"Loaded extension {ext}")
+            else:
+                logger.error(f"Extension {ext} does not have a setup function")
         except Exception as e:
             logger.error(f"Failed to load extension {ext}: {e}")
     

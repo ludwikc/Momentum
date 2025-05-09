@@ -146,3 +146,43 @@ client_session: <aiohttp.client.ClientSession object at 0x105924980>
 2025-05-09 14:14:27,209 - asyncio - ERROR - Unclosed connector
 connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x105901a30>, 170974.316373166)])']
 connector: <aiohttp.connector.TCPConnector object at 0x105924ad0>
+2025-05-09 14:22:50,576 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:22:50,841 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: object list can't be used in 'await' expression
+2025-05-09 14:22:50,844 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:22:50,845 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: object list can't be used in 'await' expression
+2025-05-09 14:22:50,847 - momentum_bot - ERROR - Failed to load extension cogs.auto_assign_role: object list can't be used in 'await' expression
+2025-05-09 14:22:50,848 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: object list can't be used in 'await' expression
+2025-05-09 14:22:50,848 - discord.client - INFO - logging in using static token
+2025-05-09 14:22:51,267 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:22:51,792 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x106ed27b0>
+2025-05-09 14:22:51,793 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x106f66150>, 171478.380170833)])']
+connector: <aiohttp.connector.TCPConnector object at 0x106ed2660>
+2025-05-09 14:23:22,472 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:23:22,474 - momentum_bot - ERROR - Failed to load extension cogs.test_cog: object list can't be used in 'await' expression
+2025-05-09 14:23:22,474 - discord.client - INFO - logging in using static token
+2025-05-09 14:23:22,781 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:23:22,796 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x103ff8980>
+2025-05-09 14:23:22,796 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x10410b590>, 171509.894091541)])']
+connector: <aiohttp.connector.TCPConnector object at 0x103ff9010>
+2025-05-09 14:23:36,788 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:23:36,790 - momentum_bot - ERROR - Failed to load extension cogs.test_cog: object list can't be used in 'await' expression
+2025-05-09 14:23:36,790 - discord.client - INFO - logging in using static token
+2025-05-09 14:23:37,121 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:23:37,135 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x106bf8ad0>
+2025-05-09 14:23:37,135 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x106bd5af0>, 171524.234546416)])']
+connector: <aiohttp.connector.TCPConnector object at 0x106bf8c20>
+2025-05-09 14:23:53,166 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:23:53,167 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-09 14:23:53,167 - discord.client - INFO - logging in using static token
+2025-05-09 14:23:53,470 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:23:53,481 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x1054f8ad0>
+2025-05-09 14:23:53,481 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x1054d59d0>, 171540.582528458)])']
+connector: <aiohttp.connector.TCPConnector object at 0x1054f8c20>

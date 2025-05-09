@@ -3,7 +3,8 @@ from discord.ext import commands, tasks
 
 invite_mapping = {
     "4kXt95T53R": "1230797917913223279",
-    "vbvBptbUSk": "1224735643423215776"
+    "vbvBptbUSk": "1224735643423215776",
+    "Gy9MGxyv68": "1232624150418292746"
 }
 
 class AutoAssignRole(commands.Cog):

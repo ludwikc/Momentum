@@ -2,6 +2,7 @@
 # Channel IDs
 DAILY_CALL_CHANNEL_ID = 1120658406160732160  # Channel for daily calls
 PROGRESS_CHANNEL_ID = 1225131519404675124    # Channel for progress tracking
+SEKRET_CHANNEL_ID = 1196136652737892463      # Channel for anonymous messages
 
 # Activity types and emojis
 ACTIVITIES = {

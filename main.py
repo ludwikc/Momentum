@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 import logging
 import sys
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -14,6 +15,11 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("momentum_bot")
+
+# Set up asyncio debug if needed
+if os.environ.get('DEBUG_ASYNCIO'):
+    logger.info("Enabling asyncio debug mode")
+    asyncio.get_event_loop().set_debug(True)
 
 # Import the token from private.py
 try:
@@ -64,6 +70,8 @@ async def on_ready():
 async def on_error(event, *args, **kwargs):
     """Global error handler for Discord events."""
     logger.error(f"An error occurred in event {event}")
+    import traceback
+    traceback.print_exc()
 
 # List of extensions to load
 EXTENSIONS = [
@@ -80,37 +88,28 @@ EXTENSIONS = [
     # "cogs.done",  # Commented out due to AppCommandOptionType error
 ]
 
-async def main():
-    """Main entry point for the bot."""
-    # Try a different approach for loading extensions
+# Simple function to load extensions
+def load_extensions():
     for ext in EXTENSIONS:
         try:
-            # Use importlib to import the module directly
-            import importlib
-            module = importlib.import_module(ext)
-            # Call setup function directly
-            if hasattr(module, 'setup'):
-                module.setup(bot)
-                logger.info(f"Loaded extension {ext}")
-            else:
-                logger.error(f"Extension {ext} does not have a setup function")
+            bot.load_extension(ext)
+            logger.info(f"Loaded extension {ext}")
         except Exception as e:
             logger.error(f"Failed to load extension {ext}: {e}")
-    
-    await bot.start(DISCORD_TOKEN)
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
     try:
-        # Create a new event loop and set it as the current loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Load all extensions
+        load_extensions()
         
-        # Run the bot in this loop
-        loop.run_until_complete(main())
+        # Run the bot
+        logger.info("Starting bot...")
+        bot.run(DISCORD_TOKEN)
     except KeyboardInterrupt:
         logger.info("Bot shutdown by user")
     except Exception as e:
         logger.critical(f"Fatal error: {e}")
-    finally:
-        # Clean up the loop
-        loop.close()
+        import traceback
+        traceback.print_exc()

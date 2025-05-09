@@ -1,5 +1,8 @@
 import discord
 from discord.ext import commands, tasks
+import logging
+
+logger = logging.getLogger("momentum_bot.auto_assign_role")
 
 invite_mapping = {
     "4kXt95T53R": "1230797917913223279",
@@ -11,34 +14,39 @@ class AutoAssignRole(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.invite_uses = {}
-        self.task_started = False
         
     @commands.Cog.listener()
     async def on_ready(self):
-        """Start the task when the bot is ready and the event loop is established"""
-        if not self.task_started:
-            self.update_invites.start()
-            self.task_started = True
-            print("Invite tracking started after bot ready")
+        """Start the invite tracking when the bot is ready"""
+        logger.info("Starting invite tracking")
+        self.update_invites.start()
 
     def cog_unload(self):
+        """Clean up when the cog is unloaded"""
         self.update_invites.cancel()
+        logger.info("Invite tracking cancelled")
 
     @tasks.loop(minutes=1)
     async def update_invites(self):
-        for guild in self.bot.guilds:
-            try:
-                current_invites = await guild.invites()
-                self.invite_uses[guild.id] = {invite.code: invite.uses for invite in current_invites}
-            except Exception as e:
-                print(f"Failed to update invites for {guild.name}: {e}")
+        """Update the invite cache every minute"""
+        try:
+            for guild in self.bot.guilds:
+                try:
+                    current_invites = await guild.invites()
+                    self.invite_uses[guild.id] = {invite.code: invite.uses for invite in current_invites}
+                    logger.debug(f"Updated invites for {guild.name}")
+                except Exception as e:
+                    logger.error(f"Failed to update invites for {guild.name}: {e}")
+        except Exception as e:
+            logger.error(f"Error in update_invites: {e}")
+            import traceback
+            traceback.print_exc()
                 
     @update_invites.before_loop
     async def before_update_invites(self):
-        """Ensure the bot is ready before starting the loop."""
-        if not self.bot.is_ready():
-            await self.bot.wait_until_ready()
-        print("Invite tracking ready to start")
+        """Wait until the bot is ready before starting the loop."""
+        await self.bot.wait_until_ready()
+        logger.info("Invite tracking ready to start")
 
     @commands.Cog.listener()
     async def on_member_join(self, member):

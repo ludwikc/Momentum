@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.commands import slash_command, Option
+from discord import app_commands
 import logging
 
 logger = logging.getLogger("momentum_bot.qacog")
@@ -16,8 +16,8 @@ class QACog(commands.Cog):
             "jak zgłosić sekret": "Użyj komendy `/sekret` na kanale sekretów, aby anonimowo podzielić się swoim sekretem."
         }
 
-    @slash_command(name="pytanie", description="Zadaj pytanie botowi")
-    async def pytanie(self, ctx, pytanie: Option(str, "Twoje pytanie", required=True)):
+    @app_commands.command(name="pytanie", description="Zadaj pytanie botowi")
+    async def pytanie(self, ctx, pytanie: str):
         """Odpowiada na często zadawane pytania"""
         pytanie = pytanie.lower().strip()
         

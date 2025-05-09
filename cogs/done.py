@@ -1,7 +1,7 @@
 import discord
 from pymongo import MongoClient
 from discord.ext import commands
-from discord.commands import slash_command, Option
+from discord import app_commands
 from linkdb import link_db
 from datetime import datetime
 
@@ -17,16 +17,16 @@ class done(commands.Cog):
         self.bot = bot
         self.collection = MongoClient(link_db)["activity_db"]["activities"]
 
-    @slash_command(description=f'Lista aktywności: {", ".join(act)}')
-    async def done(
+    @app_commands.command(name="done", description=f'Lista aktywności: {", ".join(act)}')
+    @app_commands.describe(activity="Wybierz aktywność")
+    @app_commands.choices(activity=[
+        app_commands.Choice(name=f"{act_emoji} {act_type.capitalize()}", value=act_type)
+        for act_type, act_emoji in act.items()
+    ])
+    async def done_command(
         self, 
         ctx, 
-        activity: Option(
-            str,
-            description="Wybierz aktywność",
-            required=False,
-            choices=[f"{act_emoji} {act_type.capitalize()}" for act_type, act_emoji in act.items()]
-        ) = None
+        activity: str = None
     ):
         user_id = str(ctx.author.id)
         user_record = collection.find_one({"user_id": user_id})

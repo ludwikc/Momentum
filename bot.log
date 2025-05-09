@@ -1,0 +1,48 @@
+2025-05-09 13:25:27,406 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:25:27,408 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: Extension 'cogs.gmlistener' raised an error: ModuleNotFoundError: No module named 'pymongo'
+2025-05-09 13:25:27,409 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: ModuleNotFoundError: No module named 'discord.commands'
+2025-05-09 13:25:27,427 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 13:25:27,428 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: ModuleNotFoundError: No module named 'discord.commands'
+2025-05-09 13:25:27,429 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:25:27,431 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: ModuleNotFoundError: No module named 'discord.commands'
+2025-05-09 13:25:27,432 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: Extension 'cogs.prefixdone' raised an error: ModuleNotFoundError: No module named 'pymongo'
+2025-05-09 13:25:27,433 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: ModuleNotFoundError: No module named 'pymongo'
+2025-05-09 13:25:27,433 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: ModuleNotFoundError: No module named 'pymongo'
+2025-05-09 13:25:27,434 - discord.client - INFO - logging in using static token
+2025-05-09 13:25:28,648 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 665d2b7b5ac02bf61cf3ccf1cc59cd3b).
+2025-05-09 13:25:30,923 - momentum_bot.daily_reminder - INFO - Daily reminder schedule started
+2025-05-09 13:25:30,923 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-09 13:25:30,923 - momentum_bot - INFO - Connected to 2 servers
+2025-05-09 13:25:31,320 - momentum_bot - INFO - Synced 1 command(s)
+2025-05-09 13:26:52,311 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:26:55,516 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: Extension 'cogs.gmlistener' raised an error: ModuleNotFoundError: No module named 'linkdb'
+2025-05-09 13:26:55,517 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: ModuleNotFoundError: No module named 'linkdb'
+2025-05-09 13:26:55,533 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 13:26:55,535 - momentum_bot - INFO - Loaded extension cogs.qacog
+2025-05-09 13:26:55,535 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:26:55,537 - momentum_bot - INFO - Loaded extension cogs.queue_cog
+2025-05-09 13:26:55,537 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: Extension 'cogs.prefixdone' raised an error: ModuleNotFoundError: No module named 'linkdb'
+2025-05-09 13:26:55,538 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: ModuleNotFoundError: No module named 'emoji'
+2025-05-09 13:26:55,540 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: ModuleNotFoundError: No module named 'linkdb'
+2025-05-09 13:26:55,540 - discord.client - INFO - logging in using static token
+2025-05-09 13:27:13,425 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 0e0974528ca632d6b12f29bcff76cd45).
+2025-05-09 13:27:15,428 - momentum_bot.daily_reminder - INFO - Daily reminder schedule started
+2025-05-09 13:27:15,429 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-09 13:27:15,429 - momentum_bot - INFO - Connected to 2 servers
+2025-05-09 13:27:15,896 - momentum_bot - INFO - Synced 5 command(s)
+2025-05-09 13:28:16,812 - momentum_bot - INFO - Loaded extension cogs.sekret
+2025-05-09 13:28:16,881 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-09 13:28:16,883 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-09 13:28:16,884 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 13:28:16,884 - momentum_bot - INFO - Loaded extension cogs.qacog
+2025-05-09 13:28:16,885 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 13:28:16,885 - momentum_bot - INFO - Loaded extension cogs.queue_cog
+2025-05-09 13:28:16,886 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 13:28:16,888 - momentum_bot - INFO - Loaded extension cogs.leaderboard
+2025-05-09 13:28:16,892 - momentum_bot - INFO - Loaded extension cogs.done
+2025-05-09 13:28:16,892 - discord.client - INFO - logging in using static token
+2025-05-09 13:28:17,943 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 317190c54d358457a4c708efb9ede9d0).
+2025-05-09 13:28:19,969 - momentum_bot.daily_reminder - INFO - Daily reminder schedule started
+2025-05-09 13:28:19,970 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-09 13:28:19,970 - momentum_bot - INFO - Connected to 2 servers
+2025-05-09 13:28:20,345 - momentum_bot - INFO - Synced 8 command(s)

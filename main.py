@@ -50,7 +50,7 @@ intents.members = True          # For member tracking
 intents.voice_states = False    # Disable voice channel tracking to avoid audioop dependency
 intents.guilds = True           # For server information
 
-# Initialize the bot with both prefix and slash commands
+# Initialize the bot with prefix commands only (no slash commands for now)
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
@@ -59,12 +59,12 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
     
-    # Sync application commands
-    try:
-        synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} command(s)")
-    except Exception as e:
-        logger.error(f"Failed to sync commands: {e}")
+    # We're not using slash commands for now, so we'll skip syncing
+    # try:
+    #     synced = await bot.tree.sync()
+    #     logger.info(f"Synced {len(synced)} command(s)")
+    # except Exception as e:
+    #     logger.error(f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_error(event, *args, **kwargs):

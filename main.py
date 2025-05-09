@@ -1,9 +1,8 @@
-import os
 import asyncio
 import discord
 from discord.ext import commands
 import logging
-from dotenv import load_dotenv
+from private import DISCORD_TOKEN
 
 # Configure logging
 logging.basicConfig(
@@ -16,11 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("momentum_bot")
 
-# Load environment variables
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-if not TOKEN:
-    raise RuntimeError("DISCORD_TOKEN is missing in .env!")
+# Check if token is available
+if not DISCORD_TOKEN:
+    raise RuntimeError("DISCORD_TOKEN is missing in private.py!")
 
 # Set up intents - only use what's needed
 intents = discord.Intents.default()
@@ -73,7 +70,7 @@ async def main():
         except Exception as e:
             logger.error(f"Failed to load extension {ext}: {e}")
     
-    await bot.start(TOKEN)
+    await bot.start(DISCORD_TOKEN)
 
 if __name__ == "__main__":
     try:

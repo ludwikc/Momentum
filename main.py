@@ -20,6 +20,10 @@ logger = logging.getLogger("momentum_bot")
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TKN")  # Fallback to TKN if using private.py
 
+# Check if token is available
+if not TOKEN:
+    raise RuntimeError("DISCORD_TOKEN not found! Did you create a .env file?")
+
 # Set up intents - only use what's needed
 intents = discord.Intents.default()
 intents.message_content = True  # For command processing
@@ -48,25 +52,24 @@ async def on_error(event, *args, **kwargs):
     """Global error handler for Discord events."""
     logger.error(f"An error occurred in event {event}")
     
-def load_extensions():
-    """Loads all extensions/cogs from the cogs directory."""
-    initial_extensions = []
-    
-    for filename in os.listdir("./cogs"):
-        if filename.endswith(".py"):
-            initial_extensions.append(f"cogs.{filename[:-3]}")
-    
-    for extension in initial_extensions:
-        try:
-            bot.load_extension(extension)
-            logger.info(f"Loaded extension {extension}")
-        except Exception as e:
-            logger.error(f"Failed to load extension {extension}: {e}")
-
 async def main():
     """Main entry point for the bot."""
     async with bot:
-        load_extensions()
+        # Load all extensions/cogs from the cogs directory
+        initial_extensions = []
+        
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py"):
+                initial_extensions.append(f"cogs.{filename[:-3]}")
+        
+        for extension in initial_extensions:
+            try:
+                await bot.load_extension(extension)
+                logger.info(f"Loaded extension {extension}")
+            except Exception as e:
+                logger.error(f"Failed to load extension {extension}: {e}")
+                
+        # Start the bot
         await bot.start(TOKEN)
 
 if __name__ == "__main__":

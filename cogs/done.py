@@ -1,6 +1,7 @@
 import discord
 from pymongo import MongoClient
 from discord.ext import commands
+from discord.commands import slash_command, Option
 from linkdb import link_db
 from datetime import datetime
 
@@ -16,20 +17,17 @@ class done(commands.Cog):
         self.bot = bot
         self.collection = MongoClient(link_db)["activity_db"]["activities"]
 
-    dropdown_box = discord.Option(
-        description="Wybierz aktywność",
-        type=discord.OptionChoice.__str__,
-        required=False,
-        choices=[
-            discord.OptionChoice(
-                name=f"{act_emoji} {act_type.capitalize()}", value=act_type
-            )
-            for act_type, act_emoji in act.items()
-        ],
-    )
-
-    @discord.slash_command(description=f'Lista aktywności: {", ".join(act)}')
-    async def done(self, ctx, activity: discord.Option = dropdown_box):
+    @slash_command(description=f'Lista aktywności: {", ".join(act)}')
+    async def done(
+        self, 
+        ctx, 
+        activity: Option(
+            str,
+            description="Wybierz aktywność",
+            required=False,
+            choices=[f"{act_emoji} {act_type.capitalize()}" for act_type, act_emoji in act.items()]
+        ) = None
+    ):
         user_id = str(ctx.author.id)
         user_record = collection.find_one({"user_id": user_id})
 
@@ -48,9 +46,18 @@ class done(commands.Cog):
             user_record["streaks"] = {act_type: 0 for act_type in act}
             user_record["last_reset"] = today.strftime("%Y-%m-%d")
 
-        if activity.lower() in act:
-            user_record["streaks"][activity.lower()] = (
-                user_record["streaks"].get(activity.lower(), 0) + 1
+        # Extract activity type from the choice
+        if activity:
+            activity_type = activity.split()[1].lower()
+        else:
+            await ctx.respond(
+                f'Proszę wybrać aktywność. Dostępne aktywności: {", ".join(act)}'
+            )
+            return
+            
+        if activity_type in act:
+            user_record["streaks"][activity_type] = (
+                user_record["streaks"].get(activity_type, 0) + 1
             )
             collection.update_one(
                 {"user_id": user_id}, {"$set": user_record}, upsert=True
@@ -59,7 +66,7 @@ class done(commands.Cog):
             embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(
                 name="",
-                value=f"🔥 To {user_record['streaks'][activity.lower()]} {activity} w tym miesiącu!",
+                value=f"🔥 To {user_record['streaks'][activity_type]} {activity_type} w tym miesiącu!",
             )
 
             if ctx.author.avatar:
@@ -82,5 +89,5 @@ class done(commands.Cog):
             )
 
 
-def setup(bot: commands.Bot):
-    bot.add_cog(done(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(done(bot))

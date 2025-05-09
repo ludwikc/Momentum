@@ -1,8 +1,8 @@
+import os
+import asyncio
 import discord
 from discord.ext import commands
-import os
 import logging
-import asyncio
 from dotenv import load_dotenv
 
 # Configure logging
@@ -16,19 +16,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("momentum_bot")
 
-# Load environment variables (alternatively, keep using private.py if preferred)
+# Load environment variables
 load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TKN")  # Fallback to TKN if using private.py
-
-# Check if token is available
+TOKEN = os.getenv("DISCORD_TOKEN")
 if not TOKEN:
-    raise RuntimeError("DISCORD_TOKEN not found! Did you create a .env file?")
+    raise RuntimeError("DISCORD_TOKEN is missing in .env!")
 
 # Set up intents - only use what's needed
 intents = discord.Intents.default()
 intents.message_content = True  # For command processing
 intents.members = True          # For member tracking
-intents.voice_states = True     # For voice channel tracking
+intents.voice_states = False    # Disable voice channel tracking to avoid audioop dependency
 intents.guilds = True           # For server information
 
 # Initialize the bot with both prefix and slash commands
@@ -51,26 +49,31 @@ async def on_ready():
 async def on_error(event, *args, **kwargs):
     """Global error handler for Discord events."""
     logger.error(f"An error occurred in event {event}")
-    
+
+# List of extensions to load
+EXTENSIONS = [
+    "cogs.sekret",
+    "cogs.gmlistener",
+    "cogs.gm",
+    "cogs.dailyreminder",
+    "cogs.qacog",
+    "cogs.auto_assign_role",
+    "cogs.queue_cog",
+    "cogs.prefixdone",
+    "cogs.leaderboard",
+    "cogs.done",
+]
+
 async def main():
     """Main entry point for the bot."""
-    async with bot:
-        # Load all extensions/cogs from the cogs directory
-        initial_extensions = []
-        
-        for filename in os.listdir("./cogs"):
-            if filename.endswith(".py"):
-                initial_extensions.append(f"cogs.{filename[:-3]}")
-        
-        for extension in initial_extensions:
-            try:
-                await bot.load_extension(extension)
-                logger.info(f"Loaded extension {extension}")
-            except Exception as e:
-                logger.error(f"Failed to load extension {extension}: {e}")
-                
-        # Start the bot
-        await bot.start(TOKEN)
+    for ext in EXTENSIONS:
+        try:
+            await bot.load_extension(ext)
+            logger.info(f"Loaded extension {ext}")
+        except Exception as e:
+            logger.error(f"Failed to load extension {ext}: {e}")
+    
+    await bot.start(TOKEN)
 
 if __name__ == "__main__":
     try:

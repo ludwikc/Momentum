@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord.commands import slash_command, Option
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from linkdb import link_db
@@ -21,7 +22,7 @@ class gm(commands.Cog):
         self.collection = MongoClient(link_db)["wakeup_db"]["wake_ups"]
         self.polish_timezone = pytz.timezone("Europe/Warsaw")
 
-    @discord.slash_command(description="Śledź swoje wczesne pobudki!")
+    @slash_command(description="Śledź swoje wczesne pobudki!")
     async def gm(self, ctx):
         user_id = str(ctx.author.id)
         user_record = self.collection.find_one({"user_id": user_id})
@@ -97,5 +98,5 @@ class gm(commands.Cog):
 
         await ctx.respond(reply_message)
 
-def setup(bot: commands.Bot):
-    bot.add_cog(gm(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(gm(bot))

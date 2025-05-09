@@ -99,5 +99,5 @@ class gm(commands.Cog):
 
         await ctx.respond(reply_message)
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(gm(bot))
+def setup(bot: commands.Bot):
+    bot.add_cog(gm(bot))

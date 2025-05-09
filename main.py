@@ -67,16 +67,15 @@ async def on_error(event, *args, **kwargs):
 
 # List of extensions to load
 EXTENSIONS = [
-    # Temporarily only load the test cog
     "cogs.test_cog",
     # "cogs.sekret",  # Commented out due to AppCommandOptionType error
-    # "cogs.gmlistener",
-    # "cogs.gm",
-    # "cogs.dailyreminder",
+    "cogs.gmlistener",
+    "cogs.gm",
+    "cogs.dailyreminder",
     # "cogs.qacog",  # Commented out due to AppCommandOptionType error
-    # "cogs.auto_assign_role",
+    "cogs.auto_assign_role",
     # "cogs.queue_cog",  # Commented out due to AppCommandOptionType error
-    # "cogs.prefixdone",
+    "cogs.prefixdone",
     # "cogs.leaderboard",  # Commented out due to AppCommandOptionType error
     # "cogs.done",  # Commented out due to AppCommandOptionType error
 ]

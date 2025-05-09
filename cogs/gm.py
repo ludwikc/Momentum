@@ -1,10 +1,7 @@
 import discord
 from discord.ext import commands
-<<<<<<< HEAD
 from discord import app_commands
-=======
-from discord.commands import slash_command, Option
->>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
+# Fix for discord.py 2.5.2 - AppCommandOptionType is not needed
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from linkdb import link_db
@@ -26,11 +23,7 @@ class gm(commands.Cog):
         self.collection = MongoClient(link_db)["wakeup_db"]["wake_ups"]
         self.polish_timezone = pytz.timezone("Europe/Warsaw")
 
-<<<<<<< HEAD
     @app_commands.command(description="Śledź swoje wczesne pobudki!")
-=======
-    @slash_command(description="Śledź swoje wczesne pobudki!")
->>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
     async def gm(self, ctx):
         user_id = str(ctx.author.id)
         user_record = self.collection.find_one({"user_id": user_id})

@@ -1,11 +1,7 @@
 import discord
 from pymongo import MongoClient
 from discord.ext import commands
-<<<<<<< HEAD
 from discord import app_commands
-=======
-from discord.commands import slash_command, Option
->>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
 from discord import Embed
 from emoji import *
 from linkdb import link_db
@@ -25,7 +21,6 @@ class leaderboard(commands.Cog):
         self.bot = bot
         self.collection = MongoClient(link_db)["activity_db"]["activities"]
 
-<<<<<<< HEAD
     @app_commands.command(
         name="leaderboard",
         description=f'Pokaż leaderboard dla wybranej aktywności: {", ".join(act)}'
@@ -34,23 +29,9 @@ class leaderboard(commands.Cog):
         self, 
         ctx, 
         activity: str
-=======
-    @slash_command(
-        description=f'Pokaż leaderboard dla wybranej aktywności: {", ".join(act)}'
-    )
-    async def leaderboard(
-        self, 
-        ctx, 
-        activity: Option(
-            str,
-            description="Wybierz aktywność",
-            required=True,
-            choices=[f"{act_emoji} {act_type.capitalize()}" for act_type, act_emoji in act.items()]
-        )
->>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
     ):
         # Extract activity type from the choice
-        activity = activity.split()[1].lower()
+        activity = activity.split()[1].lower() if " " in activity else activity.lower()
         
         if activity not in act:
             await ctx.respond(

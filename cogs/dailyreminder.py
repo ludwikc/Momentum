@@ -46,5 +46,5 @@ class DailyReminderCog(commands.Cog):
         await self.bot.wait_until_ready()
         logger.info("Daily reminder schedule started")
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(DailyReminderCog(bot))
+def setup(bot: commands.Bot):
+    bot.add_cog(DailyReminderCog(bot))

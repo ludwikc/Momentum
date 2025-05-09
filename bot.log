@@ -92,3 +92,57 @@ connector: <aiohttp.connector.TCPConnector object at 0x7fa49f79d4b0>
 2025-05-09 13:57:20,637 - asyncio - ERROR - Unclosed connector
 connections: ['[(<aiohttp.client_proto.ResponseHandler object at 0x7fa0ba343b80>, 9638104.289960748)]']
 connector: <aiohttp.connector.TCPConnector object at 0x7fa0b9e954e0>
+2025-05-09 14:11:38,527 - momentum_bot - ERROR - Discord token validation failed: Token format is invalid. It should be in the format: XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+2025-05-09 14:11:38,527 - momentum_bot - ERROR - Please update the token in private.py with a valid Discord bot token.
+2025-05-09 14:12:17,596 - momentum_bot - ERROR - Discord token validation failed: Token format is invalid. It should be in the format: XXXXXXXXXXXXXXXXXXXXXXXX.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+2025-05-09 14:12:17,597 - momentum_bot - ERROR - Please update the token in private.py with a valid Discord bot token.
+2025-05-09 14:12:33,574 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:12:33,576 - momentum_bot - ERROR - Failed to load extension cogs.sekret: Extension 'cogs.sekret' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,367 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: object list can't be used in 'await' expression
+2025-05-09 14:12:34,369 - momentum_bot - ERROR - Failed to load extension cogs.gm: Extension 'cogs.gm' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,370 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: object list can't be used in 'await' expression
+2025-05-09 14:12:34,372 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,373 - momentum_bot - ERROR - Failed to load extension cogs.auto_assign_role: object list can't be used in 'await' expression
+2025-05-09 14:12:34,375 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,376 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: object list can't be used in 'await' expression
+2025-05-09 14:12:34,377 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,379 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: ImportError: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:12:34,379 - discord.client - INFO - logging in using static token
+2025-05-09 14:12:34,689 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:12:34,897 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x1035d67b0>
+2025-05-09 14:12:34,897 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x1036a6f90>, 170861.813341125)])']
+connector: <aiohttp.connector.TCPConnector object at 0x1035d6ba0>
+2025-05-09 14:13:28,372 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:13:28,506 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: object list can't be used in 'await' expression
+2025-05-09 14:13:28,507 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: object list can't be used in 'await' expression
+2025-05-09 14:13:28,508 - momentum_bot - ERROR - Failed to load extension cogs.auto_assign_role: object list can't be used in 'await' expression
+2025-05-09 14:13:28,509 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: object list can't be used in 'await' expression
+2025-05-09 14:13:28,509 - discord.client - INFO - logging in using static token
+2025-05-09 14:13:28,786 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:13:29,285 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x105c62660>
+2025-05-09 14:13:29,285 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x105cf9550>, 170915.906243416)])']
+connector: <aiohttp.connector.TCPConnector object at 0x105c627b0>
+2025-05-09 14:14:06,949 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:14:07,212 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: object list can't be used in 'await' expression
+2025-05-09 14:14:07,214 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: object list can't be used in 'await' expression
+2025-05-09 14:14:07,216 - momentum_bot - ERROR - Failed to load extension cogs.auto_assign_role: object list can't be used in 'await' expression
+2025-05-09 14:14:07,218 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: object list can't be used in 'await' expression
+2025-05-09 14:14:07,218 - discord.client - INFO - logging in using static token
+2025-05-09 14:14:07,526 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:14:08,011 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x130e2a660>
+2025-05-09 14:14:08,012 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x130ee12b0>, 170954.645554541)])']
+connector: <aiohttp.connector.TCPConnector object at 0x130e2a900>
+2025-05-09 14:14:26,913 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:14:26,914 - discord.client - INFO - logging in using static token
+2025-05-09 14:14:27,197 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:14:27,209 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x105924980>
+2025-05-09 14:14:27,209 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x105901a30>, 170974.316373166)])']
+connector: <aiohttp.connector.TCPConnector object at 0x105924ad0>

@@ -11,7 +11,15 @@ class AutoAssignRole(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.invite_uses = {}
-        self.update_invites.start()
+        self.task_started = False
+        
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start the task when the bot is ready and the event loop is established"""
+        if not self.task_started:
+            self.update_invites.start()
+            self.task_started = True
+            print("Invite tracking started after bot ready")
 
     def cog_unload(self):
         self.update_invites.cancel()
@@ -24,6 +32,13 @@ class AutoAssignRole(commands.Cog):
                 self.invite_uses[guild.id] = {invite.code: invite.uses for invite in current_invites}
             except Exception as e:
                 print(f"Failed to update invites for {guild.name}: {e}")
+                
+    @update_invites.before_loop
+    async def before_update_invites(self):
+        """Ensure the bot is ready before starting the loop."""
+        if not self.bot.is_ready():
+            await self.bot.wait_until_ready()
+        print("Invite tracking ready to start")
 
     @commands.Cog.listener()
     async def on_member_join(self, member):

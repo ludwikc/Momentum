@@ -101,8 +101,16 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        # Create a new event loop and set it as the current loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the bot in this loop
+        loop.run_until_complete(main())
     except KeyboardInterrupt:
         logger.info("Bot shutdown by user")
     except Exception as e:
         logger.critical(f"Fatal error: {e}")
+    finally:
+        # Clean up the loop
+        loop.close()

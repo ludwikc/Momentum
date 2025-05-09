@@ -12,7 +12,16 @@ class DailyReminderCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.polish_timezone = pytz.timezone("Europe/Warsaw")  # Ensure correct timezone
-        self.schedule_reminders.start()  # Start the reminder loop
+        # Don't start the task in __init__, wait until the bot is ready
+        self.reminder_task_started = False
+        
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start the reminder task when the bot is ready and the event loop is established"""
+        if not self.reminder_task_started:
+            self.schedule_reminders.start()
+            self.reminder_task_started = True
+            logger.info("Daily reminder schedule started after bot ready")
 
     def cog_unload(self):
         self.schedule_reminders.cancel()  # Stop the task when the cog is unloaded
@@ -42,9 +51,11 @@ class DailyReminderCog(commands.Cog):
 
     @schedule_reminders.before_loop
     async def before_schedule_reminders(self):
-        """Ensure the bot is ready before starting the reminder loop."""
-        await self.bot.wait_until_ready()
-        logger.info("Daily reminder schedule started")
+        """Additional safety check before starting the loop."""
+        # The loop will already wait for on_ready, but this is an extra safety measure
+        if not self.bot.is_ready():
+            await self.bot.wait_until_ready()
+        logger.info("Daily reminder schedule ready to start")
 
 def setup(bot: commands.Bot):
     bot.add_cog(DailyReminderCog(bot))

@@ -23,5 +23,5 @@ class prefixdone(commands.Cog):
     async def dziennik(self, ctx):
         await ctx.send(f"Hej {ctx.author.mention}, od teraz używamy nowocześniejszych komend `/done dziennik`, spróbuj raz jeszcze!")
 
-def setup(bot: commands.Bot):
-    bot.add_cog(prefixdone(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(prefixdone(bot))

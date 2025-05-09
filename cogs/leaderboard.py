@@ -1,6 +1,7 @@
 import discord
 from pymongo import MongoClient
 from discord.ext import commands
+from discord.commands import slash_command, Option
 from discord import Embed
 from emoji import *
 from linkdb import link_db
@@ -20,13 +21,13 @@ class leaderboard(commands.Cog):
         self.bot = bot
         self.collection = MongoClient(link_db)["activity_db"]["activities"]
 
-    @commands.slash_command(
+    @slash_command(
         description=f'Pokaż leaderboard dla wybranej aktywności: {", ".join(act)}'
     )
     async def leaderboard(
         self, 
         ctx, 
-        activity: discord.Option(
+        activity: Option(
             str,
             description="Wybierz aktywność",
             required=True,
@@ -96,5 +97,5 @@ class leaderboard(commands.Cog):
             logger.error(f"Error generating leaderboard: {e}")
             await ctx.respond("Wystąpił błąd podczas generowania rankingu. Spróbuj ponownie później.")
 
-def setup(bot: commands.Bot):
-    bot.add_cog(leaderboard(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(leaderboard(bot))

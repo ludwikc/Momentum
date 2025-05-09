@@ -186,3 +186,31 @@ client_session: <aiohttp.client.ClientSession object at 0x1054f8ad0>
 2025-05-09 14:23:53,481 - asyncio - ERROR - Unclosed connector
 connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x1054d59d0>, 171540.582528458)])']
 connector: <aiohttp.connector.TCPConnector object at 0x1054f8c20>
+2025-05-09 14:26:32,494 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:26:32,495 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-09 14:26:32,859 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-09 14:26:32,862 - momentum_bot - ERROR - Failed to load extension cogs.gm: cannot import name 'AppCommandOptionType' from 'discord.enums' (/Users/ludwikc/git/Momentum/Momentum/.venv/lib/python3.13/site-packages/discord/enums.py)
+2025-05-09 14:26:32,863 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 14:26:32,865 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 14:26:32,866 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 14:26:32,866 - discord.client - INFO - logging in using static token
+2025-05-09 14:26:33,176 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:26:33,723 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x1051be7b0>
+2025-05-09 14:26:33,723 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x105271010>, 171700.287107916)])']
+connector: <aiohttp.connector.TCPConnector object at 0x1051bea50>
+2025-05-09 14:27:00,745 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:27:00,746 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-09 14:27:00,956 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-09 14:27:01,018 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-09 14:27:01,020 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 14:27:01,021 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 14:27:01,022 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 14:27:01,022 - discord.client - INFO - logging in using static token
+2025-05-09 14:27:01,370 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-09 14:27:01,822 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x1061eaba0>
+2025-05-09 14:27:01,822 - asyncio - ERROR - Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x1062a2150>, 171728.479998875)])']
+connector: <aiohttp.connector.TCPConnector object at 0x1061eacf0>

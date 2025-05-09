@@ -1,7 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-# Fix for discord.py 2.5.2 - AppCommandOptionType is not needed
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from linkdb import link_db
@@ -23,8 +21,8 @@ class gm(commands.Cog):
         self.collection = MongoClient(link_db)["wakeup_db"]["wake_ups"]
         self.polish_timezone = pytz.timezone("Europe/Warsaw")
 
-    @app_commands.command(description="Śledź swoje wczesne pobudki!")
-    async def gm(self, ctx):
+    @commands.command(name="gm", description="Śledź swoje wczesne pobudki!")
+    async def gm_command(self, ctx):
         user_id = str(ctx.author.id)
         user_record = self.collection.find_one({"user_id": user_id})
 
@@ -58,7 +56,7 @@ class gm(commands.Cog):
 
         # Check if already woke up today
         if previous_wakeup and current_time_polish.date() == previous_wakeup.date():
-            await ctx.respond("Za mało kawy? Tylko raz można się obudzić ☕️")
+            await ctx.send("Za mało kawy? Tylko raz można się obudzić ☕️")
             return
 
         # Process early morning greeting (4-6 AM)
@@ -97,7 +95,7 @@ class gm(commands.Cog):
             upsert=True,
         )
 
-        await ctx.respond(reply_message)
+        await ctx.send(reply_message)
 
 def setup(bot: commands.Bot):
     bot.add_cog(gm(bot))

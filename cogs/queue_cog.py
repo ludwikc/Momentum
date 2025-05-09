@@ -1,6 +1,10 @@
 import discord
 from discord.ext import commands
+<<<<<<< HEAD
 from discord import app_commands
+=======
+from discord.commands import slash_command, Option
+>>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
 import asyncio
 import logging
 
@@ -32,7 +36,11 @@ class QueueCog(commands.Cog):
             lines.append(line)
         return "\n".join(lines)
 
+<<<<<<< HEAD
     @app_commands.command(name="kolejka", description="Dodaj siebie do kolejki do mówienia")
+=======
+    @slash_command(name="kolejka", description="Dodaj siebie do kolejki do mówienia")
+>>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
     async def kolejka_slash(self, ctx):
         """Add user to the queue"""
         target_channel = self.get_target_channel() or ctx.channel
@@ -47,7 +55,11 @@ class QueueCog(commands.Cog):
         self.queue.append((ctx.author, self.counter))
         await ctx.respond(self.format_queue())
 
+<<<<<<< HEAD
     @app_commands.command(name="kolejka_next", description="Przejdź do następnej osoby w kolejce")
+=======
+    @slash_command(name="kolejka_next", description="Przejdź do następnej osoby w kolejce")
+>>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
     async def kolejka_next_slash(self, ctx):
         """Move queue to next person"""
         target_channel = self.get_target_channel() or ctx.channel
@@ -67,7 +79,11 @@ class QueueCog(commands.Cog):
             await ctx.respond("No i kolejka opustoszała.")
             self.counter = 0
 
+<<<<<<< HEAD
     @app_commands.command(name="kolejka_done", description="Zakończ swoją kolej mówienia")
+=======
+    @slash_command(name="kolejka_done", description="Zakończ swoją kolej mówienia")
+>>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b
     async def kolejka_done_slash(self, ctx):
         """Allow user to finish their turn without muting"""
         target_channel = self.get_target_channel() or ctx.channel

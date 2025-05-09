@@ -6,4 +6,8 @@
 /cogs/__pycache__
 /random_msg.py
 images.py
+<<<<<<< HEAD
 .vscode.env
+=======
+.vscode
+>>>>>>> c71bee7643d6d50cebe691eaf95eff7c950c814b

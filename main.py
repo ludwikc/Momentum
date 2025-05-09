@@ -2,17 +2,7 @@ import asyncio
 import discord
 from discord.ext import commands
 import logging
-import os
-from dotenv import load_dotenv
-
-# Load environment variables from .env file if it exists
-load_dotenv()
-
-# Try to get token from environment variables first, then from private.py as fallback
-try:
-    from private import DISCORD_TOKEN
-except (ImportError, AttributeError):
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+import sys
 
 # Configure logging
 logging.basicConfig(
@@ -25,9 +15,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("momentum_bot")
 
-# Check if token is available
-if not DISCORD_TOKEN:
-    raise RuntimeError("DISCORD_TOKEN is missing! Please set it in private.py or as an environment variable.")
+# Import the token from private.py
+try:
+    from private import DISCORD_TOKEN, validate_token
+    
+    # Validate the token
+    is_valid, message = validate_token(DISCORD_TOKEN)
+    if not is_valid:
+        logger.error(f"Discord token validation failed: {message}")
+        logger.error("Please update the token in private.py with a valid Discord bot token.")
+        sys.exit(1)
+    
+    if not DISCORD_TOKEN:
+        logger.error("DISCORD_TOKEN is missing! Please set it in private.py.")
+        sys.exit(1)
+        
+except ImportError:
+    logger.error("Failed to import from private.py. Make sure the file exists and contains DISCORD_TOKEN.")
+    sys.exit(1)
+except Exception as e:
+    logger.error(f"Error while importing or validating token: {e}")
+    sys.exit(1)
 
 # Set up intents - only use what's needed
 intents = discord.Intents.default()

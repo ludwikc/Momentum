@@ -43,6 +43,12 @@ except Exception as e:
     logger.error(f"Error while importing or validating token: {e}")
     sys.exit(1)
 
+# Check if Python version is 3.8 or higher
+import sys
+if sys.version_info < (3, 8):
+    logger.error("Python 3.8 or higher is required to run this bot.")
+    sys.exit(1)
+
 # Set up intents - only use what's needed
 intents = discord.Intents.default()
 intents.message_content = True  # For command processing
@@ -50,7 +56,7 @@ intents.members = True          # For member tracking
 intents.voice_states = False    # Disable voice channel tracking to avoid audioop dependency
 intents.guilds = True           # For server information
 
-# Initialize the bot with prefix commands only (no slash commands for now)
+# Initialize the bot with both prefix and slash commands
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
@@ -59,12 +65,13 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
     
-    # We're not using slash commands for now, so we'll skip syncing
-    # try:
-    #     synced = await bot.tree.sync()
-    #     logger.info(f"Synced {len(synced)} command(s)")
-    # except Exception as e:
-    #     logger.error(f"Failed to sync commands: {e}")
+    # Sync slash commands
+    try:
+        # Using the correct method for py-cord to sync commands
+        await bot.sync_commands()
+        logger.info(f"Synced commands")
+    except Exception as e:
+        logger.error(f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -76,19 +83,20 @@ async def on_error(event, *args, **kwargs):
 # List of extensions to load
 EXTENSIONS = [
     "cogs.test_cog",
-    # "cogs.sekret",  # Commented out due to AppCommandOptionType error
     "cogs.gmlistener",
     "cogs.gm",
     "cogs.dailyreminder",
-    # "cogs.qacog",  # Commented out due to AppCommandOptionType error
     "cogs.auto_assign_role",
-    # "cogs.queue_cog",  # Commented out due to AppCommandOptionType error
     "cogs.prefixdone",
-    # "cogs.leaderboard",  # Commented out due to AppCommandOptionType error
-    # "cogs.done",  # Commented out due to AppCommandOptionType error
+    "cogs.done",  # Updated to use discord.slash_command
+    # Disabled cogs that need updating
+    # "cogs.sekret",
+    # "cogs.qacog",
+    # "cogs.queue_cog",
+    # "cogs.leaderboard",
 ]
 
-# Simple function to load extensions
+# Function to load extensions
 def load_extensions():
     for ext in EXTENSIONS:
         try:
@@ -101,12 +109,17 @@ def load_extensions():
 
 if __name__ == "__main__":
     try:
-        # Load all extensions
-        load_extensions()
-        
-        # Run the bot
-        logger.info("Starting bot...")
-        bot.run(DISCORD_TOKEN)
+        # Create an async function to run everything
+        async def main():
+            # Load all extensions
+            load_extensions()
+            
+            # Run the bot
+            logger.info("Starting bot...")
+            await bot.start(DISCORD_TOKEN)
+                
+        # Run the async main function
+        asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot shutdown by user")
     except Exception as e:

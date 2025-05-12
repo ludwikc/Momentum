@@ -229,3 +229,342 @@ connector: <aiohttp.connector.TCPConnector object at 0x1061eacf0>
 2025-05-09 14:54:18,667 - discord.client - INFO - Cleaning up tasks.
 2025-05-09 14:54:18,667 - discord.client - INFO - Closing the event loop.
 2025-05-09 14:54:18,667 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.
+2025-05-12 10:41:24,495 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-12 10:41:25,039 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 10:41:25,051 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-12 10:41:25,236 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 10:41:25,236 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-12 10:41:25,238 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-12 10:41:25,238 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-12 10:41:25,239 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-12 10:41:25,239 - momentum_bot - INFO - Starting bot...
+2025-05-12 10:41:25,239 - discord.client - INFO - logging in using static token
+2025-05-12 10:41:25,865 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 10:41:26,064 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-d-nhxq",{"micros":74276,"calls":["id_created",{"micros":488,"calls":[]},"session_lookup_time",{"micros":327,"calls":[]},"session_lookup_finished",{"micros":16,"calls":[]},"discord-sessions-prd-2-42",{"micros":71621,"calls":["start_session",{"micros":48409,"calls":["discord-api-rpc-78cf767f7b-s9585",{"micros":37050,"calls":["get_user",{"micros":7102},"get_guilds",{"micros":4272},"send_scheduled_deletion_message",{"micros":7},"guild_join_requests",{"micros":400},"authorized_ip_coro",{"micros":7},"pending_payments",{"micros":2658},"apex_user_experiments",{"micros":3},"user_activities",{"micros":2}]}]},"starting_guild_connect",{"micros":41,"calls":[]},"presence_started",{"micros":288,"calls":[]},"guilds_started",{"micros":87,"calls":[]},"lobbies_started",{"micros":1,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":22773,"calls":[]},"connect_finished",{"micros":22777,"calls":[]},"build_ready",{"micros":15,"calls":[]},"clean_ready",{"micros":0,"calls":[]},"optimize_ready",{"micros":1,"calls":[]},"split_ready",{"micros":0,"calls":[]}]}]}] (Session ID: fe9c350f234e1a0f9cbd1476f1fbc2e8).
+2025-05-12 10:41:28,171 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-12 10:41:28,171 - momentum_bot - INFO - Connected to 2 servers
+2025-05-12 10:41:28,171 - momentum_bot.gmlistener - INFO - GMListener cog is ready
+2025-05-12 10:41:28,171 - momentum_bot.gm - INFO - GM command cog is ready
+2025-05-12 10:41:28,171 - momentum_bot.daily_reminder - INFO - Starting daily reminder schedule
+2025-05-12 10:41:28,171 - momentum_bot.auto_assign_role - INFO - Starting invite tracking
+2025-05-12 10:41:28,171 - momentum_bot.daily_reminder - INFO - Daily reminder schedule ready to start
+2025-05-12 10:41:28,171 - momentum_bot.auto_assign_role - INFO - Invite tracking ready to start
+2025-05-12 10:45:52,326 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-12 10:45:52,839 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 10:45:52,850 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-12 10:45:53,230 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 10:45:53,230 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-12 10:45:53,231 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-12 10:45:53,232 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-12 10:45:53,232 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-12 10:45:53,232 - momentum_bot - INFO - Starting bot...
+2025-05-12 10:45:53,233 - discord.client - INFO - logging in using static token
+2025-05-12 10:45:53,793 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 10:45:54,007 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-c-4njm",{"micros":83585,"calls":["id_created",{"micros":387,"calls":[]},"session_lookup_time",{"micros":245,"calls":[]},"session_lookup_finished",{"micros":12,"calls":[]},"discord-sessions-prd-2-137",{"micros":81659,"calls":["start_session",{"micros":61486,"calls":["discord-api-rpc-78cf767f7b-vx869",{"micros":49028,"calls":["get_user",{"micros":6239},"get_guilds",{"micros":6137},"send_scheduled_deletion_message",{"micros":5},"guild_join_requests",{"micros":0},"authorized_ip_coro",{"micros":9},"pending_payments",{"micros":1265},"apex_user_experiments",{"micros":3},"user_activities",{"micros":1}]}]},"starting_guild_connect",{"micros":38,"calls":[]},"presence_started",{"micros":259,"calls":[]},"guilds_started",{"micros":75,"calls":[]},"lobbies_started",{"micros":0,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":19783,"calls":[]},"connect_finished",{"micros":19787,"calls":[]},"build_ready",{"micros":12,"calls":[]},"clean_ready",{"micros":0,"calls":[]},"optimize_ready",{"micros":1,"calls":[]},"split_ready",{"micros":0,"calls":[]}]}]}] (Session ID: 65f9fa1a2abf40b4fc8716891d29ae4d).
+2025-05-12 10:45:56,028 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-12 10:45:56,028 - momentum_bot - INFO - Connected to 2 servers
+2025-05-12 10:45:56,028 - momentum_bot.gmlistener - INFO - GMListener cog is ready
+2025-05-12 10:45:56,028 - momentum_bot.gm - INFO - GM command cog is ready
+2025-05-12 10:45:56,028 - momentum_bot.daily_reminder - INFO - Starting daily reminder schedule
+2025-05-12 10:45:56,028 - momentum_bot.auto_assign_role - INFO - Starting invite tracking
+2025-05-12 10:45:56,028 - momentum_bot.daily_reminder - INFO - Daily reminder schedule ready to start
+2025-05-12 10:45:56,029 - momentum_bot.auto_assign_role - INFO - Invite tracking ready to start
+2025-05-12 10:51:22,132 - discord.client - INFO - Cleaning up tasks.
+2025-05-12 10:51:22,132 - discord.client - INFO - Cleaning up after 3 tasks.
+2025-05-12 10:51:22,132 - discord.client - INFO - All tasks finished cancelling.
+2025-05-12 10:51:22,132 - discord.client - INFO - Closing the event loop.
+2025-05-12 10:51:22,134 - discord.client - INFO - Cleaning up tasks.
+2025-05-12 10:51:22,134 - discord.client - INFO - Cleaning up after 3 tasks.
+2025-05-12 10:51:22,134 - discord.client - INFO - All tasks finished cancelling.
+2025-05-12 10:51:22,134 - discord.client - INFO - Closing the event loop.
+2025-05-12 10:51:23,148 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-12 10:51:23,151 - momentum_bot - ERROR - Failed to load extension cogs.sekret: Extension 'cogs.sekret' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 10:51:24,247 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 10:51:24,327 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-12 10:51:24,536 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 10:51:24,536 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-12 10:51:24,537 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-12 10:51:24,538 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 10:51:24,539 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-12 10:51:24,540 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 10:51:24,541 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-12 10:51:24,545 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 10:51:24,622 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 10:51:24,625 - momentum_bot - INFO - Starting bot...
+2025-05-12 10:51:24,625 - discord.client - INFO - logging in using static token
+2025-05-12 10:51:25,231 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 10:51:25,462 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-d-q3jz",{"micros":101348,"calls":["id_created",{"micros":600,"calls":[]},"session_lookup_time",{"micros":689,"calls":[]},"session_lookup_finished",{"micros":15,"calls":[]},"discord-sessions-prd-2-144",{"micros":99058,"calls":["start_session",{"micros":47436,"calls":["discord-api-rpc-78cf767f7b-lxmpr",{"micros":38625,"calls":["get_user",{"micros":9941},"get_guilds",{"micros":2849},"send_scheduled_deletion_message",{"micros":8},"guild_join_requests",{"micros":878},"authorized_ip_coro",{"micros":8},"pending_payments",{"micros":1243},"apex_user_experiments",{"micros":3},"user_activities",{"micros":1}]}]},"starting_guild_connect",{"micros":40,"calls":[]},"presence_started",{"micros":18021,"calls":[]},"guilds_started",{"micros":82,"calls":[]},"lobbies_started",{"micros":1,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":33456,"calls":[]},"connect_finished",{"micros":33461,"calls":[]},"build_ready",{"micros":14,"calls":[]},"clean_ready",{"micros":1,"calls":[]},"optimize_ready",{"micros":0,"calls":[]},"split_ready",{"micros":0,"calls":[]}]}]}] (Session ID: 93c331dc6569e66aa84743e197bae3ac).
+2025-05-12 10:51:27,470 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-12 10:51:27,470 - momentum_bot - INFO - Connected to 2 servers
+2025-05-12 10:51:27,470 - momentum_bot - ERROR - Failed to sync commands: 'Bot' object has no attribute 'tree'
+2025-05-12 10:51:27,470 - momentum_bot.gmlistener - INFO - GMListener cog is ready
+2025-05-12 10:51:27,470 - momentum_bot.gm - INFO - GM command cog is ready
+2025-05-12 10:51:27,470 - momentum_bot.daily_reminder - INFO - Starting daily reminder schedule
+2025-05-12 10:51:27,470 - momentum_bot.auto_assign_role - INFO - Starting invite tracking
+2025-05-12 10:51:27,470 - momentum_bot.daily_reminder - INFO - Daily reminder schedule ready to start
+2025-05-12 10:51:27,470 - momentum_bot.auto_assign_role - INFO - Invite tracking ready to start
+2025-05-12 11:17:20,643 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-12 11:17:21,245 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 11:17:21,338 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-12 11:17:21,626 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 11:17:21,626 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-12 11:17:21,627 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-12 11:17:21,627 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-12 11:17:21,628 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-12 11:17:22,030 - momentum_bot - INFO - Loaded extension cogs.done
+2025-05-12 11:17:22,030 - momentum_bot - INFO - Starting bot...
+2025-05-12 11:17:22,030 - discord.client - INFO - logging in using static token
+2025-05-12 11:17:22,576 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 11:17:22,818 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-b-r86s",{"micros":112236,"calls":["id_created",{"micros":279,"calls":[]},"session_lookup_time",{"micros":300,"calls":[]},"session_lookup_finished",{"micros":14,"calls":[]},"discord-sessions-prd-2-1",{"micros":111340,"calls":["start_session",{"micros":62309,"calls":["discord-api-rpc-78cf767f7b-5ktlm",{"micros":51258,"calls":["get_user",{"micros":11495},"get_guilds",{"micros":7074},"send_scheduled_deletion_message",{"micros":8},"guild_join_requests",{"micros":1},"authorized_ip_coro",{"micros":9},"pending_payments",{"micros":3045},"apex_user_experiments",{"micros":4},"user_activities",{"micros":1}]}]},"starting_guild_connect",{"micros":45,"calls":[]},"presence_started",{"micros":263,"calls":[]},"guilds_started",{"micros":92,"calls":[]},"lobbies_started",{"micros":1,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":48610,"calls":[]},"connect_finished",{"micros":48615,"calls":[]},"build_ready",{"micros":13,"calls":[]},"clean_ready",{"micros":0,"calls":[]},"optimize_ready",{"micros":1,"calls":[]},"split_ready",{"micros":0,"calls":[]}]}]}] (Session ID: d7a8877b4a4eef98aa77e9dee8a5bd91).
+2025-05-12 11:17:24,824 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-12 11:17:24,824 - momentum_bot - INFO - Connected to 2 servers
+2025-05-12 11:17:24,824 - momentum_bot.gmlistener - INFO - GMListener cog is ready
+2025-05-12 11:17:24,824 - momentum_bot.gm - INFO - GM command cog is ready
+2025-05-12 11:17:24,824 - momentum_bot.daily_reminder - INFO - Starting daily reminder schedule
+2025-05-12 11:17:24,824 - momentum_bot.auto_assign_role - INFO - Starting invite tracking
+2025-05-12 11:17:24,824 - momentum_bot.daily_reminder - INFO - Daily reminder schedule ready to start
+2025-05-12 11:17:24,825 - momentum_bot.auto_assign_role - INFO - Invite tracking ready to start
+2025-05-12 11:22:29,727 - momentum_bot - ERROR - Failed to load extension cogs.test_cog: object list can't be used in 'await' expression
+2025-05-12 11:22:29,728 - momentum_bot - ERROR - Failed to load extension cogs.sekret: Extension 'cogs.sekret' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 11:22:30,429 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 11:22:30,442 - momentum_bot - ERROR - Failed to load extension cogs.gmlistener: object list can't be used in 'await' expression
+2025-05-12 11:22:30,642 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 11:22:30,642 - momentum_bot - ERROR - Failed to load extension cogs.gm: object list can't be used in 'await' expression
+2025-05-12 11:22:30,644 - momentum_bot - ERROR - Failed to load extension cogs.dailyreminder: object list can't be used in 'await' expression
+2025-05-12 11:22:30,644 - momentum_bot - ERROR - Failed to load extension cogs.qacog: Extension 'cogs.qacog' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 11:22:30,645 - momentum_bot - ERROR - Failed to load extension cogs.auto_assign_role: object list can't be used in 'await' expression
+2025-05-12 11:22:30,646 - momentum_bot - ERROR - Failed to load extension cogs.queue_cog: Extension 'cogs.queue_cog' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 11:22:30,723 - momentum_bot - ERROR - Failed to load extension cogs.prefixdone: object list can't be used in 'await' expression
+2025-05-12 11:22:30,723 - momentum_bot - ERROR - Failed to load extension cogs.leaderboard: Extension 'cogs.leaderboard' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 11:22:30,725 - momentum_bot - ERROR - Failed to load extension cogs.done: Extension 'cogs.done' raised an error: ImportError: cannot import name 'app_commands' from 'discord' (/usr/local/lib/python3.10/dist-packages/discord/__init__.py)
+2025-05-12 11:22:30,725 - momentum_bot - INFO - Starting bot...
+2025-05-12 11:22:30,725 - discord.client - INFO - logging in using static token
+2025-05-12 11:22:31,379 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 11:22:31,579 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-d-b066",{"micros":71332,"calls":["id_created",{"micros":596,"calls":[]},"session_lookup_time",{"micros":235,"calls":[]},"session_lookup_finished",{"micros":10,"calls":[]},"discord-sessions-prd-2-165",{"micros":69908,"calls":["start_session",{"micros":44037,"calls":["discord-api-rpc-78cf767f7b-5ktlm",{"micros":35021,"calls":["get_user",{"micros":6084},"get_guilds",{"micros":3412},"send_scheduled_deletion_message",{"micros":7},"guild_join_requests",{"micros":680},"authorized_ip_coro",{"micros":7},"pending_payments",{"micros":1303},"apex_user_experiments",{"micros":3},"user_activities",{"micros":1}]}]},"starting_guild_connect",{"micros":44,"calls":[]},"presence_started",{"micros":207,"calls":[]},"guilds_started",{"micros":90,"calls":[]},"lobbies_started",{"micros":1,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":25505,"calls":[]},"connect_finished",{"micros":25510,"calls":[]},"build_ready",{"micros":16,"calls":[]},"clean_ready",{"micros":1,"calls":[]},"optimize_ready",{"micros":0,"calls":[]},"split_ready",{"micros":1,"calls":[]}]}]}] (Session ID: 56a0e46bf8787fd6562533bf9d2e8360).
+2025-05-12 11:22:33,590 - momentum_bot - INFO - Logged in as MomentumTest#1252 (ID: 1226090087931187313)
+2025-05-12 11:22:33,590 - momentum_bot - INFO - Connected to 2 servers
+2025-05-12 11:22:33,590 - momentum_bot.gmlistener - INFO - GMListener cog is ready
+2025-05-12 11:22:33,590 - momentum_bot.gm - INFO - GM command cog is ready
+2025-05-12 11:22:33,590 - momentum_bot.daily_reminder - INFO - Starting daily reminder schedule
+2025-05-12 11:22:33,591 - momentum_bot.auto_assign_role - INFO - Starting invite tracking
+2025-05-12 11:22:33,591 - momentum_bot.daily_reminder - INFO - Daily reminder schedule ready to start
+2025-05-12 11:22:33,591 - momentum_bot.auto_assign_role - INFO - Invite tracking ready to start
+2025-05-12 11:22:33,806 - momentum_bot - ERROR - Failed to sync commands: object of type 'NoneType' has no len()
+2025-05-12 11:25:06,651 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-12 11:25:07,345 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-12 11:25:07,425 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-12 11:25:07,556 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-12 11:25:07,556 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-12 11:25:07,557 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-12 11:25:07,557 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-12 11:25:07,558 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-12 11:25:08,049 - momentum_bot - INFO - Loaded extension cogs.done
+2025-05-12 11:25:08,049 - momentum_bot - INFO - Starting bot...
+2025-05-12 11:25:08,049 - discord.client - INFO - logging in using static token
+2025-05-12 11:25:08,738 - discord.gateway - INFO - Shard ID None has sent the IDENTIFY payload.
+2025-05-12 11:25:08,936 - discord.gateway - INFO - Shard ID None has connected to Gateway: ["gateway-prd-us-east1-b-x984",{"micros":65640,"calls":["id_created",{"micros":529,"calls":[]},"session_lookup_time",{"micros":213,"calls":[]},"session_lookup_finished",{"micros":14,"calls":[]},"discord-sessions-prd-2-118",{"micros":64528,"calls":["start_session",{"micros":38216,"calls":["discord-api-rpc-78cf767f7b-r28dh",{"micros":29149,"calls":["get_user",{"micros":5901},"get_guilds",{"micros":2835},"send_scheduled_deletion_message",{"micros":6},"guild_join_requests",{"micros":715},"authorized_ip_coro",{"micros":7},"pending_payments",{"micros":1577},"apex_user_experiments",{"micros":2},"user_activities",{"micros":1}]}]},"starting_guild_connect",{"micros":28,"calls":[]},"presence_started",{"micros":255,"calls":[]},"guilds_started",{"micros":79,"calls":[]},"lobbies_started",{"micros":0,"calls":[]},"guilds_connect",{"micros":1,"calls":[]},"presence_connect",{"micros":25925,"calls":[]},"connect_finished",{"micros":25929,"calls":[]},"build_ready",{"micros":18,"calls":[]},"clean_ready",{"micros":1,"calls":[]},"optimize_ready",{"micros":0,"calls":[]},"split_ready",{"micros":1,"calls":[]}]}]}] (Session ID: 4f92ecae58574226e9cd012e35775c9a).
+2025-05-12 11:25:10,941 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-9' coro=<ConnectionState._delay_ready() done, defined at /usr/local/lib/python3.10/dist-packages/discord/state.py:571> exception=ValueError('The future belongs to a different loop than the one specified as the loop argument')>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/discord/state.py", line 594, in _delay_ready
+    await asyncio.wait_for(future, timeout=5.0)
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 426, in wait_for
+    fut = ensure_future(fut, loop=loop)
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 615, in ensure_future
+    return _ensure_future(coro_or_future, loop=loop)
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 621, in _ensure_future
+    raise ValueError('The future belongs to a different loop than '
+ValueError: The future belongs to a different loop than the one specified as the loop argument
+2025-05-12 11:25:58,529 - discord.gateway - WARNING - Can't keep up, shard ID None websocket is 49.8s behind.
+2025-05-12 11:25:59,990 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 10 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:26:09,990 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 20 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:26:19,990 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 30 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:26:29,991 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 40 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:26:39,991 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 50 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:26:48,155 - discord.gateway - WARNING - Can't keep up, shard ID None websocket is 99.4s behind.
+2025-05-12 11:26:50,020 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 60 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:27:00,022 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 70 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:27:10,023 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 80 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:27:20,025 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 90 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:27:30,064 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 100 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+
+2025-05-12 11:27:40,557 - discord.gateway - WARNING - Can't keep up, shard ID None websocket is 151.8s behind.
+2025-05-12 11:27:41,170 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 110 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1909, in _run_once
+    handle._run()
+  File "/usr/lib/python3.10/asyncio/events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+  File "/usr/lib/python3.10/asyncio/selector_events.py", line 819, in _read_ready
+    self._read_ready_cb()
+  File "/usr/lib/python3.10/asyncio/selector_events.py", line 876, in _read_ready__data_received
+    self._protocol.data_received(data)
+  File "/usr/lib/python3.10/asyncio/sslproto.py", line 534, in data_received
+    ssldata, appdata = self._sslpipe.feed_ssldata(data)
+  File "/usr/lib/python3.10/asyncio/sslproto.py", line 199, in feed_ssldata
+    chunk = self._sslobj.read(self.max_size)
+  File "/usr/lib/python3.10/ssl.py", line 917, in read
+    v = self._sslobj.read(len)
+
+2025-05-12 11:27:51,960 - discord.gateway - WARNING - Shard ID None heartbeat blocked for more than 120 seconds.
+Loop thread traceback (most recent call last):
+  File "/root/Momentum/main.py", line 122, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.10/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 636, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 603, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.10/asyncio/base_events.py", line 1871, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/usr/lib/python3.10/selectors.py", line 469, in select
+    fd_event_list = self._selector.poll(timeout, max_ev)
+

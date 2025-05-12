@@ -1,26 +1,22 @@
 import discord
 from pymongo import MongoClient
 from discord.ext import commands
-from discord import app_commands
 from linkdb import link_db
 from datetime import datetime
+from config import ACTIVITIES as act
 
 mongo_client = MongoClient(link_db)
 db = mongo_client["activity_db"]
 collection = db["activities"]
-
-act = {"trening": "💪", "medytacja": "🧘", "sukces": "💎", "dziennik": "📝"}
-
 
 class done(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.collection = MongoClient(link_db)["activity_db"]["activities"]
 
-    @app_commands.command(name="done", description=f'Lista aktywności: {", ".join(act)}')
-    @app_commands.describe(activity="Wybierz aktywność")
-    @app_commands.choices(activity=[
-        app_commands.Choice(name=f"{act_emoji} {act_type.capitalize()}", value=act_type)
+    @discord.slash_command(name="done", description=f'Lista aktywności: {", ".join(act)}')
+    @discord.option(name="activity", description="Wybierz aktywność", choices=[
+        discord.OptionChoice(name=f"{act_emoji} {act_type.capitalize()}", value=act_type)
         for act_type, act_emoji in act.items()
     ])
     async def done_command(
@@ -88,6 +84,5 @@ class done(commands.Cog):
                 f'Niepoprawna aktywność. By zacząć streak wybierz z podanych aktywności: {", ".join(act)}'
             )
 
-
-async def setup(bot: commands.Bot):
-    await bot.add_cog(done(bot))
+def setup(bot: commands.Bot):
+    bot.add_cog(done(bot))

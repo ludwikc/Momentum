@@ -214,3 +214,18 @@ client_session: <aiohttp.client.ClientSession object at 0x1061eaba0>
 2025-05-09 14:27:01,822 - asyncio - ERROR - Unclosed connector
 connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x1062a2150>, 171728.479998875)])']
 connector: <aiohttp.connector.TCPConnector object at 0x1061eacf0>
+2025-05-09 14:54:13,758 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:54:17,984 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-05-09 14:54:17,985 - momentum_bot - INFO - Loaded extension cogs.test_cog
+2025-05-09 14:54:18,244 - momentum_bot.gmlistener - INFO - Connected to MongoDB
+2025-05-09 14:54:18,257 - momentum_bot - INFO - Loaded extension cogs.gmlistener
+2025-05-09 14:54:18,421 - momentum_bot.gm - INFO - Connected to MongoDB
+2025-05-09 14:54:18,421 - momentum_bot - INFO - Loaded extension cogs.gm
+2025-05-09 14:54:18,423 - momentum_bot - INFO - Loaded extension cogs.dailyreminder
+2025-05-09 14:54:18,425 - momentum_bot - INFO - Loaded extension cogs.auto_assign_role
+2025-05-09 14:54:18,425 - momentum_bot - INFO - Loaded extension cogs.prefixdone
+2025-05-09 14:54:18,426 - momentum_bot - INFO - Starting bot...
+2025-05-09 14:54:18,426 - discord.client - INFO - logging in using static token
+2025-05-09 14:54:18,667 - discord.client - INFO - Cleaning up tasks.
+2025-05-09 14:54:18,667 - discord.client - INFO - Closing the event loop.
+2025-05-09 14:54:18,667 - momentum_bot - CRITICAL - Fatal error: Improper token has been passed.

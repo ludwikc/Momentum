@@ -47,11 +47,11 @@ except Exception as e:
 intents = discord.Intents.default()
 intents.message_content = True  # For command processing
 intents.members = True          # For member tracking
-intents.voice_states = True     # Enable voice channel tracking for queue_cog
+intents.voice_states = False    # Disable voice channel tracking to avoid audioop dependency
 intents.guilds = True           # For server information
 
-# Initialize the bot with both prefix and slash commands
-bot = commands.Bot(command_prefix="!", intents=intents, command_sync_flags=commands.CommandSyncFlags.default())
+# Initialize the bot with prefix commands only (no slash commands for now)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
@@ -59,12 +59,12 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
     
-    # Sync slash commands
-    try:
-        synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} command(s)")
-    except Exception as e:
-        logger.error(f"Failed to sync commands: {e}")
+    # We're not using slash commands for now, so we'll skip syncing
+    # try:
+    #     synced = await bot.tree.sync()
+    #     logger.info(f"Synced {len(synced)} command(s)")
+    # except Exception as e:
+    #     logger.error(f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -76,23 +76,23 @@ async def on_error(event, *args, **kwargs):
 # List of extensions to load
 EXTENSIONS = [
     "cogs.test_cog",
-    # "cogs.sekret",  # Will enable after fixing other cogs
+    # "cogs.sekret",  # Commented out due to AppCommandOptionType error
     "cogs.gmlistener",
     "cogs.gm",
     "cogs.dailyreminder",
-    "cogs.qacog",
+    # "cogs.qacog",  # Commented out due to AppCommandOptionType error
     "cogs.auto_assign_role",
-    "cogs.queue_cog",
+    # "cogs.queue_cog",  # Commented out due to AppCommandOptionType error
     "cogs.prefixdone",
-    "cogs.leaderboard",
-    "cogs.done",
+    # "cogs.leaderboard",  # Commented out due to AppCommandOptionType error
+    # "cogs.done",  # Commented out due to AppCommandOptionType error
 ]
 
 # Simple function to load extensions
-async def load_extensions():
+def load_extensions():
     for ext in EXTENSIONS:
         try:
-            await bot.load_extension(ext)
+            bot.load_extension(ext)
             logger.info(f"Loaded extension {ext}")
         except Exception as e:
             logger.error(f"Failed to load extension {ext}: {e}")
@@ -102,7 +102,7 @@ async def load_extensions():
 if __name__ == "__main__":
     try:
         # Load all extensions
-        asyncio.run(load_extensions())
+        load_extensions()
         
         # Run the bot
         logger.info("Starting bot...")

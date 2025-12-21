@@ -1,0 +1,30 @@
+"""
+Private Configuration Module - EXAMPLE FILE
+
+This is an example file. Copy it to create your actual private.py:
+    cp private.py.example private.py
+
+Then edit private.py and add your actual Discord bot token.
+
+⚠️  SECURITY WARNING: Never commit private.py to git! It's in .gitignore.
+
+Setup Instructions:
+1. Copy this file: cp private.py.example private.py
+2. Go to https://discord.com/developers/applications
+3. Select your bot application
+4. Go to "Bot" section
+5. Click "Reset Token" and copy the new token
+6. Edit private.py and replace 'YOUR_DISCORD_BOT_TOKEN_HERE' with your actual token
+7. Save the file
+
+Example token format: MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GaBcDe.FgHiJkLmNoPqRsTuVwXyZ
+"""
+
+# Discord Bot Token
+# REPLACE THIS WITH YOUR ACTUAL BOT TOKEN FROM DISCORD DEVELOPER PORTAL
+DISCORD_TOKEN = "YOUR_DISCORD_BOT_TOKEN_HERE"
+
+# MongoDB Connection URI (optional - can use environment variable instead)
+# If you want to hardcode MongoDB URI here instead of using .env file:
+# MONGO_URI = "mongodb://localhost:27017/"
+# MONGO_URI = "mongodb+srv://username:password@cluster.mongodb.net/"

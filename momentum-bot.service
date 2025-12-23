@@ -1,0 +1,44 @@
+# Momentum Discord Bot - systemd Service File
+#
+# Installation:
+#   1. Edit this file and replace YOUR_USERNAME with your actual username
+#   2. Copy to systemd: sudo cp momentum-bot.service /etc/systemd/system/
+#   3. Reload systemd: sudo systemctl daemon-reload
+#   4. Enable on boot: sudo systemctl enable momentum-bot
+#   5. Start service: sudo systemctl start momentum-bot
+#
+# Commands:
+#   - Start:   sudo systemctl start momentum-bot
+#   - Stop:    sudo systemctl stop momentum-bot
+#   - Restart: sudo systemctl restart momentum-bot
+#   - Status:  sudo systemctl status momentum-bot
+#   - Logs:    sudo journalctl -u momentum-bot -f
+#
+
+[Unit]
+Description=Momentum Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/Momentum
+Environment="PATH=/home/YOUR_USERNAME/Momentum/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/YOUR_USERNAME/Momentum/venv/bin/python3 /home/YOUR_USERNAME/Momentum/main.py
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Logging
+StandardOutput=append:/home/YOUR_USERNAME/Momentum/bot.log
+StandardError=append:/home/YOUR_USERNAME/Momentum/error.log
+
+# Security settings (optional but recommended)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger("momentum_bot.auto_assign_role")
 
 invite_mapping = {
-    "4kXt95T53R": "1230797917913223279",
+    "4kXt95T53R": "1230797917913223279", 
     "vbvBptbUSk": "1224735643423215776",
     "Gy9MGxyv68": "1232624150418292746"
 }

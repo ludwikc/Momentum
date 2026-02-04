@@ -81,5 +81,5 @@ class AutoAssignRole(commands.Cog):
         # Optionally update on member remove to keep the cache accurate
         self.invite_uses[member.guild.id] = {invite.code: invite.uses for invite in await member.guild.invites()}
 
-def setup(bot: commands.Bot):
-    bot.add_cog(AutoAssignRole(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(AutoAssignRole(bot))

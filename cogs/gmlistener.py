@@ -127,5 +127,5 @@ class GMListener(commands.Cog):
             import traceback
             traceback.print_exc()
 
-def setup(bot: commands.Bot):
-    bot.add_cog(GMListener(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(GMListener(bot))

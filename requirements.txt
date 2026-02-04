@@ -1,0 +1,10 @@
+# Discord bot dependencies
+py-cord>=2.5.0
+python-dotenv>=1.1.0
+pytz>=2024.1
+
+# Database - Supabase (replaces pymongo)
+supabase>=2.0.0
+
+# Legacy - can be removed after migration verification
+# pymongo>=4.6.0

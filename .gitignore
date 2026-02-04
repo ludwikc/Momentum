@@ -1,7 +1,7 @@
 /emoji.py
 /linkdb.py
 /private.py
-/requirements.txt
+# /requirements.txt  # Now tracked for Supabase migration
 /__pycache__
 /cogs/__pycache__
 /random_msg.py
@@ -10,3 +10,4 @@ images.py
 .env
 bot.log
 Momentum/
+venv/

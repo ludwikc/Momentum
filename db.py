@@ -1,0 +1,161 @@
+"""
+Supabase database client for Momentum bot.
+Replaces MongoDB (linkdb) with Supabase PostgreSQL.
+"""
+import os
+import logging
+from supabase import create_client, Client
+
+logger = logging.getLogger("momentum_bot.db")
+
+# Supabase client singleton
+_supabase_client: Client | None = None
+
+
+def get_supabase() -> Client:
+    """Get or create Supabase client singleton."""
+    global _supabase_client
+
+    if _supabase_client is None:
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+
+        if not url or not key:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
+            )
+
+        _supabase_client = create_client(url, key)
+        logger.info("Connected to Supabase")
+
+    return _supabase_client
+
+
+# === Activity Functions ===
+
+def upsert_activity(discord_id: str, activity: str, xp_amount: int = 10) -> dict:
+    """
+    Log an activity for a user. Creates user if not exists.
+    Handles monthly reset automatically.
+
+    Args:
+        discord_id: Discord user ID as string
+        activity: One of 'trening', 'medytacja', 'sukces', 'dziennik'
+        xp_amount: XP to award (default 10)
+
+    Returns:
+        dict with user's current streaks and activity info
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "upsert_activity",
+        {"p_discord_id": discord_id, "p_activity": activity, "p_xp_amount": xp_amount}
+    ).execute()
+
+    return result.data
+
+
+def get_user_activity_stats(discord_id: str) -> dict | None:
+    """
+    Get all activity stats for a user.
+
+    Returns:
+        dict with streaks or None if user not found
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "get_user_activity_stats",
+        {"p_discord_id": discord_id}
+    ).execute()
+
+    return result.data
+
+
+def get_activity_leaderboard(activity: str, limit: int = 10) -> list[dict]:
+    """
+    Get top users for a specific activity.
+
+    Args:
+        activity: One of 'trening', 'medytacja', 'sukces', 'dziennik'
+        limit: Number of results (default 10)
+
+    Returns:
+        List of {rank, discord_id, streak_count, user_id}
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "get_activity_leaderboard",
+        {"p_activity": activity, "p_limit": limit}
+    ).execute()
+
+    return result.data or []
+
+
+# === Wake-up / Morning Check-in Functions ===
+
+def check_morning_checkin(discord_id: str) -> dict:
+    """
+    Record a morning check-in for a user.
+    Handles early bird detection (4-6 AM) and momentum tracking.
+
+    Args:
+        discord_id: Discord user ID as string
+
+    Returns:
+        dict with check-in result including:
+        - success: bool
+        - is_early_bird: bool
+        - current_momentum: int
+        - total_checkins: int
+        - message: str (if already checked in today)
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "check_morning_checkin",
+        {"p_discord_id": discord_id}
+    ).execute()
+
+    return result.data
+
+
+def get_wakeup_leaderboard(leaderboard_type: str = "momentum", limit: int = 10) -> list[dict]:
+    """
+    Get wake-up leaderboard.
+
+    Args:
+        leaderboard_type: 'total', 'momentum', or 'early_bird'
+        limit: Number of results (default 10)
+
+    Returns:
+        List of {rank, discord_id, count, user_id}
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "get_wakeup_leaderboard",
+        {"p_type": leaderboard_type, "p_limit": limit}
+    ).execute()
+
+    return result.data or []
+
+
+# === User Linking ===
+
+def link_discord_to_portal_user(discord_id: str, user_id: str) -> bool:
+    """
+    Link a Discord user to their Portal account.
+    Called when user logs into Portal via Discord OAuth.
+
+    Args:
+        discord_id: Discord user ID
+        user_id: Portal user UUID
+
+    Returns:
+        True if successful
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "link_discord_to_portal_user",
+        {"p_discord_id": discord_id, "p_user_id": user_id}
+    ).execute()
+
+    return True

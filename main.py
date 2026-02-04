@@ -67,9 +67,8 @@ async def on_ready():
     
     # Sync slash commands
     try:
-        # Using the correct method for py-cord to sync commands
-        await bot.sync_commands()
-        logger.info(f"Synced commands")
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} commands")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
@@ -97,7 +96,7 @@ EXTENSIONS = [
 ]
 
 # Function to load extensions
-def load_extensions():
+async def load_extensions():
     for ext in EXTENSIONS:
         try:
             await bot.load_extension(ext)
@@ -112,7 +111,7 @@ if __name__ == "__main__":
         # Create an async function to run everything
         async def main():
             # Load all extensions
-            load_extensions()
+            await load_extensions()
             
             # Run the bot
             logger.info("Starting bot...")

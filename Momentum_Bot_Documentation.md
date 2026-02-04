@@ -1,6 +1,6 @@
-# Azimuth Discord Bot Documentation
+# SIADLAXITY Discord Bot Documentation
 
-This document provides a comprehensive overview of all features supported by the Azimuth Discord bot, explaining the purpose and functionality of each component.
+This document provides a comprehensive overview of all features supported by the SIADLAXITY Discord bot, explaining the purpose and functionality of each component.
 
 ## Table of Contents
 
@@ -28,21 +28,21 @@ The Morning Greeting System encourages users to maintain a consistent morning ro
 - **Active Command**: Users can explicitly use the command to check in
 - **Single Check-in Restriction**: Users can only check in once per day
 - **Personalized Greetings**: Responses include personalized messages with the user's name and random motivational phrases. Exact message formats:
-  - Early morning greeting: "🌅 **Dzień dobry @username!** [random motivational message] To twoja [count] pobudka z samego rana :raised_hands:! Twoje Azimuth wynosi [streak] 🔥!"
+  - Early morning greeting: "🌅 **Dzień dobry @username!** [random motivational message] To twoja [count] pobudka z samego rana :raised_hands:! Twoje momentum wynosi [streak] 🔥!"
   - Regular greeting: "🌅 **Dzień dobry @username!** [random motivational message] :raised_hands:"
   - Repeat greeting error: "@username Za mało kawy? Tylko raz można się obudzić ☕️"
 
-#### Azimuth Tracking
+#### Momentum Tracking
 - **Early Bird Recognition**: Special recognition for users who check in during designated early morning hours (4-6 AM by default)
 - **Streak Counting**: Tracks consecutive days of early morning check-ins
-- **Azimuth Counter**: Maintains a separate "Azimuth" count that increases with consistent early check-ins
-- **Streak Reset**: Resets Azimuth counter if the user checks in outside the early morning window
+- **Momentum Counter**: Maintains a separate "Momentum" count that increases with consistent early check-ins
+- **Streak Reset**: Resets Momentum counter if the user checks in outside the early morning window
 
 #### Data Storage
-- Utilizes MongoDB to store:
+- Utilizes current Supabase to store:
   - User's last wake-up timestamp
   - Total wake-up count
-  - Current Azimuth streak
+  - Current Momentum streak
 
 ---
 

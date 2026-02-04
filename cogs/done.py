@@ -4,12 +4,20 @@ from discord.ext import commands
 from pymongo import MongoClient
 from linkdb import link_db
 from datetime import datetime
+import logging
 from config import ACTIVITIES as act
+
+logger = logging.getLogger("momentum_bot.done")
 
 class done(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.collection = MongoClient(link_db)["activity_db"]["activities"]
+        try:
+            self.collection = MongoClient(link_db)["activity_db"]["activities"]
+            logger.info("Connected to MongoDB")
+        except Exception as e:
+            logger.error(f"Failed to connect to MongoDB: {e}")
+            self.collection = None
 
     @app_commands.command(name="done", description="Zaloguj aktywność")
     @app_commands.describe(activity="Wybierz aktywność")
@@ -18,6 +26,10 @@ class done(commands.Cog):
         for name, emoji in act.items()
     ])
     async def done_command(self, interaction: discord.Interaction, activity: app_commands.Choice[str]):
+        if not self.collection:
+            await interaction.response.send_message("Przepraszam, baza danych jest niedostępna. Spróbuj później.", ephemeral=True)
+            return
+
         activity_type = activity.value
         user_id = str(interaction.user.id)
         user_record = self.collection.find_one({"user_id": user_id})

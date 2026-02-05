@@ -38,25 +38,42 @@ class done(commands.Cog):
                 )
                 return
 
+            # Handle both list and dict responses from Supabase RPC
+            if isinstance(result, list) and len(result) > 0:
+                result = result[0]
+
+            logger.debug(f"upsert_activity result: {result}")
+
+            # Get streak count - try different possible key names
+            new_streak = result.get('new_streak') or result.get('streak_count') or result.get(activity_type) or 1
+
             # Build response embed
             embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(
                 name="",
-                value=f"🔥 To {result['new_streak']} {activity_type} w tym miesiącu!",
+                value=f"🔥 To {new_streak} {activity_type} w tym miesiącu!",
             )
 
             avatar = interaction.user.avatar or interaction.user.default_avatar
             embed.set_thumbnail(url=avatar.url)
 
-            # Show all streaks
+            # Show all streaks - handle different response formats
             streaks = result.get("all_streaks", {})
-            for name, streak_count in streaks.items():
-                if name in act:
-                    embed.add_field(
-                        name=f"{act[name]} {name.capitalize()}: {streak_count}",
-                        value="",
-                        inline=False,
-                    )
+            if isinstance(streaks, dict):
+                for name, streak_count in streaks.items():
+                    if name in act:
+                        embed.add_field(
+                            name=f"{act[name]} {name.capitalize()}: {streak_count}",
+                            value="",
+                            inline=False,
+                        )
+            else:
+                # If all_streaks is not present, show streak for current activity
+                embed.add_field(
+                    name=f"{act.get(activity_type, '✅')} {activity_type.capitalize()}: {new_streak}",
+                    value="",
+                    inline=False,
+                )
 
             await interaction.response.send_message(embed=embed)
 

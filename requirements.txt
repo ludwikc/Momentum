@@ -1,5 +1,5 @@
 # Discord bot dependencies
-py-cord>=2.5.0
+discord.py>=2.6.0
 python-dotenv>=1.1.0
 pytz>=2024.1
 

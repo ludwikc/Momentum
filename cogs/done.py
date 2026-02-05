@@ -27,12 +27,15 @@ class done(commands.Cog):
         activity_type = activity.value
         user_id = str(interaction.user.id)
 
+        # Defer response to avoid timeout (gives us 15 min instead of 3 sec)
+        await interaction.response.defer()
+
         try:
             # Call Supabase function - handles upsert and monthly reset
             result = upsert_activity(user_id, activity_type)
 
             if not result or not result.get("success"):
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "Przepraszam, baza danych jest niedostępna. Spróbuj później.",
                     ephemeral=True,
                 )
@@ -61,11 +64,11 @@ class done(commands.Cog):
                         inline=False,
                     )
 
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
         except Exception as e:
             logger.error(f"Error in done_command: {e}")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Wystąpił błąd podczas zapisywania aktywności. Spróbuj ponownie później.",
                 ephemeral=True,
             )

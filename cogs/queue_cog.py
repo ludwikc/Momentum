@@ -14,6 +14,7 @@ class QueueCog(commands.Cog):
         self.target_channel_id = 1120658406160732160  # Channel for announcements
         self.current_speaker_id = None  # Currently speaking
         self.speaking_times = {}  # Track speaking start times
+        logger.info("QueueCog initialized")
 
     def get_target_channel(self):
         """Get the target channel or None if it doesn't exist"""
@@ -33,66 +34,66 @@ class QueueCog(commands.Cog):
         return "\n".join(lines)
 
     @app_commands.command(name="kolejka", description="Dodaj siebie do kolejki do mówienia")
-    async def kolejka_slash(self, ctx):
+    async def kolejka_slash(self, interaction: discord.Interaction):
         """Add user to the queue"""
-        target_channel = self.get_target_channel() or ctx.channel
-        
+        target_channel = self.get_target_channel() or interaction.channel
+
         # Check if user is already in queue
-        if any(entry[0].id == ctx.author.id for entry in self.queue):
-            await ctx.respond(f"{ctx.author.mention}, już jesteś w kolejce! 😉")
+        if any(entry[0].id == interaction.user.id for entry in self.queue):
+            await interaction.response.send_message(f"{interaction.user.mention}, już jesteś w kolejce! :wink:")
             return
-            
+
         # Add user to queue
         self.counter += 1
-        self.queue.append((ctx.author, self.counter))
-        await ctx.respond(self.format_queue())
+        self.queue.append((interaction.user, self.counter))
+        await interaction.response.send_message(self.format_queue())
 
     @app_commands.command(name="kolejka_next", description="Przejdź do następnej osoby w kolejce")
-    async def kolejka_next_slash(self, ctx):
+    async def kolejka_next_slash(self, interaction: discord.Interaction):
         """Move queue to next person"""
-        target_channel = self.get_target_channel() or ctx.channel
-        
+        target_channel = self.get_target_channel() or interaction.channel
+
         if not self.queue:
-            await ctx.respond("Kolejka jest pusta.")
+            await interaction.response.send_message("Kolejka jest pusta.")
             return
-            
+
         self.current_speaker_id = None
         self.queue.pop(0)  # Remove first person from queue
-        
+
         if self.queue:
             next_speaker = self.queue[0][0]
-            await ctx.respond(f"{next_speaker.mention}, Twoja kolej!")
+            await interaction.response.send_message(f"{next_speaker.mention}, Twoja kolej!")
             await target_channel.send(self.format_queue())
         else:
-            await ctx.respond("No i kolejka opustoszała.")
+            await interaction.response.send_message("No i kolejka opustoszała.")
             self.counter = 0
 
     @app_commands.command(name="kolejka_done", description="Zakończ swoją kolej mówienia")
-    async def kolejka_done_slash(self, ctx):
+    async def kolejka_done_slash(self, interaction: discord.Interaction):
         """Allow user to finish their turn without muting"""
-        target_channel = self.get_target_channel() or ctx.channel
-        
+        target_channel = self.get_target_channel() or interaction.channel
+
         if not self.queue:
-            await ctx.respond("Kolejka jest pusta.")
+            await interaction.response.send_message("Kolejka jest pusta.")
             return
-            
+
         # Check if user is current speaker or first in queue
-        is_speaker = self.current_speaker_id == ctx.author.id
-        is_first_in_queue = self.queue and self.queue[0][0].id == ctx.author.id
-        
+        is_speaker = self.current_speaker_id == interaction.user.id
+        is_first_in_queue = self.queue and self.queue[0][0].id == interaction.user.id
+
         if not (is_speaker or is_first_in_queue):
-            await ctx.respond(f"{ctx.author.mention}, to nie Twoja kolej! 😉")
+            await interaction.response.send_message(f"{interaction.user.mention}, to nie Twoja kolej! :wink:")
             return
-        
+
         self.current_speaker_id = None
         self.queue.pop(0)  # Remove first person from queue
-        
+
         if self.queue:
             next_speaker = self.queue[0][0]
-            await ctx.respond(f"{next_speaker.mention}, Twoja kolej!")
+            await interaction.response.send_message(f"{next_speaker.mention}, Twoja kolej!")
             await target_channel.send(self.format_queue())
         else:
-            await ctx.respond("No i kolejka opustoszała.")
+            await interaction.response.send_message("No i kolejka opustoszała.")
             self.counter = 0
 
     @commands.Cog.listener()
@@ -102,15 +103,15 @@ class QueueCog(commands.Cog):
         if not target_channel:
             return
 
-        # User unmuted (muted → unmuted)
+        # User unmuted (muted -> unmuted)
         if before.self_mute and not after.self_mute:
             if self.queue and self.queue[0][0].id == member.id:
                 self.current_speaker_id = member.id
-                self.speaking_times[member.id] = asyncio.get_event_loop().time()  # Register speaking start time
+                self.speaking_times[member.id] = asyncio.get_event_loop().time()
                 await target_channel.send(f"{member.display_name} mówi.")
                 await target_channel.send(self.format_queue())
 
-        # User muted (unmuted → muted)
+        # User muted (unmuted -> muted)
         elif not before.self_mute and after.self_mute:
             if self.current_speaker_id == member.id:
                 # Check how long user was speaking
@@ -121,25 +122,24 @@ class QueueCog(commands.Cog):
                 if speaking_duration < 5:
                     return
 
-                # Create fake context for kolejka_next
-                class FakeContext:
-                    def __init__(self, author, channel, bot):
-                        self.author = author
-                        self.channel = channel
-                        self.bot = bot
-                        
-                    async def respond(self, content):
-                        await self.channel.send(content)
-                
-                fake_ctx = FakeContext(member, target_channel, self.bot)
-                await self.kolejka_next_slash(fake_ctx)
+                # Move to next in queue
+                self.current_speaker_id = None
+                self.queue.pop(0)
+
+                if self.queue:
+                    next_speaker = self.queue[0][0]
+                    await target_channel.send(f"{next_speaker.mention}, Twoja kolej!")
+                    await target_channel.send(self.format_queue())
+                else:
+                    await target_channel.send("No i kolejka opustoszała.")
+                    self.counter = 0
 
     @commands.Cog.listener()
     async def on_message(self, message):
         """Redirect traditional "!kolejka" commands to slash command"""
         if message.author.bot:
             return
-            
+
         content = message.content.strip().lower()
         if content == "kolejka" or content == "!kolejka":
             await message.channel.send(f"{message.author.mention}, aby dołączyć do kolejki, użyj `/kolejka` (slash command).")

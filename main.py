@@ -91,11 +91,10 @@ EXTENSIONS = [
     "cogs.auto_assign_role",
     "cogs.prefixdone",
     "cogs.done",  # Updated to use discord.slash_command
-    # Disabled cogs that need updating
-    # "cogs.sekret",
-    # "cogs.qacog",
-    # "cogs.queue_cog",
-    # "cogs.leaderboard",
+    "cogs.leaderboard",  # Activity leaderboards
+    "cogs.sekret",
+    "cogs.qacog",
+    "cogs.queue_cog",
 ]
 
 # Function to load extensions

@@ -64,12 +64,11 @@ CREATE TABLE IF NOT EXISTS morning_checkins (
     discord_id TEXT NOT NULL,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_early_bird BOOLEAN NOT NULL DEFAULT FALSE
-);
+    checkin_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    is_early_bird BOOLEAN NOT NULL DEFAULT FALSE,
 
--- Unique index for one check-in per day per user
-CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_daily_checkin
-ON morning_checkins (discord_id, (checked_in_at::date));
+    CONSTRAINT unique_daily_checkin UNIQUE (discord_id, checkin_date)
+);
 
 CREATE INDEX IF NOT EXISTS idx_morning_checkins_discord_id ON morning_checkins(discord_id);
 
@@ -247,7 +246,7 @@ BEGIN
     SELECT EXISTS(
         SELECT 1 FROM morning_checkins
         WHERE discord_id = p_discord_id
-        AND checked_in_at::date = v_today
+        AND checkin_date = v_today
     ) INTO v_already_checked;
 
     IF v_already_checked THEN
@@ -267,8 +266,8 @@ BEGIN
     WHERE discord_id = p_discord_id;
 
     -- Insert check-in record
-    INSERT INTO morning_checkins (discord_id, user_id, is_early_bird)
-    VALUES (p_discord_id, v_portal_user_id, v_is_early_bird);
+    INSERT INTO morning_checkins (discord_id, user_id, checkin_date, is_early_bird)
+    VALUES (p_discord_id, v_portal_user_id, v_today, v_is_early_bird);
 
     -- Get or create stats
     SELECT * INTO v_stats

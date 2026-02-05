@@ -38,42 +38,32 @@ class done(commands.Cog):
                 )
                 return
 
-            # Handle both list and dict responses from Supabase RPC
-            if isinstance(result, list) and len(result) > 0:
-                result = result[0]
-
-            logger.debug(f"upsert_activity result: {result}")
-
-            # Get streak count - try different possible key names
-            new_streak = result.get('new_streak') or result.get('streak_count') or result.get(activity_type) or 1
+            # upsert_activity returns: {success, activity, streak_count, xp_awarded, discord_id, is_linked}
+            streak_count = result.get('streak_count', 1)
 
             # Build response embed
             embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(
                 name="",
-                value=f"🔥 To {new_streak} {activity_type} w tym miesiącu!",
+                value=f"🔥 To {streak_count} {activity_type} w tym miesiącu!",
             )
 
             avatar = interaction.user.avatar or interaction.user.default_avatar
             embed.set_thumbnail(url=avatar.url)
 
-            # Show all streaks - handle different response formats
-            streaks = result.get("all_streaks", {})
-            if isinstance(streaks, dict):
-                for name, streak_count in streaks.items():
-                    if name in act:
+            # Get all user streaks from separate function
+            # Returns: {discord_id, streak_trening, streak_medytacja, streak_sukces, streak_dziennik, last_reset}
+            all_stats = get_user_activity_stats(user_id)
+            if all_stats:
+                for name, emoji in act.items():
+                    streak_key = f"streak_{name}"
+                    count = all_stats.get(streak_key, 0)
+                    if count > 0:
                         embed.add_field(
-                            name=f"{act[name]} {name.capitalize()}: {streak_count}",
+                            name=f"{emoji} {name.capitalize()}: {count}",
                             value="",
                             inline=False,
                         )
-            else:
-                # If all_streaks is not present, show streak for current activity
-                embed.add_field(
-                    name=f"{act.get(activity_type, '✅')} {activity_type.capitalize()}: {new_streak}",
-                    value="",
-                    inline=False,
-                )
 
             await interaction.response.send_message(embed=embed)
 

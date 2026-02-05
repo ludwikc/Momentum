@@ -31,29 +31,32 @@ class done(commands.Cog):
             # Call Supabase function - handles upsert and monthly reset
             result = upsert_activity(user_id, activity_type)
 
-            if not result:
+            if not result or not result.get("success"):
                 await interaction.response.send_message(
                     "Przepraszam, baza danych jest niedostępna. Spróbuj później.",
                     ephemeral=True,
                 )
                 return
 
+            streak_count = result.get("streak_count", 0)
+
             # Build response embed
             embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(
                 name="",
-                value=f"🔥 To {result['new_streak']} {activity_type} w tym miesiącu!",
+                value=f"🔥 To {streak_count} {activity_type} w tym miesiącu!",
             )
 
             avatar = interaction.user.avatar or interaction.user.default_avatar
             embed.set_thumbnail(url=avatar.url)
 
-            # Show all streaks
-            streaks = result.get("all_streaks", {})
-            for name, streak_count in streaks.items():
-                if name in act:
+            # Get all streaks for display
+            stats = get_user_activity_stats(user_id)
+            if stats:
+                for name, emoji in act.items():
+                    count = stats.get(f"streak_{name}", 0)
                     embed.add_field(
-                        name=f"{act[name]} {name.capitalize()}: {streak_count}",
+                        name=f"{emoji} {name.capitalize()}: {count}",
                         value="",
                         inline=False,
                     )

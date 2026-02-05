@@ -8,7 +8,7 @@ from db import get_activity_leaderboard
 
 logger = logging.getLogger("momentum_bot.leaderboard")
 
-act = {"trening": "💪", "medytacja": "🧘", "sukces": "💎", "dziennik": "📝"}
+act = {"trening": "🏋️", "medytacja": "🧘", "sukces": "🏅", "dziennik": "📝"}
 
 
 class leaderboard(commands.Cog):

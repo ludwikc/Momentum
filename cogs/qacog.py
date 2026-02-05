@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import logging
 
+
 logger = logging.getLogger("momentum_bot.qacog")
 
 class QACog(commands.Cog):
@@ -17,23 +18,26 @@ class QACog(commands.Cog):
         }
 
     @app_commands.command(name="pytanie", description="Zadaj pytanie botowi")
-    async def pytanie(self, ctx, pytanie: str):
+    @app_commands.describe(pytanie="Pytanie do bota")
+    async def pytanie(self, interaction: discord.Interaction, pytanie: str):
         """Odpowiada na często zadawane pytania"""
         pytanie = pytanie.lower().strip()
-        
+
         # Check for exact matches
         if pytanie in self.qa_pairs:
-            await ctx.respond(self.qa_pairs[pytanie])
+            await interaction.response.send_message(self.qa_pairs[pytanie])
             return
-            
+
         # Check for partial matches
         for key, value in self.qa_pairs.items():
             if key in pytanie or any(word in pytanie for word in key.split()):
-                await ctx.respond(value)
+                await interaction.response.send_message(value)
                 return
-                
+
         # No match found
-        await ctx.respond("Nie znam odpowiedzi na to pytanie. Spróbuj zapytać o coś innego lub skontaktuj się z administratorem.")
+        await interaction.response.send_message(
+            "Nie znam odpowiedzi na to pytanie. Spróbuj zapytać o coś innego lub skontaktuj się z administratorem."
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message):

@@ -38,7 +38,7 @@ class DailyReminderCog(commands.Cog):
         try:
             now = datetime.datetime.now(self.polish_timezone).strftime("%H:%M")
             reminders = {
-                "12:34": "🕧 Witajcie na dzisiejszej sesji 12:34 Daily Coaching. <@272937604339466240> będzie nagrywać nasze spotkanie, aby potem je podsumować na Platformie. A więc bez zbędnych wstępów - zaczynajmy: co mogę dziś dla Was zrobić?",
+                "12:34": "🕧 Witajcie na dzisiejszej sesji 12:34 Daily Coaching. <@272937604339466240> będzie nagrywać nasze spotkanie.  A więc bez zbędnych wstępów - zaczynajmy: co mogę dziś dla Was zrobić?",
                 "12:45": "Tak tylko przypominam, że zostało nam ~14 minut spotkania.",
                 "12:54": "⏰ Kończymy za ~5 minut.",
                 "12:59": "🕐 12:59, pora wracać do stawiania czoła swoim wyzwaniom! Dziękuję za dziś i widzimy się jutro o 12:34!"

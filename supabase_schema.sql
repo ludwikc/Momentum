@@ -64,10 +64,12 @@ CREATE TABLE IF NOT EXISTS morning_checkins (
     discord_id TEXT NOT NULL,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     checked_in_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_early_bird BOOLEAN NOT NULL DEFAULT FALSE,
-
-    CONSTRAINT unique_daily_checkin UNIQUE (discord_id, (checked_in_at::date))
+    is_early_bird BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Unique index for one check-in per day per user
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_daily_checkin
+ON morning_checkins (discord_id, (checked_in_at::date));
 
 CREATE INDEX IF NOT EXISTS idx_morning_checkins_discord_id ON morning_checkins(discord_id);
 

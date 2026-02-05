@@ -231,7 +231,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 8. FUNCTION: check_morning_checkin
 -- =============================================================================
 
-CREATE OR REPLACE FUNCTION check_morning_checkin(p_discord_id TEXT)
+-- Drop old 1-arg overload if it exists (causes PGRST203 ambiguity with the 2-arg version below)
+DROP FUNCTION IF EXISTS public.check_morning_checkin(p_discord_id text);
+
+CREATE OR REPLACE FUNCTION check_morning_checkin(p_discord_id TEXT, p_user_id UUID DEFAULT NULL)
 RETURNS JSON AS $$
 DECLARE
     v_today DATE := CURRENT_DATE;

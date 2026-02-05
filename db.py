@@ -112,7 +112,7 @@ def check_morning_checkin(discord_id: str) -> dict:
     supabase = get_supabase()
     result = supabase.rpc(
         "check_morning_checkin",
-        {"p_discord_id": discord_id, "p_user_id": None}
+        {"p_discord_id": discord_id}
     ).execute()
 
     return result.data

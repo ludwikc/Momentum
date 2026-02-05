@@ -38,25 +38,32 @@ class done(commands.Cog):
                 )
                 return
 
+            # upsert_activity returns: {success, activity, streak_count, xp_awarded, discord_id, is_linked}
+            streak_count = result.get('streak_count', 1)
+
             # Build response embed
             embed = discord.Embed(title="Aktywność", color=0x280586)
             embed.add_field(
                 name="",
-                value=f"🔥 To {result['new_streak']} {activity_type} w tym miesiącu!",
+                value=f"🔥 To {streak_count} {activity_type} w tym miesiącu!",
             )
 
             avatar = interaction.user.avatar or interaction.user.default_avatar
             embed.set_thumbnail(url=avatar.url)
 
-            # Show all streaks
-            streaks = result.get("all_streaks", {})
-            for name, streak_count in streaks.items():
-                if name in act:
-                    embed.add_field(
-                        name=f"{act[name]} {name.capitalize()}: {streak_count}",
-                        value="",
-                        inline=False,
-                    )
+            # Get all user streaks from separate function
+            # Returns: {discord_id, streak_trening, streak_medytacja, streak_sukces, streak_dziennik, last_reset}
+            all_stats = get_user_activity_stats(user_id)
+            if all_stats:
+                for name, emoji in act.items():
+                    streak_key = f"streak_{name}"
+                    count = all_stats.get(streak_key, 0)
+                    if count > 0:
+                        embed.add_field(
+                            name=f"{emoji} {name.capitalize()}: {count}",
+                            value="",
+                            inline=False,
+                        )
 
             await interaction.response.send_message(embed=embed)
 

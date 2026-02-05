@@ -41,7 +41,11 @@ class Sekret(commands.Cog):
             )
 
             # Format and send the anonymous message
-            formatted_message = f"Lifehacker podzielił się właśnie sekretem: || {message} ||"
+            formatted_message = (
+                f"<@&1109472432387002408> jeden z nas podzielił się Sekretem 👏: 🤫\n\n"
+                f"Pamiętaj, że to jest __wrażliwy temat__ i dlatego zostaje wyłącznie między nami - Lifehackerami.\n\n"
+                f"|| --- \n{message}\n--- ||"
+            )
 
             # Get the channel object
             channel = self.bot.get_channel(config.SEKRET_CHANNEL_ID)

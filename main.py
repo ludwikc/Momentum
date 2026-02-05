@@ -68,10 +68,15 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
     
+    # Debug: log what's in the tree before sync
+    tree_commands = bot.tree.get_commands()
+    logger.info(f"Commands in tree before sync: {[cmd.name for cmd in tree_commands]}")
+    logger.info(f"Loaded cogs: {list(bot.cogs.keys())}")
+
     # Sync slash commands
     try:
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} commands")
+        logger.info(f"Synced {len(synced)} commands: {[cmd.name for cmd in synced]}")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 

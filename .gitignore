@@ -4,10 +4,8 @@
 # /requirements.txt  # Now tracked for Supabase migration
 /__pycache__
 /cogs/__pycache__
-/random_msg.py
 images.py
 .vscode
 .env
 bot.log
-Momentum/
 venv/

@@ -2,9 +2,10 @@ import discord
 from discord.ext import commands
 import random
 import logging
-from emoji import *
 from random_msg import random_message
 from db import check_morning_checkin
+
+MOMENTUM_EMOJI = discord.PartialEmoji(animated=False, name='momentum', id=1224612181035978762)
 
 logger = logging.getLogger("momentum_bot.gm")
 
@@ -44,7 +45,7 @@ class GMCommand(commands.Cog):
             current_momentum = result.get("current_momentum", 0)
 
             if is_early_bird:
-                emoji_to_use = momentum_emoji if "momentum_emoji" in globals() else "🔥"
+                emoji_to_use = MOMENTUM_EMOJI
                 reply_message = (
                     f"🌅 **Dzień dobry {ctx.author.mention}!** "
                     + random.choice(random_message)

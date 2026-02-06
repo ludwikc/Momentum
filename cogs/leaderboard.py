@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord import Embed
-from images import thumbnail
 import logging
 from db import get_activity_leaderboard
 
@@ -71,7 +70,6 @@ class leaderboard(commands.Cog):
                         logger.error(f"Error fetching user {entry['discord_id']}: {e}")
                         continue
 
-            embed.set_thumbnail(url=thumbnail)
             await interaction.response.send_message(embed=embed)
 
         except Exception as e:

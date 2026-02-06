@@ -59,21 +59,36 @@ intents.members = True          # For member tracking
 intents.voice_states = True     # Enable voice channel tracking for queue_cog
 intents.guilds = True           # For server information
 
+# Status notification channel
+STATUS_CHANNEL_ID = 1015575570760880168
+OWNER_USER_ID = 404038151565213696
+
 # Initialize the bot with both prefix and slash commands
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+async def notify_status(message: str):
+    """Send a status notification to the admin channel."""
+    try:
+        channel = bot.get_channel(STATUS_CHANNEL_ID)
+        if channel:
+            await channel.send(f"<@{OWNER_USER_ID}> {message}")
+    except Exception as e:
+        logger.error(f"Failed to send status notification: {e}")
 
 @bot.event
 async def on_ready():
     """Called when the bot is ready and connected to Discord."""
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
-    
+
     # Sync slash commands
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} commands")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
+
+    await notify_status("Bot Momentum jest online.")
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -108,18 +123,25 @@ async def load_extensions():
             import traceback
             traceback.print_exc()
 
+async def shutdown():
+    """Send offline notification and close the bot gracefully."""
+    await notify_status("Bot Momentum przechodzi w tryb offline.")
+    await bot.close()
+
 if __name__ == "__main__":
     try:
-        # Create an async function to run everything
         async def main():
-            # Load all extensions
             await load_extensions()
-            
-            # Run the bot
             logger.info("Starting bot...")
+
+            # Register signal handlers for graceful shutdown
+            import signal
+            loop = asyncio.get_running_loop()
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, lambda: asyncio.ensure_future(shutdown()))
+
             await bot.start(DISCORD_TOKEN)
-                
-        # Run the async main function
+
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot shutdown by user")

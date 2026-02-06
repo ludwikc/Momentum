@@ -2,10 +2,22 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import logging
+import random
+from datetime import date
 
 logger = logging.getLogger("momentum_bot.queue")
 
 VOICE_CHANNEL_ID = 1120658406160732160
+DEEPWORK_CHANNEL_ID = 1023996094524424313
+
+DEEPWORK_HELLOS = [
+    "Nad czym będziesz dziś pracować?",
+    "Co jest dzisiaj Twoim MIT (Most Important Task)?",
+    "Jaki efekt chcesz zobaczyć za 90 minut?",
+    "Co dziś dowozisz?",
+    "Które zadanie z Twojej listy najbardziej Cię dziś uwiera?",
+    "Czas zjeść jakąś 'żabę'? ;)",
+]
 
 
 class QueueCog(commands.Cog):
@@ -13,6 +25,7 @@ class QueueCog(commands.Cog):
         self.bot = bot
         self.queue = []  # Lista użytkowników (FIFO), duplikaty dozwolone
         self.current_index = 0  # Indeks aktualnego mówcy
+        self.deepwork_greeted = {}  # {user_id: date} — raz dziennie
         logger.info("QueueCog initialized")
 
     def get_voice_channel(self):
@@ -46,11 +59,25 @@ class QueueCog(commands.Cog):
             return
 
         # Greet user joining the monitored voice channel
-        joined = (before.channel is None or before.channel.id != VOICE_CHANNEL_ID) and \
-                 after.channel is not None and after.channel.id == VOICE_CHANNEL_ID
-        if joined and not member.bot:
+        joined_main = (before.channel is None or before.channel.id != VOICE_CHANNEL_ID) and \
+                      after.channel is not None and after.channel.id == VOICE_CHANNEL_ID
+        if joined_main and not member.bot:
             text_channel = voice_channel.guild.system_channel or voice_channel
             await text_channel.send(f"Cześć {member.mention}")
+
+        # Greet user joining the deepwork voice channel (once per day)
+        joined_deepwork = (before.channel is None or before.channel.id != DEEPWORK_CHANNEL_ID) and \
+                          after.channel is not None and after.channel.id == DEEPWORK_CHANNEL_ID
+        if joined_deepwork and not member.bot:
+            today = date.today()
+            if self.deepwork_greeted.get(member.id) != today:
+                self.deepwork_greeted[member.id] = today
+                deepwork_channel = self.bot.get_channel(DEEPWORK_CHANNEL_ID)
+                if deepwork_channel:
+                    text_channel = deepwork_channel.guild.system_channel or deepwork_channel
+                    await text_channel.send(
+                        f"Cześć {member.mention}! {random.choice(DEEPWORK_HELLOS)}"
+                    )
 
         # Czyszczenie kolejki gdy kanał jest pusty
         if len(voice_channel.members) == 0:

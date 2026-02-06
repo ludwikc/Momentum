@@ -64,7 +64,7 @@ class GMCommand(commands.Cog):
 
             # Check if already checked in today
             if not result.get("success", True):
-                await ctx.reply("Za mało kawy? Tylko raz można się obudzić ☕️")
+                await ctx.reply(f"😂 {ctx.author.mention} Za mało kawy? Tylko raz można się obudzić ☕️")
                 return
 
             # Build response

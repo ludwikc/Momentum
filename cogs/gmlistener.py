@@ -74,7 +74,7 @@ class GMListener(commands.Cog):
 
             # Check if already checked in today
             if not result.get("success", True):
-                await message.reply("Za mało kawy? Tylko raz można się obudzić ☕️")
+                await message.reply(f"😂 {message.author.mention} Za mało kawy? Tylko raz można się obudzić ☕️")
                 return
 
             # Build response

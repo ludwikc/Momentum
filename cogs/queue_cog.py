@@ -40,13 +40,20 @@ class QueueCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        """Monitor mute/unmute and channel leave events"""
+        """Monitor voice channel joins, mute/unmute and channel leave events"""
         voice_channel = self.get_voice_channel()
         if not voice_channel:
             return
 
+        # Greet user joining the monitored voice channel
+        joined = (before.channel is None or before.channel.id != VOICE_CHANNEL_ID) and \
+                 after.channel is not None and after.channel.id == VOICE_CHANNEL_ID
+        if joined and not member.bot:
+            text_channel = voice_channel.guild.system_channel or voice_channel
+            await text_channel.send(f"Cześć {member.mention}")
+
         # Czyszczenie kolejki gdy kanał jest pusty
-        if voice_channel.members is not None and len(voice_channel.members) == 0:
+        if len(voice_channel.members) == 0:
             self.queue = []
             self.current_index = 0
             return

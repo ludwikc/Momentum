@@ -5,6 +5,9 @@ import logging
 from random_msg import random_message
 from db import check_morning_checkin
 
+GM_CHANNEL_ID = 1021389566445375558
+EMOJI_ONLY_USERS = {1413621120250417347, 1274430409391870089}
+
 MOMENTUM_EMOJI = discord.PartialEmoji(animated=False, name='momentum', id=1224612181035978762)
 
 GREETINGS = [
@@ -38,6 +41,15 @@ class GMCommand(commands.Cog):
     @commands.command(name="gm", description="Śledź swoje wczesne pobudki!")
     async def gm_command(self, ctx):
         try:
+            # Only respond in the designated GM channel
+            if ctx.channel.id != GM_CHANNEL_ID:
+                return
+
+            # Emoji-only response for specific users
+            if ctx.author.id in EMOJI_ONLY_USERS:
+                await ctx.reply(":optimus: :raised_hands:")
+                return
+
             user_id = str(ctx.author.id)
 
             # Call Supabase function - handles all logic

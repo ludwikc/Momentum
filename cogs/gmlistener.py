@@ -6,6 +6,9 @@ import logging
 from random_msg import random_message
 from db import check_morning_checkin
 
+GM_CHANNEL_ID = 1021389566445375558
+EMOJI_ONLY_USERS = {1413621120250417347, 1274430409391870089}
+
 MOMENTUM_EMOJI = discord.PartialEmoji(animated=False, name='momentum', id=1224612181035978762)
 
 GREETINGS = [
@@ -43,12 +46,21 @@ class GMListener(commands.Cog):
             return
 
         try:
+            # Only respond in the designated GM channel
+            if message.channel.id != GM_CHANNEL_ID:
+                return
+
             # Check if message contains "gm" or "dzień dobry" (case insensitive)
             content = message.content.lower()
             if not (re.search(r"\bgm\b", content) or "dzień dobry" in content):
                 return
 
             user_id = str(message.author.id)
+
+            # Emoji-only response for specific users
+            if message.author.id in EMOJI_ONLY_USERS:
+                await message.reply(":optimus: :raised_hands:")
+                return
 
             # Call Supabase function - handles all logic
             result = check_morning_checkin(user_id)

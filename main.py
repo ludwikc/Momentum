@@ -90,7 +90,7 @@ EXTENSIONS = [
     "cogs.dailyreminder",
     "cogs.auto_assign_role",
     "cogs.prefixdone",
-    "cogs.done",  # Updated to use discord.slash_command
+    "cogs.done",
     "cogs.leaderboard",  # Activity leaderboards
     "cogs.sekret",
     "cogs.qacog",

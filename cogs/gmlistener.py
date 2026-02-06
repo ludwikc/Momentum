@@ -3,9 +3,29 @@ from discord.ext import commands
 import random
 import re
 import logging
-from emoji import *
 from random_msg import random_message
 from db import check_morning_checkin
+
+GM_CHANNEL_ID = 1021389566445375558
+EMOJI_ONLY_USERS = {1413621120250417347, 1274430409391870089}
+
+MOMENTUM_EMOJI = discord.PartialEmoji(animated=False, name='momentum', id=1224612181035978762)
+
+GREETINGS = [
+    "Miło, że jesteś tu od rana.",
+    "Dobrze Cię widzieć.",
+    "Cieszę się, że jesteś.",
+    "Miło Cię widzieć o poranku.",
+    "Dobrze widzieć znajomą energię.",
+    "Hej! Dzień już pracuje na Twoją korzyść.",
+    "Dzień dobry! Jesteś dokładnie tam, gdzie trzeba.",
+    "GM.",
+    "Super, że jesteś z nami.",
+    "Witaj.",
+    "Witamy.",
+    "Woohoo.",
+    "Mornin'!",
+]
 
 logger = logging.getLogger("momentum_bot.gmlistener")
 
@@ -26,6 +46,10 @@ class GMListener(commands.Cog):
             return
 
         try:
+            # Only respond in the designated GM channel
+            if message.channel.id != GM_CHANNEL_ID:
+                return
+
             # Check if message contains "gm" or "dzień dobry" (case insensitive)
             content = message.content.lower()
             if not (re.search(r"\bgm\b", content) or "dzień dobry" in content):
@@ -33,44 +57,44 @@ class GMListener(commands.Cog):
 
             user_id = str(message.author.id)
 
+            # Emoji-only response for specific users
+            if message.author.id in EMOJI_ONLY_USERS:
+                await message.reply(":optimus: :raised_hands:")
+                return
+
             # Call Supabase function - handles all logic
             result = check_morning_checkin(user_id)
 
             if not result:
                 logger.error("Supabase check_morning_checkin returned None")
-                await message.channel.send(
+                await message.reply(
                     "Przepraszam, nie mogę teraz przetworzyć tego polecenia. Spróbuj ponownie później."
                 )
                 return
 
             # Check if already checked in today
             if not result.get("success", True):
-                await message.channel.send(
-                    f"{message.author.mention} Za mało kawy? Tylko raz można się obudzić ☕️"
-                )
+                await message.reply("Za mało kawy? Tylko raz można się obudzić ☕️")
                 return
 
-            # Build response based on early bird status
+            # Build response
+            greeting = random.choice(GREETINGS)
+            question = random.choice(random_message)
+
             is_early_bird = result.get("is_early_bird", False)
             total_checkins = result.get("total_checkins", 1)
             current_momentum = result.get("current_momentum", 0)
 
             if is_early_bird:
-                emoji_to_use = momentum_emoji if "momentum_emoji" in globals() else "🔥"
                 reply_message = (
-                    f"🌅 **Dzień dobry {message.author.mention}!** "
-                    + random.choice(random_message)
-                    + f" To twoja {total_checkins} pobudka z samego rana :raised_hands:! "
-                    + f"Twoje momentum wynosi {current_momentum} {emoji_to_use}!"
+                    f"{greeting} {question}\n"
+                    f"To twoja {total_checkins} pobudka z samego rana! "
+                    f"Twoje momentum wynosi {current_momentum} {MOMENTUM_EMOJI}!"
                 )
             else:
-                reply_message = (
-                    f"🌅 **Dzień dobry {message.author.mention}!** "
-                    + random.choice(random_message)
-                    + " :raised_hands:"
-                )
+                reply_message = f"{greeting} {question}"
 
-            await message.channel.send(reply_message)
+            await message.reply(reply_message)
 
         except Exception as e:
             logger.error(f"Error in on_message: {e}")

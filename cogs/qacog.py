@@ -37,19 +37,5 @@ class QACog(commands.Cog):
         # No match found
         await interaction.response.send_message("Nie znam odpowiedzi na to pytanie. Spróbuj zapytać o coś innego lub skontaktuj się z administratorem.")
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        """Listen for question marks in messages"""
-        if message.author.bot:
-            return
-
-        content = message.content.lower().strip()
-        if content.endswith("?"):
-            # Check for matches in our QA database
-            for key, value in self.qa_pairs.items():
-                if key in content or any(word in content for word in key.split()):
-                    await message.channel.send(value)
-                    return
-
 async def setup(bot: commands.Bot):
     await bot.add_cog(QACog(bot))

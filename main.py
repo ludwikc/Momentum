@@ -81,10 +81,14 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
 
-    # Sync slash commands
+    # Sync slash commands globally and per-guild (guild sync is instant)
     try:
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} commands")
+        logger.info(f"Synced {len(synced)} global commands")
+        for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
+            guild_synced = await bot.tree.sync(guild=guild)
+            logger.info(f"Synced {len(guild_synced)} commands to guild {guild.name}")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 

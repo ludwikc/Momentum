@@ -3,7 +3,7 @@ from discord.ext import commands
 import random
 import re
 import logging
-from random_msg import random_message
+from datetime import datetime
 from db import check_morning_checkin
 
 GM_CHANNEL_ID = 1021389566445375558
@@ -28,6 +28,16 @@ GREETINGS = [
 ]
 
 logger = logging.getLogger("momentum_bot.gmlistener")
+
+
+def is_early_morning() -> bool:
+    """Check if current time is between 4:00 and 6:55."""
+    now = datetime.now()
+    if now.hour < 4 or now.hour > 6:
+        return False
+    if now.hour == 6 and now.minute >= 55:
+        return False
+    return True
 
 
 class GMListener(commands.Cog):
@@ -55,6 +65,10 @@ class GMListener(commands.Cog):
             if not (re.search(r"\bgm\b", content) or "dzień dobry" in content):
                 return
 
+            # Only react during early morning hours (4:00 - 6:55)
+            if not is_early_morning():
+                return
+
             user_id = str(message.author.id)
 
             # Emoji-only response for specific users
@@ -77,22 +91,16 @@ class GMListener(commands.Cog):
                 await message.reply(f"😂 {message.author.mention} Za mało kawy? Tylko raz można się obudzić ☕️")
                 return
 
-            # Build response
+            # Build response - greeting + streak, no quote
             greeting = random.choice(GREETINGS)
-            question = random.choice(random_message)
-
-            is_early_bird = result.get("is_early_bird", False)
-            total_checkins = result.get("total_checkins", 1)
             current_momentum = result.get("current_momentum", 0)
+            total_checkins = result.get("total_checkins", 1)
 
-            if is_early_bird:
-                reply_message = (
-                    f"{greeting} {question}\n"
-                    f"To twoja {total_checkins} pobudka z samego rana! "
-                    f"Twoje momentum wynosi {current_momentum} {MOMENTUM_EMOJI}!"
-                )
-            else:
-                reply_message = f"{greeting} {question}"
+            reply_message = (
+                f"{greeting}\n"
+                f"To twoja {total_checkins} pobudka z samego rana! "
+                f"Twoje momentum wynosi {current_momentum} {MOMENTUM_EMOJI}!"
+            )
 
             await message.reply(reply_message)
 

@@ -257,8 +257,8 @@ BEGIN
         );
     END IF;
 
-    -- Early bird check (4:00 - 6:00 AM)
-    v_is_early_bird := v_now >= '04:00:00' AND v_now < '06:00:00';
+    -- Early bird check (4:00 - 6:55 AM)
+    v_is_early_bird := v_now >= '04:00:00' AND v_now < '06:55:00';
 
     -- Find linked Portal user
     SELECT id INTO v_portal_user_id

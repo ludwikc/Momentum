@@ -20,7 +20,7 @@ class Sekret(commands.Cog):
         # Check if command is used in the correct channel
         if interaction.channel_id != config.SEKRET_CHANNEL_ID:
             await interaction.response.send_message(
-                "Ta komenda działa tylko na kanale sekretów.",
+                "Ta komenda działa tylko na kanale <#1196136652737892463>",
                 ephemeral=True
             )
             return
@@ -59,7 +59,7 @@ class Sekret(commands.Cog):
             # Try to notify the user if the response hasn't been sent yet
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    "Wystąpił błąd podczas przetwarzania twojego sekretu.",
+                    "Wystąpił błąd podczas przetwarzania Twojego sekretu. Spróbuj ponownie później, lub naszpi na <#1007740509252493433>",
                     ephemeral=True
                 )
 

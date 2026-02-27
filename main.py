@@ -108,6 +108,7 @@ EXTENSIONS = [
     "cogs.done",
     "cogs.leaderboard",  # Activity leaderboards
     "cogs.sekret",
+    "cogs.anonim",
     "cogs.qacog",
     "cogs.queue_cog",
 ]

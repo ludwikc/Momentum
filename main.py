@@ -111,6 +111,7 @@ EXTENSIONS = [
     "cogs.anonim",
     "cogs.qacog",
     "cogs.queue_cog",
+    "cogs.thread_notify",
 ]
 
 # Function to load extensions

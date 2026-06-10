@@ -111,6 +111,7 @@ EXTENSIONS = [
     "cogs.anonim",
     "cogs.qacog",
     "cogs.queue_cog",
+    "cogs.photo_reply",
 ]
 
 # Function to load extensions

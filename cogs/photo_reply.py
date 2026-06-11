@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import logging
 from db import upsert_activity, get_user_activity_stats
-from config import ACTIVITIES as act
+from config import ACTIVITIES as act, PROGRESS_CHANNEL_ID
 
 PHOTO_THREAD_ID = 1245416699453509682
 
@@ -55,6 +55,13 @@ class TreningButton(discord.ui.View):
                         )
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
+
+            progress_channel = interaction.client.get_channel(PROGRESS_CHANNEL_ID)
+            if progress_channel:
+                await progress_channel.send(
+                    content=interaction.user.mention,
+                    embed=embed,
+                )
 
         except Exception as e:
             logger.error(f"Error in trening_button: {e}")

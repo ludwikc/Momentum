@@ -91,6 +91,48 @@ def get_activity_leaderboard(activity: str, limit: int = 10) -> list[dict]:
     return result.data or []
 
 
+# === Session Trackers (Daily Coaching / Deep Work) ===
+
+def log_capped_join(discord_id: str, activity: str, max_per_day: int) -> dict:
+    """
+    Log a join-based activity (e.g. 'daily_coaching', 'deep_work') up to a
+    per-day cap. Counts use Warsaw-local days/months.
+
+    Returns:
+        dict with {logged: bool, monthly_count, total_count} when logged,
+        or {logged: false} when the daily cap is already reached.
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "log_capped_join",
+        {"p_discord_id": discord_id, "p_activity": activity, "p_max_per_day": max_per_day}
+    ).execute()
+
+    return result.data
+
+
+def add_deep_work_time(discord_id: str, seconds: int) -> dict:
+    """Add to a user's lifetime Deep Work connection time. Returns {total_seconds}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "add_deep_work_time",
+        {"p_discord_id": discord_id, "p_seconds": seconds}
+    ).execute()
+
+    return result.data
+
+
+def get_deep_work_seconds(discord_id: str) -> dict:
+    """Get a user's lifetime Deep Work connection time. Returns {total_seconds}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "get_deep_work_seconds",
+        {"p_discord_id": discord_id}
+    ).execute()
+
+    return result.data
+
+
 # === Wake-up / Morning Check-in Functions ===
 
 def check_morning_checkin(discord_id: str) -> dict:

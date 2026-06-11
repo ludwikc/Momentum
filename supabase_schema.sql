@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS user_activities (
     -- Monthly reset tracking
     last_reset DATE NOT NULL DEFAULT CURRENT_DATE,
 
+    -- Lifetime Deep Work connection time (never resets)
+    deep_work_seconds BIGINT NOT NULL DEFAULT 0,
+
     -- Audit timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -44,7 +47,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     discord_id TEXT NOT NULL,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     activity_type TEXT NOT NULL CHECK (
-        activity_type IN ('trening', 'medytacja', 'sukces', 'dziennik', 'gm')
+        activity_type IN ('trening', 'medytacja', 'sukces', 'dziennik', 'gm', 'daily_coaching', 'deep_work')
     ),
     xp_awarded INTEGER NOT NULL DEFAULT 10,
     logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -414,7 +417,104 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================================================
--- 10. RLS POLICIES (Row Level Security)
+-- 10. FUNCTION: log_capped_join
+-- Logs a join-based activity (daily_coaching, deep_work) up to a per-day cap.
+-- Counts use Warsaw-local calendar days/months. Returns whether it was logged
+-- plus the monthly count (n) and all-time count.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION log_capped_join(
+    p_discord_id TEXT,
+    p_activity TEXT,
+    p_max_per_day INTEGER
+)
+RETURNS JSON AS $$
+DECLARE
+    v_today DATE := (NOW() AT TIME ZONE 'Europe/Warsaw')::date;
+    v_month_start DATE := DATE_TRUNC('month', (NOW() AT TIME ZONE 'Europe/Warsaw'))::date;
+    v_today_count INTEGER;
+    v_monthly_count INTEGER;
+    v_total_count INTEGER;
+    v_portal_user_id UUID;
+BEGIN
+    -- Enforce the daily cap (Warsaw day)
+    SELECT COUNT(*) INTO v_today_count
+    FROM activity_logs
+    WHERE discord_id = p_discord_id
+      AND activity_type = p_activity
+      AND (logged_at AT TIME ZONE 'Europe/Warsaw')::date = v_today;
+
+    IF v_today_count >= p_max_per_day THEN
+        RETURN json_build_object('logged', false);
+    END IF;
+
+    SELECT id INTO v_portal_user_id FROM users WHERE discord_id = p_discord_id;
+
+    INSERT INTO activity_logs (discord_id, user_id, activity_type, xp_awarded)
+    VALUES (p_discord_id, v_portal_user_id, p_activity, 10);
+
+    SELECT COUNT(*) INTO v_monthly_count
+    FROM activity_logs
+    WHERE discord_id = p_discord_id
+      AND activity_type = p_activity
+      AND (logged_at AT TIME ZONE 'Europe/Warsaw')::date >= v_month_start;
+
+    SELECT COUNT(*) INTO v_total_count
+    FROM activity_logs
+    WHERE discord_id = p_discord_id
+      AND activity_type = p_activity;
+
+    RETURN json_build_object(
+        'logged', true,
+        'monthly_count', v_monthly_count,
+        'total_count', v_total_count
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 11. FUNCTIONS: add_deep_work_time / get_deep_work_seconds
+-- Accumulate and read lifetime Deep Work connection time (never resets).
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION add_deep_work_time(
+    p_discord_id TEXT,
+    p_seconds INTEGER
+)
+RETURNS JSON AS $$
+DECLARE
+    v_total BIGINT;
+    v_portal_user_id UUID;
+BEGIN
+    SELECT id INTO v_portal_user_id FROM users WHERE discord_id = p_discord_id;
+
+    INSERT INTO user_activities (discord_id, user_id, deep_work_seconds, last_reset)
+    VALUES (p_discord_id, v_portal_user_id, GREATEST(p_seconds, 0),
+            DATE_TRUNC('month', CURRENT_DATE)::date)
+    ON CONFLICT (discord_id) DO UPDATE
+        SET deep_work_seconds = user_activities.deep_work_seconds + GREATEST(p_seconds, 0),
+            updated_at = NOW()
+    RETURNING deep_work_seconds INTO v_total;
+
+    RETURN json_build_object('total_seconds', v_total);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_deep_work_seconds(p_discord_id TEXT)
+RETURNS JSON AS $$
+DECLARE
+    v_total BIGINT;
+BEGIN
+    SELECT deep_work_seconds INTO v_total
+    FROM user_activities
+    WHERE discord_id = p_discord_id;
+
+    RETURN json_build_object('total_seconds', COALESCE(v_total, 0));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 12. RLS POLICIES (Row Level Security)
 -- =============================================================================
 
 ALTER TABLE user_activities ENABLE ROW LEVEL SECURITY;

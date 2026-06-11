@@ -113,6 +113,7 @@ EXTENSIONS = [
     "cogs.queue_cog",
     "cogs.photo_reply",
     "cogs.meditation_voice",
+    "cogs.session_tracker",
 ]
 
 # Function to load extensions

@@ -4,6 +4,7 @@ from discord.ext import commands
 import logging
 from config import ACTIVITIES as act
 from db import upsert_activity, get_user_activity_stats
+from activity_embed import build_activity_embed
 
 logger = logging.getLogger("momentum_bot.done")
 
@@ -38,32 +39,12 @@ class done(commands.Cog):
                 )
                 return
 
-            # upsert_activity returns: {success, activity, streak_count, xp_awarded, discord_id, is_linked}
-            streak_count = result.get('streak_count', 1)
-
-            # Build response embed
-            embed = discord.Embed(title="Aktywność", color=0x280586)
-            embed.add_field(
-                name="",
-                value=f"🔥 To {streak_count} {activity_type} w tym miesiącu!",
-            )
-
-            avatar = interaction.user.avatar or interaction.user.default_avatar
-            embed.set_thumbnail(url=avatar.url)
-
-            # Get all user streaks from separate function
-            # Returns: {discord_id, streak_trening, streak_medytacja, streak_sukces, streak_dziennik, last_reset}
+            # Build response embed (monthly count + consecutive-day streak +
+            # lifetime grand totals)
             all_stats = get_user_activity_stats(user_id)
-            if all_stats:
-                for name, emoji in act.items():
-                    streak_key = f"streak_{name}"
-                    count = all_stats.get(streak_key, 0)
-                    if count > 0:
-                        embed.add_field(
-                            name=f"{emoji} {name.capitalize()}: {count}",
-                            value="",
-                            inline=False,
-                        )
+            embed = build_activity_embed(
+                interaction.user, activity_type, result, all_stats
+            )
 
             await interaction.response.send_message(embed=embed)
 

@@ -106,6 +106,8 @@ DECLARE
     v_current_month DATE;
     v_user_record user_activities%ROWTYPE;
     v_streak_count INTEGER;
+    v_total_count INTEGER;
+    v_consecutive_count INTEGER;
     v_portal_user_id UUID;
 BEGIN
     v_current_month := DATE_TRUNC('month', CURRENT_DATE)::DATE;
@@ -150,6 +152,25 @@ BEGIN
     INSERT INTO activity_logs (discord_id, user_id, activity_type, xp_awarded)
     VALUES (p_discord_id, v_portal_user_id, p_activity, p_xp_amount);
 
+    -- Lifetime grand total for this activity (never resets; derived from activity_logs)
+    SELECT COUNT(*) INTO v_total_count
+    FROM activity_logs
+    WHERE discord_id = p_discord_id AND activity_type = p_activity;
+
+    -- Consecutive-day streak ending today (distinct Warsaw-local days; gaps-and-islands)
+    WITH days AS (
+        SELECT DISTINCT (logged_at AT TIME ZONE 'Europe/Warsaw')::date AS d
+        FROM activity_logs
+        WHERE discord_id = p_discord_id AND activity_type = p_activity
+    ),
+    islands AS (
+        SELECT d, d - (ROW_NUMBER() OVER (ORDER BY d) * INTERVAL '1 day') AS grp
+        FROM days
+    )
+    SELECT COUNT(*) INTO v_consecutive_count
+    FROM islands
+    WHERE grp = (SELECT grp FROM islands ORDER BY d DESC LIMIT 1);
+
     -- Award XP if user is linked to Portal
     IF v_portal_user_id IS NOT NULL THEN
         INSERT INTO xp_events (user_id, source, xp, metadata)
@@ -166,6 +187,8 @@ BEGIN
         'success', true,
         'activity', p_activity,
         'streak_count', v_streak_count,
+        'consecutive_count', v_consecutive_count,
+        'total_count', v_total_count,
         'xp_awarded', p_xp_amount,
         'discord_id', p_discord_id,
         'is_linked', v_portal_user_id IS NOT NULL
@@ -182,16 +205,32 @@ RETURNS JSON AS $$
 DECLARE
     v_result JSON;
 BEGIN
+    -- streak_* are the monthly counts (reset monthly); total_* are lifetime
+    -- grand totals derived from activity_logs (never reset).
     SELECT json_build_object(
-        'discord_id', discord_id,
-        'streak_trening', streak_trening,
-        'streak_medytacja', streak_medytacja,
-        'streak_sukces', streak_sukces,
-        'streak_dziennik', streak_dziennik,
-        'last_reset', last_reset
+        'discord_id', p_discord_id,
+        'streak_trening',   COALESCE(ua.streak_trening, 0),
+        'streak_medytacja', COALESCE(ua.streak_medytacja, 0),
+        'streak_sukces',    COALESCE(ua.streak_sukces, 0),
+        'streak_dziennik',  COALESCE(ua.streak_dziennik, 0),
+        'last_reset', ua.last_reset,
+        'total_trening',   COALESCE(t.total_trening, 0),
+        'total_medytacja', COALESCE(t.total_medytacja, 0),
+        'total_sukces',    COALESCE(t.total_sukces, 0),
+        'total_dziennik',  COALESCE(t.total_dziennik, 0)
     ) INTO v_result
-    FROM user_activities
-    WHERE discord_id = p_discord_id;
+    FROM (SELECT p_discord_id AS discord_id) base
+    LEFT JOIN user_activities ua ON ua.discord_id = base.discord_id
+    LEFT JOIN (
+        SELECT discord_id,
+            COUNT(*) FILTER (WHERE activity_type = 'trening')   AS total_trening,
+            COUNT(*) FILTER (WHERE activity_type = 'medytacja') AS total_medytacja,
+            COUNT(*) FILTER (WHERE activity_type = 'sukces')    AS total_sukces,
+            COUNT(*) FILTER (WHERE activity_type = 'dziennik')  AS total_dziennik
+        FROM activity_logs
+        WHERE discord_id = p_discord_id
+        GROUP BY discord_id
+    ) t ON t.discord_id = base.discord_id;
 
     RETURN v_result;
 END;

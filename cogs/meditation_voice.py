@@ -4,7 +4,8 @@ import logging
 from datetime import datetime, timedelta
 import pytz
 from db import upsert_activity, get_user_activity_stats
-from config import ACTIVITIES as act, PROGRESS_CHANNEL_ID
+from config import PROGRESS_CHANNEL_ID
+from activity_embed import build_activity_embed
 
 MEDITATION_VOICE_CHANNEL_ID = 988452597549641758
 MIN_DURATION = timedelta(minutes=10)
@@ -83,28 +84,8 @@ class MeditationVoiceListener(commands.Cog):
                 logger.error("upsert_activity returned None for meditation credit")
                 return
 
-            streak_count = result.get("streak_count", 1)
-
-            embed = discord.Embed(title="Aktywność", color=0x280586)
-            embed.add_field(
-                name="",
-                value=f"🔥 To {streak_count} medytacja w tym miesiącu!",
-            )
-
-            avatar = member.avatar or member.default_avatar
-            embed.set_thumbnail(url=avatar.url)
-
             all_stats = get_user_activity_stats(user_id)
-            if all_stats:
-                for name, emoji in act.items():
-                    streak_key = f"streak_{name}"
-                    count = all_stats.get(streak_key, 0)
-                    if count > 0:
-                        embed.add_field(
-                            name=f"{emoji} {name.capitalize()}: {count}",
-                            value="",
-                            inline=False,
-                        )
+            embed = build_activity_embed(member, "medytacja", result, all_stats)
 
             channel = self.bot.get_channel(PROGRESS_CHANNEL_ID)
             if channel:

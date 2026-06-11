@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 import logging
 from db import upsert_activity, get_user_activity_stats
-from config import ACTIVITIES as act, PROGRESS_CHANNEL_ID
+from config import PROGRESS_CHANNEL_ID
+from activity_embed import build_activity_embed
 
 PHOTO_THREAD_ID = 1245416699453509682
 
@@ -41,28 +42,10 @@ class TreningButton(discord.ui.View):
                 )
                 return
 
-            streak_count = result.get("streak_count", 1)
-
-            embed = discord.Embed(title="Aktywność", color=0x280586)
-            embed.add_field(
-                name="",
-                value=f"🔥 To {streak_count} trening w tym miesiącu!",
-            )
-
-            avatar = interaction.user.avatar or interaction.user.default_avatar
-            embed.set_thumbnail(url=avatar.url)
-
             all_stats = get_user_activity_stats(user_id)
-            if all_stats:
-                for name, emoji in act.items():
-                    streak_key = f"streak_{name}"
-                    count = all_stats.get(streak_key, 0)
-                    if count > 0:
-                        embed.add_field(
-                            name=f"{emoji} {name.capitalize()}: {count}",
-                            value="",
-                            inline=False,
-                        )
+            embed = build_activity_embed(
+                interaction.user, "trening", result, all_stats
+            )
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
 

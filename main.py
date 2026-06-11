@@ -112,6 +112,7 @@ EXTENSIONS = [
     "cogs.qacog",
     "cogs.queue_cog",
     "cogs.photo_reply",
+    "cogs.meditation_voice",
 ]
 
 # Function to load extensions

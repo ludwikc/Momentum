@@ -10,8 +10,18 @@ logger = logging.getLogger("momentum_bot.photo_reply")
 
 
 class TreningButton(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
+    def __init__(self, author_id: int):
+        super().__init__(timeout=86400)  # 24 h; use /done after that
+        self.author_id = author_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(
+                "Ten przycisk jest tylko dla autora zdjęcia. Użyj /done, żeby dodać swój trening.",
+                ephemeral=True,
+            )
+            return False
+        return True
 
     @discord.ui.button(
         label="💪 Dodaj trening",
@@ -74,7 +84,6 @@ class TreningButton(discord.ui.View):
 class PhotoReplyListener(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        bot.add_view(TreningButton())
         logger.info("PhotoReplyListener cog initialized")
 
     @commands.Cog.listener()
@@ -96,7 +105,7 @@ class PhotoReplyListener(commands.Cog):
         try:
             await message.reply(
                 "Wszedł trening? Dodaj go na #progress-tracker!",
-                view=TreningButton(),
+                view=TreningButton(author_id=message.author.id),
             )
         except Exception as e:
             logger.error(f"Error sending photo reply: {e}")

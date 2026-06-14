@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import logging
 import random
-from datetime import date
+from db import claim_daily_greeting
 
 logger = logging.getLogger("momentum_bot.queue")
 
@@ -25,7 +25,6 @@ class QueueCog(commands.Cog):
         self.bot = bot
         self.queue = []  # Lista użytkowników (FIFO), duplikaty dozwolone
         self.current_index = 0  # Indeks aktualnego mówcy
-        self.deepwork_greeted = {}  # {user_id: date} — raz dziennie
         logger.info("QueueCog initialized")
 
     def get_voice_channel(self):
@@ -65,13 +64,18 @@ class QueueCog(commands.Cog):
             text_channel = voice_channel.guild.system_channel or voice_channel
             await text_channel.send(f"Cześć {member.mention}")
 
-        # Greet user joining the deepwork voice channel (once per day)
+        # Greet user joining the deepwork voice channel (once per day, persistent
+        # across restarts via Supabase claim_daily_greeting).
         joined_deepwork = (before.channel is None or before.channel.id != DEEPWORK_CHANNEL_ID) and \
                           after.channel is not None and after.channel.id == DEEPWORK_CHANNEL_ID
         if joined_deepwork and not member.bot:
-            today = date.today()
-            if self.deepwork_greeted.get(member.id) != today:
-                self.deepwork_greeted[member.id] = today
+            should_greet = False
+            try:
+                claim = claim_daily_greeting(str(member.id), "deep_work")
+                should_greet = bool(claim and claim.get("claimed"))
+            except Exception as e:
+                logger.error(f"claim_daily_greeting failed for {member.id}: {e}")
+            if should_greet:
                 deepwork_channel = self.bot.get_channel(DEEPWORK_CHANNEL_ID)
                 if deepwork_channel:
                     text_channel = deepwork_channel.guild.system_channel or deepwork_channel

@@ -133,6 +133,19 @@ def get_deep_work_seconds(discord_id: str) -> dict:
     return result.data
 
 
+def claim_daily_greeting(discord_id: str, key: str) -> dict:
+    """Atomically claim a once-per-day greeting (Warsaw day), persistent across
+    restarts. Returns {claimed: true} only for the first call per (user, key)
+    on a given day; later calls return {claimed: false}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "claim_daily_greeting",
+        {"p_discord_id": discord_id, "p_key": key}
+    ).execute()
+
+    return result.data
+
+
 # === Wake-up / Morning Check-in Functions ===
 
 def check_morning_checkin(discord_id: str) -> dict:

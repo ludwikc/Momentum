@@ -217,19 +217,22 @@ BEGIN
         'streak_sukces',    COALESCE(ua.streak_sukces, 0),
         'streak_dziennik',  COALESCE(ua.streak_dziennik, 0),
         'last_reset', ua.last_reset,
-        'total_trening',   COALESCE(t.total_trening, 0),
-        'total_medytacja', COALESCE(t.total_medytacja, 0),
-        'total_sukces',    COALESCE(t.total_sukces, 0),
-        'total_dziennik',  COALESCE(t.total_dziennik, 0)
+        'total_trening',        COALESCE(t.total_trening, 0),
+        'total_medytacja',      COALESCE(t.total_medytacja, 0),
+        'total_sukces',         COALESCE(t.total_sukces, 0),
+        'total_dziennik',       COALESCE(t.total_dziennik, 0),
+        'total_daily_coaching', COALESCE(t.total_daily_coaching, 0),
+        'total_deep_work_seconds', COALESCE(ua.deep_work_seconds, 0)
     ) INTO v_result
     FROM (SELECT p_discord_id AS discord_id) base
     LEFT JOIN user_activities ua ON ua.discord_id = base.discord_id
     LEFT JOIN (
         SELECT discord_id,
-            COUNT(*) FILTER (WHERE activity_type = 'trening')   AS total_trening,
-            COUNT(*) FILTER (WHERE activity_type = 'medytacja') AS total_medytacja,
-            COUNT(*) FILTER (WHERE activity_type = 'sukces')    AS total_sukces,
-            COUNT(*) FILTER (WHERE activity_type = 'dziennik')  AS total_dziennik
+            COUNT(*) FILTER (WHERE activity_type = 'trening')        AS total_trening,
+            COUNT(*) FILTER (WHERE activity_type = 'medytacja')      AS total_medytacja,
+            COUNT(*) FILTER (WHERE activity_type = 'sukces')         AS total_sukces,
+            COUNT(*) FILTER (WHERE activity_type = 'dziennik')       AS total_dziennik,
+            COUNT(*) FILTER (WHERE activity_type = 'daily_coaching') AS total_daily_coaching
         FROM activity_logs
         WHERE discord_id = p_discord_id
         GROUP BY discord_id
@@ -435,6 +438,7 @@ DECLARE
     v_today_count INTEGER;
     v_monthly_count INTEGER;
     v_total_count INTEGER;
+    v_consecutive_count INTEGER;
     v_portal_user_id UUID;
 BEGIN
     -- Enforce the daily cap (Warsaw day)
@@ -464,9 +468,25 @@ BEGIN
     WHERE discord_id = p_discord_id
       AND activity_type = p_activity;
 
+    -- Consecutive-day streak ending today (distinct Warsaw-local days; gaps-and-islands)
+    WITH days AS (
+        SELECT DISTINCT (logged_at AT TIME ZONE 'Europe/Warsaw')::date AS d
+        FROM activity_logs
+        WHERE discord_id = p_discord_id AND activity_type = p_activity
+    ),
+    islands AS (
+        SELECT d, d - (ROW_NUMBER() OVER (ORDER BY d) * INTERVAL '1 day') AS grp
+        FROM days
+    )
+    SELECT COUNT(*) INTO v_consecutive_count
+    FROM islands
+    WHERE grp = (SELECT grp FROM islands ORDER BY d DESC LIMIT 1);
+
     RETURN json_build_object(
         'logged', true,
+        'streak_count', v_monthly_count,
         'monthly_count', v_monthly_count,
+        'consecutive_count', v_consecutive_count,
         'total_count', v_total_count
     );
 END;

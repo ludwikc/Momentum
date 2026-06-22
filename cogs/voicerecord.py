@@ -25,6 +25,7 @@ from config import (
     RECORDING_THANKYOU_VOICE_CHANNEL_IDS,
     RECORDING_THANKYOU_CHANNEL_ID,
     RECORDING_SUMMARY_CHANNEL_ID,
+    RECORDING_MIN_PARTICIPANTS,
 )
 
 # Add DAVE (E2EE) decryption support to voice_recv — without this, Discord's
@@ -233,6 +234,9 @@ class VoiceRecord(commands.Cog):
         # Snapshot panel/participant data before teardown clears the recording state.
         channel, started, rec_id = self.channel, self.start_time, self.rec_id
         participants = list(self.participants)
+        # The thank-you and summary are only worth posting for an actual group
+        # call — skip both when fewer than RECORDING_MIN_PARTICIPANTS took part.
+        enough_participants = len(participants) >= RECORDING_MIN_PARTICIPANTS
         panel, self._panel_msg = self._panel_msg, None
         channel_name = channel.name if channel else "?"
         link: str | None = None
@@ -287,8 +291,9 @@ class VoiceRecord(commands.Cog):
                     msg = (f"🎙️ Nagranie z **#{channel_name}**{suffix} zapisane lokalnie: `{mp3_path}`\n"
                            f"_(Google Drive nie jest skonfigurowany — ustaw GDRIVE_SA_JSON i GDRIVE_FOLDER_ID.)_")
 
-                # Post the AI summary regardless of where the audio ended up.
-                if summary:
+                # Post the AI summary (only for a real group call), regardless of
+                # where the audio ended up.
+                if summary and enough_participants:
                     await self._post_summary(channel, started, summary)
 
         await self._notify(msg)
@@ -301,8 +306,10 @@ class VoiceRecord(commands.Cog):
             except Exception as e:
                 logger.debug("Panel update on stop failed: %s", e)
 
-        # Thank the participants in the announce channel (configured channels only).
-        if channel is not None and channel.id in RECORDING_THANKYOU_VOICE_CHANNEL_IDS:
+        # Thank the participants in the announce channel (configured channels only,
+        # and only for a real group call).
+        if (channel is not None and channel.id in RECORDING_THANKYOU_VOICE_CHANNEL_IDS
+                and enough_participants):
             await self._post_thankyou(participants)
 
         return msg

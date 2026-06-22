@@ -40,6 +40,10 @@ DAILY_INVITE_TIME = "12:34"                           # Warsaw time (HH:MM)
 RECORDING_THANKYOU_VOICE_CHANNEL_IDS = [1120658406160732160]
 RECORDING_THANKYOU_CHANNEL_ID = 1128649406640558110
 
+# The thank-you greeting and the AI summary are only posted when at least this
+# many distinct people took part in the recorded call (a 1-person call is skipped).
+RECORDING_MIN_PARTICIPANTS = 2
+
 # OpenAI transcription + summary (transcribe.py). Stays off unless OPENAI_API_KEY
 # is set in the environment. After a recording stops, the audio is transcribed and
 # an AI summary is posted to RECORDING_SUMMARY_CHANNEL_ID.

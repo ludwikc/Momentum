@@ -289,7 +289,7 @@ class VoiceRecord(commands.Cog):
 
                 # Post the AI summary regardless of where the audio ended up.
                 if summary:
-                    await self._post_summary(channel_name, summary, link)
+                    await self._post_summary(channel, started, summary)
 
         await self._notify(msg)
 
@@ -341,23 +341,27 @@ class VoiceRecord(commands.Cog):
             except OSError:
                 pass
 
-    async def _post_summary(self, channel_name: str, summary: str, link: str | None):
-        """Post the AI-generated summary to the configured summary channel."""
-        channel = self.bot.get_channel(RECORDING_SUMMARY_CHANNEL_ID)
-        if channel is None:
+    async def _post_summary(self, rec_channel, started_at, summary: str):
+        """Post the AI-generated summary to the configured summary channel.
+
+        The header references the recorded voice channel (as a clickable mention)
+        and the recording date. The Google Drive link is deliberately NOT included
+        here — that link goes only to the mod-only notify channel.
+        """
+        target = self.bot.get_channel(RECORDING_SUMMARY_CHANNEL_ID)
+        if target is None:
             logger.error("Summary channel %s not found", RECORDING_SUMMARY_CHANNEL_ID)
             return
-        embed = discord.Embed(
-            title=f"📝 Podsumowanie nagrania — #{channel_name}",
-            # Embed descriptions are capped at 4096 chars.
-            description=summary[:4096],
-            color=GREEN,
-        )
-        if link:
-            embed.add_field(name="Nagranie", value=f"[Google Drive]({link})", inline=False)
+        # Channel mentions render in embed descriptions (but not in embed titles),
+        # so the header lives at the top of the description.
+        date = f"<t:{int(started_at.timestamp())}:D>" if started_at is not None else ""
+        chan_ref = rec_channel.mention if rec_channel is not None else "kanału głosowego"
+        header = f"{chan_ref} z dn. {date}".strip()
+        description = f"**{header}**\n\n{summary}"
+        embed = discord.Embed(description=description[:4096], color=GREEN)  # 4096 char cap
         try:
-            await channel.send(embed=embed)
-            logger.info("Posted recording summary for #%s", channel_name)
+            await target.send(embed=embed)
+            logger.info("Posted recording summary for %s", header)
         except Exception as e:
             logger.error("Failed to post summary: %s", e)
 

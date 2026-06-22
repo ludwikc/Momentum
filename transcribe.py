@@ -96,7 +96,6 @@ _SUMMARY_SYSTEM_PROMPT = (
     "Odpowiadaj zawsze po polsku, w formacie Markdown, używając sekcji:\n"
     "**📌 Główne tematy** — punktowana lista omówionych zagadnień.\n"
     "**💡 Kluczowe wnioski** — najważniejsze myśli i spostrzeżenia.\n"
-    "**✅ Zadania / następne kroki** — konkretne action-items (pomiń sekcję, jeśli ich brak).\n"
     "Pisz zwięźle i konkretnie. Pomiń small-talk i powitania."
 )
 

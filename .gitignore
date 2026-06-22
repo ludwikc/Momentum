@@ -9,3 +9,5 @@ images.py
 .env
 bot.log
 venv/
+gdrive_service_account.json
+recordings/

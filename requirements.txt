@@ -8,3 +8,12 @@ supabase>=2.0.0
 
 # Legacy - can be removed after migration verification
 # pymongo>=4.6.0
+
+# Voice recording (cogs.voicerecord, /nagraj) — install with: pip install -r requirements.txt --pre
+PyNaCl>=1.5.0
+discord-ext-voice-recv>=0.5.0a0
+google-api-python-client>=2.0.0
+google-auth>=2.0.0
+
+# Recording transcription + summary
+openai>=1.0.0

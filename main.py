@@ -81,10 +81,19 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info(f"Connected to {len(bot.guilds)} servers")
 
-    # Sync slash commands
+    # Sync slash commands. This bot is single-server, so we register commands
+    # per-guild (they appear instantly, vs ~1h for global). Global and guild
+    # commands are separate namespaces — keeping both would list every command
+    # twice, so we copy commands to each guild and then clear the global set.
     try:
-        synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} commands")
+        for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
+            gsynced = await bot.tree.sync(guild=guild)
+            logger.info(f"Synced {len(gsynced)} commands to guild {guild.name} ({guild.id})")
+        # Remove global registrations so commands don't show up twice.
+        bot.tree.clear_commands(guild=None)
+        await bot.tree.sync()
+        logger.info("Cleared global commands (using per-guild commands)")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
@@ -114,6 +123,8 @@ EXTENSIONS = [
     "cogs.photo_reply",
     "cogs.meditation_voice",
     "cogs.session_tracker",
+    "cogs.voicerecord",  # /nagraj voice recording → Google Drive
+    "cogs.daily_invite",  # daily @here invite to the Daily Coaching channel
 ]
 
 # Function to load extensions

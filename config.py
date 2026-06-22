@@ -16,3 +16,33 @@ ACTIVITIES = {
 MORNING_GREETING_START_HOUR = 4
 MORNING_GREETING_END_HOUR = 6
 MORNING_GREETING_END_MINUTE = 55
+
+# Voice recording (cogs.voicerecord) settings
+RECORDING_NOTIFY_CHANNEL_ID = 1015575570760880168  # channel where Drive links are posted
+RECORDING_MAX_MINUTES = 120         # safety cap before a recording auto-stops
+
+# Auto-record: start when a watched voice channel has >= AUTO_RECORD_MIN_MEMBERS
+# non-bot members, stop when it drops below. Manual /nagraj works independently.
+AUTO_RECORD_ENABLED = True
+AUTO_RECORD_CHANNEL_IDS = [1120658406160732160]  # voice channels watched for auto-record
+AUTO_RECORD_MIN_MEMBERS = 2
+
+# Channels where the "now recording" intro (data/now_recording.*) is played on start.
+START_SOUND_CHANNEL_IDS = [1120658406160732160]
+
+# Daily invite announcement (cogs.daily_invite)
+DAILY_INVITE_CHANNEL_ID = 1128649406640558110        # where the @here invite is posted
+DAILY_INVITE_VOICE_CHANNEL_ID = 1120658406160732160  # voice channel linked in the message
+DAILY_INVITE_TIME = "12:34"                           # Warsaw time (HH:MM)
+
+# After recording one of these voice channels stops, post a thank-you listing
+# everyone who participated to RECORDING_THANKYOU_CHANNEL_ID.
+RECORDING_THANKYOU_VOICE_CHANNEL_IDS = [1120658406160732160]
+RECORDING_THANKYOU_CHANNEL_ID = 1128649406640558110
+
+# OpenAI transcription + summary (transcribe.py). Stays off unless OPENAI_API_KEY
+# is set in the environment. After a recording stops, the audio is transcribed and
+# an AI summary is posted to RECORDING_SUMMARY_CHANNEL_ID.
+RECORDING_SUMMARY_CHANNEL_ID = 1128649406640558110  # where the AI summary is posted
+OPENAI_TRANSCRIBE_MODEL = "whisper-1"
+OPENAI_SUMMARY_MODEL = "gpt-4o-mini"

@@ -1,5 +1,5 @@
 """Unit tests for the pure summoning helpers (no discord/openai imports)."""
-from summon import build_summon_prompt, is_summon
+from summon import build_summon_prompt, is_param_compat_error, is_summon
 
 
 # --- is_summon ----------------------------------------------------------------
@@ -83,3 +83,26 @@ def test_compose_excludes_other_bots_from_participants_but_keeps_in_transcript()
     assert "InnyBot = " not in result          # other bots never become pingable participants
     assert "InnyBot: reklama" in result        # but their messages stay in the window
     assert result.split("\n\n")[0] == f"{_HEADER}\nTomek = <@1>"
+
+
+# --- is_param_compat_error ----------------------------------------------------
+
+def test_param_compat_error_detects_max_tokens():
+    assert is_param_compat_error(
+        "Unsupported parameter: 'max_tokens' is not supported with this model. "
+        "Use 'max_completion_tokens' instead."
+    ) is True
+
+
+def test_param_compat_error_detects_temperature():
+    assert is_param_compat_error(
+        "Unsupported value: 'temperature' does not support 0.8 with this model. "
+        "Only the default (1) value is supported."
+    ) is True
+
+
+def test_param_compat_error_ignores_unrelated_errors():
+    assert is_param_compat_error("Rate limit reached for requests") is False
+    assert is_param_compat_error("You exceeded your current quota (insufficient_quota)") is False
+    assert is_param_compat_error("Incorrect API key provided") is False
+    assert is_param_compat_error("") is False

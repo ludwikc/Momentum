@@ -27,6 +27,18 @@ def is_summon(content: str, bot_mentioned: bool) -> bool:
     return bot_mentioned or bool(_SUMMON_RE.search(content))
 
 
+def is_param_compat_error(message: str) -> bool:
+    """True when an OpenAI error looks like a model parameter-compatibility issue.
+
+    Newer models (gpt-5 class) reject ``max_tokens`` and a non-default
+    ``temperature`` (asking for ``max_completion_tokens`` / the default instead).
+    When the error names one of those parameters, the caller should retry with
+    the conservative parameter set rather than give up.
+    """
+    lowered = message.lower()
+    return any(hint in lowered for hint in ("max_tokens", "max_completion_tokens", "temperature"))
+
+
 def build_summon_prompt(window: list[dict], bot_user_id: int) -> str:
     """Build the OpenAI ``user`` message: participants map + transcript + closing.
 

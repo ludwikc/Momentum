@@ -22,7 +22,7 @@ from config import (
     MOMENTUM_MODEL,
     MOMENTUM_TEMPERATURE,
 )
-from summon import build_summon_prompt, is_summon
+from summon import build_summon_prompt, is_param_compat_error, is_summon
 
 logger = logging.getLogger("momentum_bot.przywolanie")
 
@@ -78,19 +78,37 @@ def _generate_reply(user_msg: str) -> str:
 
     Same pattern as ``transcribe.py``: a synchronous client built from
     OPENAI_API_KEY, imported lazily so an unset key never breaks cog loading.
+
+    Newer models (gpt-5 class) reject ``max_tokens`` and a non-default
+    ``temperature``; if the first call fails on such a parameter, retry once
+    with the conservative set (``max_completion_tokens``, default temperature).
     """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    resp = client.chat.completions.create(
-        model=MOMENTUM_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=MOMENTUM_TEMPERATURE,
-        max_tokens=MOMENTUM_MAX_TOKENS,
-    )
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_msg},
+    ]
+    try:
+        resp = client.chat.completions.create(
+            model=MOMENTUM_MODEL,
+            messages=messages,
+            temperature=MOMENTUM_TEMPERATURE,
+            max_tokens=MOMENTUM_MAX_TOKENS,
+        )
+    except Exception as e:
+        if not is_param_compat_error(str(e)):
+            raise
+        logger.info(
+            "Model %s odrzucił max_tokens/temperature — ponawiam z max_completion_tokens",
+            MOMENTUM_MODEL,
+        )
+        resp = client.chat.completions.create(
+            model=MOMENTUM_MODEL,
+            messages=messages,
+            max_completion_tokens=MOMENTUM_MAX_TOKENS,
+        )
     return (resp.choices[0].message.content or "").strip()
 
 

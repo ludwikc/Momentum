@@ -50,3 +50,11 @@ RECORDING_MIN_PARTICIPANTS = 2
 RECORDING_SUMMARY_CHANNEL_ID = 1128649406640558110  # where the AI summary is posted
 OPENAI_TRANSCRIBE_MODEL = "whisper-1"
 OPENAI_SUMMARY_MODEL = "gpt-4o-mini"
+
+# Momentum conversational summoning (cogs.przywolanie). Replies in-thread only
+# when called by name ("Momentum") or @mention; uses the same OPENAI_API_KEY as
+# transcribe.py.
+MOMENTUM_MODEL = "gpt-5.2"        # OpenAI model used for in-conversation replies
+MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
+MOMENTUM_MAX_TOKENS = 250         # keep replies short (a few sentences)
+MOMENTUM_TEMPERATURE = 0.8        # personality without chaos

@@ -125,6 +125,7 @@ EXTENSIONS = [
     "cogs.session_tracker",
     "cogs.voicerecord",  # /nagraj voice recording → Google Drive
     "cogs.daily_invite",  # daily @here invite to the Daily Coaching channel
+    "cogs.przywolanie",  # Momentum replies when summoned by name in a conversation
 ]
 
 # Function to load extensions

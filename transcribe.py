@@ -42,7 +42,7 @@ def _compress_for_upload(audio_path: str) -> str:
     fd, out_path = tempfile.mkstemp(suffix=".ogg")
     os.close(fd)
     proc = subprocess.run(
-        ["ffmpeg", "-y", "-i", audio_path,
+        ["ffmpeg", "-hide_banner", "-y", "-i", audio_path,
          "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "16k", out_path],
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     )

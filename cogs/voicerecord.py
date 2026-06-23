@@ -15,6 +15,7 @@ from discord.ext import voice_recv
 import dave_patch
 import gdrive
 import transcribe
+from mixsink import MixingWaveSink
 from config import (
     RECORDING_NOTIFY_CHANNEL_ID,
     RECORDING_MAX_MINUTES,
@@ -147,8 +148,12 @@ class VoiceRecord(commands.Cog):
         ts = datetime.now(self.warsaw).strftime("%Y-%m-%d-%H-%M-%S")
         slug = slug_channel_name(channel.name)
         wav_path = os.path.join(RECORDINGS_DIR, f"Lifehackerzy_{ts}_{slug}_{rec_id}.wav")
-        # SilenceGeneratorSink keeps the timeline intact when nobody is speaking.
-        sink = voice_recv.SilenceGeneratorSink(voice_recv.WaveSink(wav_path))
+        # MixingWaveSink sums every speaker onto one timeline and writes a single
+        # WAV. The library's WaveSink/SilenceGeneratorSink combo would instead
+        # concatenate per-speaker frames (N-speaker call -> ~N x too long) and let
+        # two threads race on the non-thread-safe wave file (corrupt header). See
+        # mixsink.py for the full story.
+        sink = MixingWaveSink(wav_path)
         vc.listen(sink, after=self._on_listen_done)
 
         # Play the "now recording" announcement out loud — only on configured
@@ -216,8 +221,11 @@ class VoiceRecord(commands.Cog):
     async def _transcode_to_mp3(self, wav_path: str) -> str | None:
         """WAV -> MP3 via ffmpeg. Returns mp3 path, or None on failure."""
         mp3_path = wav_path[:-4] + ".mp3" if wav_path.endswith(".wav") else wav_path + ".mp3"
+        # -hide_banner drops the ~1.5 KB version/configuration preamble so the
+        # captured stderr tail is the actual error, not the build banner (which
+        # previously masked the real "Invalid data found" message in the logs).
         proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", wav_path,
+            "ffmpeg", "-hide_banner", "-y", "-i", wav_path,
             "-codec:a", "libmp3lame", "-qscale:a", "4", mp3_path,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
@@ -225,7 +233,7 @@ class VoiceRecord(commands.Cog):
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
             logger.error("ffmpeg transcode failed (%s): %s", proc.returncode,
-                         stderr.decode("utf-8", "replace")[-500:])
+                         stderr.decode("utf-8", "replace")[-1000:])
             return None
         return mp3_path
 

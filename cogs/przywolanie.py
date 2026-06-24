@@ -8,23 +8,46 @@ okno rozmowy. Logika czysta (trigger, budowa promptu) żyje w ``summon.py``.
 
 OpenAI jest wołane tym samym wzorcem co ``transcribe.py``: synchroniczny klient
 budowany z OPENAI_API_KEY, wywoływany przez ``asyncio.to_thread`` (sieć blokuje).
+
+Zabezpieczenia (config.MOMENTUM_*):
+- DM-y obsługujemy tylko od właściciela (MOMENTUM_OWNER_ID); wiadomości
+  prywatne od kogokolwiek innego są ignorowane w całości.
+- Każdy poza właścicielem może przywołać bota najwyżej MOMENTUM_DAILY_LIMIT
+  razy dziennie (czas warszawski) — limit sprawdzany PRZED wywołaniem modelu,
+  więc zablokowany użytkownik nie kosztuje tokenów.
 """
 import asyncio
 import logging
 import os
+from datetime import datetime
 
 import discord
 from discord.ext import commands
 
 from config import (
     MOMENTUM_CONTEXT_MESSAGES,
+    MOMENTUM_DAILY_LIMIT,
     MOMENTUM_MAX_TOKENS,
     MOMENTUM_MODEL,
+    MOMENTUM_OWNER_ID,
     MOMENTUM_TEMPERATURE,
 )
-from summon import build_summon_prompt, is_param_compat_error, is_summon
+from summon import DailyRateLimiter, build_summon_prompt, is_param_compat_error, is_summon
 
 logger = logging.getLogger("momentum_bot.przywolanie")
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _WARSAW = ZoneInfo("Europe/Warsaw")
+except Exception:  # pragma: no cover - fallback if tzdata is unavailable
+    _WARSAW = None
+
+
+def _today_key() -> str:
+    """Warsaw-local date as ``YYYY-MM-DD`` — the daily bucket for rate limiting."""
+    now = datetime.now(_WARSAW) if _WARSAW else datetime.now()
+    return now.date().isoformat()
 
 SYSTEM_PROMPT = """Jesteś Momentum — pełnoprawnym członkiem społeczności Lifehackerów.
 Nie jesteś "botem od zadań" ani narzędziem. Jesteś częścią tej
@@ -115,6 +138,7 @@ def _generate_reply(user_msg: str) -> str:
 class Przywolanie(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.rate_limiter = DailyRateLimiter(MOMENTUM_DAILY_LIMIT)
         logger.info("Przywolanie cog initialized")
 
     @commands.Cog.listener()
@@ -122,18 +146,39 @@ class Przywolanie(commands.Cog):
         # Never react to ourselves or other bots (prevents loops).
         if message.author.bot:
             return
-        # Server channels and threads only — ignore DMs.
-        if message.guild is None:
+
+        is_dm = message.guild is None
+        is_owner = message.author.id == MOMENTUM_OWNER_ID
+        # DMs are private to the owner. Anyone else messaging the bot directly
+        # is ignored completely — no reply, no model call.
+        if is_dm and not is_owner:
             return
 
         try:
             bot_mentioned = self.bot.user in message.mentions
-            if not is_summon(message.content, bot_mentioned):
+            # In a DM the owner is talking to the bot one-on-one, so every
+            # message is a summon. In servers the usual trigger still applies.
+            summoned = True if is_dm else is_summon(message.content, bot_mentioned)
+            if not summoned:
                 return
 
             # No key configured → stay silent (same guard as transcribe.py).
+            # Checked before the daily limit so a no-key no-op never burns a
+            # user's allowance.
             if not os.getenv("OPENAI_API_KEY"):
                 logger.warning("Momentum przywołany, ale brak OPENAI_API_KEY — pomijam")
+                return
+
+            # Per-user daily cap to protect the OpenAI budget. The owner is
+            # exempt; everyone else is throttled before the model call.
+            if not is_owner and not self.rate_limiter.allow(
+                message.author.id, _today_key()
+            ):
+                logger.info(
+                    "Dzienny limit (%s) wyczerpany przez %s — pomijam",
+                    MOMENTUM_DAILY_LIMIT,
+                    message.author.id,
+                )
                 return
 
             logger.info(

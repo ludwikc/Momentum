@@ -1,5 +1,10 @@
 """Unit tests for the pure summoning helpers (no discord/openai imports)."""
-from summon import build_summon_prompt, is_param_compat_error, is_summon
+from summon import (
+    DailyRateLimiter,
+    build_summon_prompt,
+    is_param_compat_error,
+    is_summon,
+)
 
 
 # --- is_summon ----------------------------------------------------------------
@@ -83,6 +88,34 @@ def test_compose_excludes_other_bots_from_participants_but_keeps_in_transcript()
     assert "InnyBot = " not in result          # other bots never become pingable participants
     assert "InnyBot: reklama" in result        # but their messages stay in the window
     assert result.split("\n\n")[0] == f"{_HEADER}\nTomek = <@1>"
+
+
+# --- DailyRateLimiter ---------------------------------------------------------
+
+def test_rate_limiter_allows_up_to_limit_then_blocks():
+    rl = DailyRateLimiter(limit=5)
+    assert [rl.allow(1, "2026-06-24") for _ in range(5)] == [True] * 5
+    assert rl.allow(1, "2026-06-24") is False
+    assert rl.allow(1, "2026-06-24") is False  # stays blocked
+
+
+def test_rate_limiter_is_per_user():
+    rl = DailyRateLimiter(limit=2)
+    assert rl.allow(1, "d") and rl.allow(1, "d")
+    assert rl.allow(1, "d") is False
+    assert rl.allow(2, "d") is True  # a different user has their own bucket
+
+
+def test_rate_limiter_resets_on_new_day():
+    rl = DailyRateLimiter(limit=1)
+    assert rl.allow(1, "2026-06-24") is True
+    assert rl.allow(1, "2026-06-24") is False
+    assert rl.allow(1, "2026-06-25") is True  # new day, fresh allowance
+
+
+def test_rate_limiter_zero_or_negative_limit_is_unlimited():
+    rl = DailyRateLimiter(limit=0)
+    assert all(rl.allow(1, "d") for _ in range(100))
 
 
 # --- is_param_compat_error ----------------------------------------------------

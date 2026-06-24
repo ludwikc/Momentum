@@ -27,6 +27,43 @@ def is_summon(content: str, bot_mentioned: bool) -> bool:
     return bot_mentioned or bool(_SUMMON_RE.search(content))
 
 
+class DailyRateLimiter:
+    """In-memory per-user daily call counter.
+
+    Used to cap token-costly OpenAI calls: each user may be allowed a fixed
+    number of calls per ``day_key`` (a caller-supplied day string, e.g. the
+    Warsaw-local date). Counts live in memory and reset both when the day key
+    changes and on process restart — deliberately avoiding a DB round-trip for
+    a soft, best-effort throttle.
+
+    Kept here (no discord/openai imports) so it is unit-testable in isolation,
+    same split as the rest of this module.
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        # user_id -> (day_key, count_so_far_today)
+        self._counts: dict[int, tuple[str, int]] = {}
+
+    def allow(self, user_id: int, day_key: str) -> bool:
+        """Record one use for ``user_id`` on ``day_key``; True if under the limit.
+
+        A non-positive ``limit`` means unlimited (always True, nothing tracked).
+        The use is only counted when allowed, so a blocked user does not push
+        their own counter higher on every rejected attempt.
+        """
+        if self.limit <= 0:
+            return True
+        day, count = self._counts.get(user_id, (day_key, 0))
+        if day != day_key:
+            count = 0
+        if count >= self.limit:
+            self._counts[user_id] = (day_key, count)
+            return False
+        self._counts[user_id] = (day_key, count + 1)
+        return True
+
+
 def is_param_compat_error(message: str) -> bool:
     """True when an OpenAI error looks like a model parameter-compatibility issue.
 

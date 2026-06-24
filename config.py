@@ -58,3 +58,11 @@ MOMENTUM_MODEL = "gpt-5.2"        # OpenAI model used for in-conversation replie
 MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
 MOMENTUM_MAX_TOKENS = 250         # keep replies short (a few sentences)
 MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
+
+# Safety / abuse limits (cogs.przywolanie):
+# - Only the owner may DM the bot; everyone else's DMs are ignored outright.
+# - Each non-owner may trigger at most MOMENTUM_DAILY_LIMIT summons per day
+#   (Warsaw-local), checked before the OpenAI call so throttled users cost
+#   zero tokens. The owner is exempt from both limits.
+MOMENTUM_OWNER_ID = 404038151565213696
+MOMENTUM_DAILY_LIMIT = 5

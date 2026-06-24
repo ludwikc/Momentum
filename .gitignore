@@ -8,6 +8,9 @@ images.py
 .vscode
 .env
 bot.log
+bot.pid
 venv/
 gdrive_service_account.json
 recordings/
+/data/
+/Momentum/

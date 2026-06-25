@@ -13,5 +13,6 @@ venv/
 gdrive_service_account.json
 recordings/
 transcripts/
+backups/
 /data/
 /Momentum/

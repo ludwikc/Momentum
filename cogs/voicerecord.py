@@ -287,10 +287,26 @@ class VoiceRecord(commands.Cog):
                         # Store the transcript next to the audio (best-effort).
                         if transcript:
                             await self._upload_transcript(mp3_path, transcript)
-                        try:
-                            os.remove(mp3_path)  # uploaded — local copy not needed
-                        except OSError:
-                            pass
+                        # Only delete the single local copy once the Drive copy is
+                        # verified byte-for-byte (local MD5 == Drive's md5Checksum).
+                        # On any mismatch/missing hash, keep the local file so a
+                        # corrupted upload can never lose the recording.
+                        remote_md5 = info.get("md5Checksum")
+                        local_md5 = await asyncio.to_thread(gdrive.local_md5, mp3_path)
+                        if remote_md5 and remote_md5 == local_md5:
+                            try:
+                                os.remove(mp3_path)
+                                logger.info("Local recording deleted after verified "
+                                            "upload (md5=%s): %s", local_md5, mp3_path)
+                            except OSError as e:
+                                logger.warning("Verified upload but local delete failed "
+                                               "for %s: %s", mp3_path, e)
+                        else:
+                            logger.error("Drive upload hash mismatch for %s "
+                                         "(local=%s remote=%s) — keeping local copy",
+                                         mp3_path, local_md5, remote_md5)
+                            msg += ("\n⚠️ Nie udało się zweryfikować integralności kopii "
+                                    f"na Drive — lokalna kopia zachowana: `{mp3_path}`")
                     except Exception as e:
                         logger.error("Drive upload failed: %s", e)
                         msg = (f"🎙️ Nagranie z **#{channel_name}**{suffix} zapisane lokalnie "

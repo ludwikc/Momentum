@@ -9,6 +9,7 @@
 # If either is unset, is_configured() returns False and the caller should fall
 # back to keeping the recording locally.
 
+import hashlib
 import os
 import logging
 
@@ -41,7 +42,10 @@ def upload_file(local_path: str, name: str | None = None,
     """Upload a file to the configured Shared Drive folder.
 
     Blocking (network + disk) — call via asyncio.to_thread from async code.
-    Returns the created file resource: {"id": ..., "webViewLink": ...}.
+    Returns the created file resource:
+        {"id": ..., "webViewLink": ..., "md5Checksum": ..., "size": ...}.
+    md5Checksum is Drive's MD5 of the stored bytes — compare it against
+    local_md5() to confirm the upload arrived intact before deleting the local copy.
     """
     from googleapiclient.http import MediaFileUpload
 
@@ -57,9 +61,21 @@ def upload_file(local_path: str, name: str | None = None,
     file = service.files().create(
         body=metadata,
         media_body=media,
-        fields="id, webViewLink",
+        fields="id, webViewLink, md5Checksum, size",
         supportsAllDrives=True,  # required to write into a Shared Drive
     ).execute()
 
     logger.info("Uploaded %s to Drive (id=%s)", name, file.get("id"))
     return file
+
+
+def local_md5(path: str) -> str:
+    """MD5 hex digest of a local file, matching Drive's md5Checksum field.
+
+    Blocking (disk read) — call via asyncio.to_thread from async code.
+    """
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()

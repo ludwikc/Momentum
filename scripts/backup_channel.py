@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -24,7 +25,11 @@ from datetime import datetime, timedelta, timezone
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 
+from dotenv import load_dotenv  # noqa: E402
+load_dotenv(os.path.join(REPO_ROOT, ".env"))  # so GDRIVE_* (and friends) are available
+
 import discord  # noqa: E402
+import gdrive  # noqa: E402
 from private import DISCORD_TOKEN  # noqa: E402
 
 try:
@@ -112,7 +117,7 @@ async def _gather_threads(channel):
     return list(threads.values())
 
 
-async def run(count_only: bool):
+async def run(count_only: bool, no_upload: bool = False):
     cutoff = datetime.now(timezone.utc) - timedelta(days=MONTHS_BACK * 30)
     intents = discord.Intents.default()
     intents.message_content = True
@@ -207,8 +212,33 @@ async def run(count_only: bool):
         log.info("DONE -> %s  (%d messages, %d/%d attachments)",
                  out_dir, total_msgs, downloaded, total_attach)
         print(f"\nBackup written to: {out_dir}")
+
+        # Archive the whole backup and push it to Google Drive (the recordings
+        # Shared Drive folder) so it doesn't only live on this host.
+        drive_link = upload_to_drive(out_dir) if not no_upload else None
+        if drive_link:
+            print(f"Uploaded to Google Drive: {drive_link}")
     finally:
         await client.close()
+
+
+def upload_to_drive(out_dir: str):
+    """Zip `out_dir` and upload the archive to Drive. Returns the link or None."""
+    if not gdrive.is_configured():
+        log.warning("Google Drive not configured (GDRIVE_SA_JSON / GDRIVE_FOLDER_ID) "
+                    "— backup kept local only.")
+        return None
+    zip_path = shutil.make_archive(
+        out_dir, "zip", root_dir=os.path.dirname(out_dir), base_dir=os.path.basename(out_dir)
+    )
+    log.info("Zipped backup -> %s (%.1f MB)", zip_path, os.path.getsize(zip_path) / 1e6)
+    try:
+        info = gdrive.upload_file(zip_path, os.path.basename(zip_path), mime_type="application/zip")
+        log.info("Uploaded backup to Drive (id=%s)", info.get("id"))
+        return info.get("webViewLink")
+    except Exception as e:
+        log.error("Drive upload failed — backup kept local (%s): %s", zip_path, e)
+        return None
 
 
 def _write_markdown(path, ch_name, cutoff, main_recs, thread_blocks):
@@ -246,5 +276,6 @@ def _write_markdown(path, ch_name, cutoff, main_recs, thread_blocks):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Back up a Discord channel's recent messages.")
     ap.add_argument("--count", action="store_true", help="dry run: only print totals, write nothing")
+    ap.add_argument("--no-upload", action="store_true", help="skip the Google Drive upload (keep local only)")
     args = ap.parse_args()
-    asyncio.run(run(count_only=args.count))
+    asyncio.run(run(count_only=args.count, no_upload=args.no_upload))

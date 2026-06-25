@@ -126,6 +126,7 @@ EXTENSIONS = [
     "cogs.voicerecord",  # /nagraj voice recording → Google Drive
     "cogs.daily_invite",  # daily @here invite to the Daily Coaching channel
     "cogs.przywolanie",  # Momentum replies when summoned by name in a conversation
+    "cogs.reboot",  # /momentum-reboot — owner restarts the bot from Discord
 ]
 
 # Function to load extensions

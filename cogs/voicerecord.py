@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import re
@@ -27,6 +28,7 @@ from config import (
     RECORDING_THANKYOU_CHANNEL_ID,
     RECORDING_SUMMARY_CHANNEL_ID,
     RECORDING_MIN_PARTICIPANTS,
+    DIARIZATION_ENABLED,
 )
 
 # Add DAVE (E2EE) decryption support to voice_recv — without this, Discord's
@@ -268,7 +270,10 @@ class VoiceRecord(commands.Cog):
                 transcript = summary = None
                 if transcribe.is_configured():
                     try:
-                        transcript = await asyncio.to_thread(transcribe.transcribe, mp3_path)
+                        text, words = await asyncio.to_thread(
+                            transcribe.transcribe_words, mp3_path
+                        )
+                        transcript = self._build_transcript(text, words, wav_path)
                         if transcript:
                             summary = await asyncio.to_thread(
                                 transcribe.summarize, transcript, channel_name
@@ -354,6 +359,32 @@ class VoiceRecord(commands.Cog):
             logger.info("Posted thank-you for %d participant(s)", len(participants))
         except Exception as e:
             logger.error("Failed to post thank-you: %s", e)
+
+    def _build_transcript(self, text: str, words: list[dict], wav_path: str) -> str:
+        """Speaker-label the transcript using the sink's diarization sidecar.
+
+        The MixingWaveSink wrote `<wav>.diarization.json` (ground-truth speaking
+        timeline) next to the recording; we attribute each transcribed word to the
+        speaker active at that time. Falls back to the plain transcript if
+        diarization is disabled, the sidecar is missing, or anything goes wrong.
+        Consumes (deletes) the sidecar either way.
+        """
+        diar_path = wav_path + ".diarization.json"
+        if not (DIARIZATION_ENABLED and text and words and os.path.exists(diar_path)):
+            return text
+        try:
+            with open(diar_path, "r", encoding="utf-8") as f:
+                segments = json.load(f).get("segments") or []
+            labeled = transcribe.diarize(words, segments)
+            return labeled or text
+        except Exception as e:
+            logger.error("Diarization failed, using plain transcript: %s", e)
+            return text
+        finally:
+            try:
+                os.remove(diar_path)
+            except OSError:
+                pass
 
     async def _upload_transcript(self, mp3_path: str, transcript: str):
         """Write the transcript to a .txt next to the audio and upload it to Drive."""

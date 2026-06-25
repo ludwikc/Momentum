@@ -45,6 +45,7 @@
 # the real call length, ready for the existing transcode/transcribe/upload pipeline.
 
 import audioop
+import json
 import logging
 import threading
 import time
@@ -52,6 +53,8 @@ import wave
 from typing import Optional
 
 from discord.ext import voice_recv
+
+from config import DIARIZATION_GAP_FRAMES
 
 logger = logging.getLogger("momentum_bot.mixsink")
 
@@ -98,6 +101,13 @@ class MixingWaveSink(voice_recv.AudioSink):
         self._max_tick = -1       # highest tick placed so far (drives flushing)
         self._lock = threading.Lock()
         self._closed = False
+        # Diarization side-channel. Discord tells us which member every frame came
+        # from, so we record a speaking timeline (ground truth, no acoustic ML) and
+        # write it next to the WAV for the transcriber to attribute speakers by time.
+        # None of this touches the audio mix above — it's a pure observer.
+        self._speakers: dict[int, dict] = {}      # ssrc -> {"id", "name"}
+        self._open_seg: dict[int, dict] = {}      # ssrc -> {"start", "last"} (ticks)
+        self._segments: list[dict] = []           # finalized {"ssrc","start","end"}
 
     def wants_opus(self) -> bool:
         return False              # we need decoded PCM to mix
@@ -159,8 +169,33 @@ class MixingWaveSink(voice_recv.AudioSink):
                 self._max_tick = tick
             existing = self._buckets.get(tick)
             self._buckets[tick] = audioop.add(existing, pcm, _WIDTH) if existing else pcm
+            # Record who spoke at this tick (diarization side-channel — see __init__).
+            if ssrc is not None:
+                self._track_speaker(ssrc, user, tick)
             # Finalize ticks that are safely behind the newest audio we've placed.
             self._flush_through(self._max_tick - _REORDER_FRAMES)
+
+    def _track_speaker(self, ssrc: int, user, tick: int) -> None:
+        """Note that `ssrc` was speaking at `tick`, coalescing into turns.
+
+        Caller must hold self._lock.
+        """
+        # Refresh the speaker's identity whenever the router resolves it (the first
+        # frames of a stream can arrive before the member is known).
+        name = getattr(user, "display_name", None) or getattr(user, "name", None)
+        if name and self._speakers.get(ssrc, {}).get("name") != name:
+            self._speakers[ssrc] = {"id": getattr(user, "id", None), "name": name}
+
+        seg = self._open_seg.get(ssrc)
+        if seg is None:
+            self._open_seg[ssrc] = {"start": tick, "last": tick}
+        elif tick - seg["last"] <= DIARIZATION_GAP_FRAMES:
+            seg["last"] = max(seg["last"], tick)      # same turn — extend it
+        else:
+            # Gap too large: close the previous turn and open a new one. `end` is
+            # exclusive (last spoken tick + 1).
+            self._segments.append({"ssrc": ssrc, "start": seg["start"], "end": seg["last"] + 1})
+            self._open_seg[ssrc] = {"start": tick, "last": tick}
 
     def _flush_through(self, up_to: int) -> None:
         """Write every tick up to `up_to` in order, filling gaps with silence.
@@ -182,5 +217,36 @@ class MixingWaveSink(voice_recv.AudioSink):
                 self._wav.close()
             except Exception as e:
                 logger.error("Error closing mixed wav %s: %s", self.path, e)
+            self._write_diarization_sidecar()
         logger.info("Mixed recording finalized: %s (%d frames, %.1f s)",
                     self.path, self._next_tick, self._next_tick * _FRAME_SECONDS)
+
+    def _write_diarization_sidecar(self) -> None:
+        """Write the speaking timeline to `<wav>.diarization.json` (best-effort).
+
+        Caller must hold self._lock. Never raises — a missing sidecar just means the
+        transcript falls back to its un-labeled form.
+        """
+        # Close any still-open turns.
+        segments = list(self._segments)
+        for ssrc, seg in self._open_seg.items():
+            segments.append({"ssrc": ssrc, "start": seg["start"], "end": seg["last"] + 1})
+        if not segments:
+            return
+        segments.sort(key=lambda s: s["start"])
+        out = []
+        for s in segments:
+            who = self._speakers.get(s["ssrc"], {})
+            out.append({
+                "start": round(s["start"] * _FRAME_SECONDS, 2),
+                "end": round(s["end"] * _FRAME_SECONDS, 2),
+                "user_id": who.get("id"),
+                "name": who.get("name") or f"User-{s['ssrc']}",
+            })
+        path = self.path + ".diarization.json"
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"frame_seconds": _FRAME_SECONDS, "segments": out}, f, ensure_ascii=False)
+            logger.info("Diarization timeline written: %s (%d segments)", path, len(out))
+        except Exception as e:
+            logger.error("Failed to write diarization sidecar %s: %s", path, e)

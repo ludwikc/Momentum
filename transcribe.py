@@ -10,6 +10,7 @@
 
 import logging
 import os
+import re
 import subprocess
 import tempfile
 
@@ -58,8 +59,14 @@ def _compress_for_upload(audio_path: str) -> str:
     return out_path
 
 
-def transcribe(audio_path: str) -> str:
-    """Transcribe an audio file to text. Blocking — call via asyncio.to_thread."""
+def transcribe_words(audio_path: str) -> tuple[str, list[dict]]:
+    """Transcribe to text plus per-word timestamps.
+
+    Returns ``(text, words)`` where each word is ``{"word", "start", "end"}`` (seconds
+    from the start of the recording). Blocking — call via asyncio.to_thread. Word
+    timestamps need ``response_format="verbose_json"``, which only ``whisper-1``
+    supports; the timeline matches the diarization sidecar (both start at t=0).
+    """
     compressed = _compress_for_upload(audio_path)
     try:
         size = os.path.getsize(compressed)
@@ -74,18 +81,89 @@ def transcribe(audio_path: str) -> str:
                 model=OPENAI_TRANSCRIBE_MODEL,
                 file=f,
                 language=_TRANSCRIBE_LANGUAGE,
-                response_format="text",
+                response_format="verbose_json",
+                timestamp_granularities=["word"],
             )
     finally:
         try:
             os.remove(compressed)
         except OSError:
             pass
-    # response_format="text" returns the transcript as a plain string.
-    text = result if isinstance(result, str) else getattr(result, "text", "")
-    text = (text or "").strip()
-    logger.info("Transcribed %s (%d chars)", os.path.basename(audio_path), len(text))
-    return text
+    text = (getattr(result, "text", "") or "").strip()
+    words: list[dict] = []
+    for w in (getattr(result, "words", None) or []):
+        word = w.get("word") if isinstance(w, dict) else getattr(w, "word", None)
+        start = w.get("start") if isinstance(w, dict) else getattr(w, "start", None)
+        end = w.get("end") if isinstance(w, dict) else getattr(w, "end", None)
+        if word and start is not None and end is not None:
+            words.append({"word": word, "start": float(start), "end": float(end)})
+    logger.info("Transcribed %s (%d chars, %d words)",
+                os.path.basename(audio_path), len(text), len(words))
+    return text, words
+
+
+def transcribe(audio_path: str) -> str:
+    """Transcribe an audio file to plain text. Blocking — call via asyncio.to_thread."""
+    return transcribe_words(audio_path)[0]
+
+
+def _speaker_at(word: dict, segments: list[dict], last: str | None) -> str | None:
+    """Pick the speaker whose segment overlaps `word` the most.
+
+    Falls back to the previous word's speaker (continuity through gaps), then to the
+    nearest segment by midpoint, so every word gets attributed.
+    """
+    ws, we = word["start"], word["end"]
+    best_name, best_overlap = None, 0.0
+    for seg in segments:
+        overlap = min(we, seg["end"]) - max(ws, seg["start"])
+        if overlap > best_overlap:
+            best_overlap, best_name = overlap, seg["name"]
+    if best_overlap > 0:
+        return best_name
+    if last is not None:
+        return last
+    mid = (ws + we) / 2
+    nearest = min(
+        segments,
+        key=lambda s: 0 if s["start"] <= mid <= s["end"] else min(abs(mid - s["start"]), abs(mid - s["end"])),
+        default=None,
+    )
+    return nearest["name"] if nearest else None
+
+
+def diarize(words: list[dict], speaker_segments: list[dict]) -> str:
+    """Build a speaker-labeled transcript from word timestamps + a speaking timeline.
+
+    `words` come from transcribe_words(); `speaker_segments` from the sink's
+    `*.diarization.json`. Returns Markdown with one ``**Name:** text`` block per turn.
+    Falls back to the plain joined transcript when either input is missing.
+    """
+    if not words:
+        return ""
+    plain = _join_words(words)
+    if not speaker_segments:
+        return plain
+
+    segments = sorted(speaker_segments, key=lambda s: s["start"])
+    turns: list[tuple[str, list[dict]]] = []
+    last_name: str | None = None
+    for w in words:
+        name = _speaker_at(w, segments, last_name) or "?"
+        if turns and turns[-1][0] == name:
+            turns[-1][1].append(w)
+        else:
+            turns.append((name, [w]))
+        last_name = name
+
+    blocks = [f"**{name}:** {_join_words(ws)}" for name, ws in turns if _join_words(ws)]
+    return "\n\n".join(blocks) if blocks else plain
+
+
+def _join_words(words: list[dict]) -> str:
+    """Join Whisper word tokens into readable text (no space before punctuation)."""
+    text = " ".join(w["word"].strip() for w in words if w["word"].strip())
+    return re.sub(r"\s+([,.!?;:…])", r"\1", text).strip()
 
 
 _SUMMARY_SYSTEM_PROMPT = (

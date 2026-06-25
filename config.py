@@ -48,8 +48,19 @@ RECORDING_MIN_PARTICIPANTS = 2
 # is set in the environment. After a recording stops, the audio is transcribed and
 # an AI summary is posted to RECORDING_SUMMARY_CHANNEL_ID.
 RECORDING_SUMMARY_CHANNEL_ID = 1128649406640558110  # where the AI summary is posted
-OPENAI_TRANSCRIBE_MODEL = "whisper-1"
+OPENAI_TRANSCRIBE_MODEL = "whisper-1"  # must stay whisper-1: only it returns word timestamps
 OPENAI_SUMMARY_MODEL = "gpt-4o-mini"
+
+# Diarization (speaker-labeled transcripts). The MixingWaveSink already knows which
+# Discord member every audio frame came from, so we record a speaking timeline next
+# to the recording and attribute the Whisper transcript to speakers by timestamp —
+# no acoustic ML needed. Off only if explicitly disabled; otherwise on whenever
+# transcription is configured.
+DIARIZATION_ENABLED = True
+# Consecutive frames from the same speaker closer than this are treated as one turn,
+# so natural micro-pauses don't fragment a turn into many tiny segments. In 20 ms
+# frames: 25 = 0.5 s.
+DIARIZATION_GAP_FRAMES = 25
 
 # Momentum conversational summoning (cogs.przywolanie). Replies in-thread only
 # when called by name ("Momentum") or @mention; uses the same OPENAI_API_KEY as

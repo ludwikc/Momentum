@@ -186,7 +186,13 @@ def _run_tool(name: str, args: dict) -> str:
                 return f"W tym spotkaniu nie znalazłem wypowiedzi osoby '{osoba}'."
             body = filtered
         if len(body) > MOMENTUM_TRANSCRIPT_MAX_CHARS:
-            body = body[:MOMENTUM_TRANSCRIPT_MAX_CHARS] + "\n…[transkrypcja skrócona]"
+            full = len(body)
+            body = (
+                body[:MOMENTUM_TRANSCRIPT_MAX_CHARS]
+                + f"\n\n[UWAGA: to tylko pierwsze {MOMENTUM_TRANSCRIPT_MAX_CHARS} z {full} "
+                "znaków transkrypcji. Jeśli nie znajdujesz tu szukanej treści, powiedz, że "
+                "masz tylko jej fragment — nie twierdź, że czegoś nie powiedziano.]"
+            )
         return body
     return f"Nieznane narzędzie: {name}"
 

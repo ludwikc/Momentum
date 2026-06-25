@@ -75,7 +75,8 @@ MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
 # na wczorajszym spotkaniu". These bound that path.
 MOMENTUM_TRANSCRIPT_MAX_TOKENS = 700   # answers grounded in a transcript may run longer
 MOMENTUM_TRANSCRIPT_LIST_DAYS = 30     # default lookback when listing meetings
-MOMENTUM_TRANSCRIPT_MAX_CHARS = 12000  # cap a single transcript fed back to the model
+MOMENTUM_TRANSCRIPT_MAX_CHARS = 80000  # cap a single transcript fed back to the model
+                                       # (~1h ≈ 29k chars; fits a full 120-min call)
 MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summon
 
 # Safety / abuse limits (cogs.przywolanie):

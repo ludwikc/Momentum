@@ -70,6 +70,14 @@ MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
 MOMENTUM_MAX_TOKENS = 250         # keep replies short (a few sentences)
 MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
 
+# Momentum can look up past meeting transcripts (saved by the recorder under
+# transcripts/) via OpenAI tool-calls, so it can answer e.g. "co powiedział Jakub
+# na wczorajszym spotkaniu". These bound that path.
+MOMENTUM_TRANSCRIPT_MAX_TOKENS = 700   # answers grounded in a transcript may run longer
+MOMENTUM_TRANSCRIPT_LIST_DAYS = 30     # default lookback when listing meetings
+MOMENTUM_TRANSCRIPT_MAX_CHARS = 12000  # cap a single transcript fed back to the model
+MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summon
+
 # Safety / abuse limits (cogs.przywolanie):
 # - Only the owner may DM the bot; everyone else's DMs are ignored outright.
 # - Each non-owner may trigger at most MOMENTUM_DAILY_LIMIT summons per day

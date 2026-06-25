@@ -12,5 +12,6 @@ bot.pid
 venv/
 gdrive_service_account.json
 recordings/
+transcripts/
 /data/
 /Momentum/

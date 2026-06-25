@@ -16,6 +16,7 @@ from discord.ext import voice_recv
 import dave_patch
 import gdrive
 import transcribe
+import transcripts
 from mixsink import MixingWaveSink
 from config import (
     RECORDING_NOTIFY_CHANNEL_ID,
@@ -275,6 +276,13 @@ class VoiceRecord(commands.Cog):
                         )
                         transcript = self._build_transcript(text, words, wav_path)
                         if transcript:
+                            # Keep a local copy so Momentum can recall the meeting
+                            # later (transcripts/ is gitignored). Best-effort.
+                            if started is not None and rec_id is not None:
+                                await asyncio.to_thread(
+                                    transcripts.save_transcript, transcript,
+                                    started=started, channel_name=channel_name, rec_id=rec_id,
+                                )
                             summary = await asyncio.to_thread(
                                 transcribe.summarize, transcript, channel_name
                             )

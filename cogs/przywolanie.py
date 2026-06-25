@@ -3,8 +3,10 @@
 Przez większość czasu milczy. Gdy ktoś zwróci się do niego po imieniu
 ("Momentum") albo @-wzmianką, bot czyta ostatnie wiadomości z kanału/wątku
 i jednym wywołaniem modelu decyduje, czy faktycznie zaproszono go do rozmowy
-(model zwraca dokładnie [CISZA], jeśli nie). Bez RAG — kontekst to wyłącznie
-okno rozmowy. Logika czysta (trigger, budowa promptu) żyje w ``summon.py``.
+(model zwraca dokładnie [CISZA], jeśli nie). Kontekstem jest okno rozmowy, a
+gdy ktoś pyta o nagrane spotkanie, model może sięgnąć po zapisane transkrypcje
+(transcripts/) przez tool-calle ``lista_spotkan``/``czytaj_spotkanie``. Logika
+czysta (trigger, budowa promptu) żyje w ``summon.py``.
 
 OpenAI jest wołane tym samym wzorcem co ``transcribe.py``: synchroniczny klient
 budowany z OPENAI_API_KEY, wywoływany przez ``asyncio.to_thread`` (sieć blokuje).
@@ -17,6 +19,7 @@ Zabezpieczenia (config.MOMENTUM_*):
   więc zablokowany użytkownik nie kosztuje tokenów.
 """
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -24,6 +27,7 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
+import transcripts
 from config import (
     MOMENTUM_CONTEXT_MESSAGES,
     MOMENTUM_DAILY_LIMIT,
@@ -31,6 +35,10 @@ from config import (
     MOMENTUM_MODEL,
     MOMENTUM_OWNER_ID,
     MOMENTUM_TEMPERATURE,
+    MOMENTUM_TRANSCRIPT_MAX_TOKENS,
+    MOMENTUM_TRANSCRIPT_LIST_DAYS,
+    MOMENTUM_TRANSCRIPT_MAX_CHARS,
+    MOMENTUM_TOOL_ROUNDS,
 )
 from summon import DailyRateLimiter, build_summon_prompt, is_param_compat_error, is_summon
 
@@ -86,39 +94,115 @@ JĘZYK:
 - Zero pozy guru, zero mistycyzmu, zero sztucznej głębi. Jesteś
   spostrzegawczym, równym kumplem ze społeczności, nie wyrocznią.
 
+PAMIĘĆ ZE SPOTKAŃ:
+- Bywasz na nagrywanych spotkaniach społeczności i masz dostęp do ich
+  transkrypcji. Gdy ktoś pyta, co padło na spotkaniu/nagraniu/rozmowie albo
+  co ktoś konkretny powiedział ("co powiedział Jakub na wczorajszym
+  spotkaniu", "o czym była ostatnia rozmowa") — to jest wyraźne pytanie do
+  Ciebie, więc NIE milczysz. Skorzystaj z narzędzi:
+  • lista_spotkan — żeby zobaczyć dostępne spotkania (data, kanał, uczestnicy, id),
+  • czytaj_spotkanie — żeby przeczytać transkrypcję (z parametrem 'osoba',
+    gdy pytanie dotyczy jednej osoby).
+- Daty względne ("wczoraj", "ostatnie", "w poniedziałek") rozwiązuj na
+  podstawie podanej dzisiejszej daty i dat z listy spotkań.
+- Odpowiadaj WYŁĄCZNIE na podstawie transkrypcji — nie zmyślaj. Jeśli nie ma
+  takiego spotkania albo dana osoba nic nie powiedziała, powiedz to wprost.
+- To sięganie do transkrypcji jest dozwolone i nie jest "wyręczaniem w
+  zadaniach" — to część bycia obecnym członkiem społeczności.
+
 CZEGO NIE ROBISZ:
 - Nie wyręczasz w zadaniach (przepisy, "napisz mi maila", ciekawostki) —
   to nie Twoja rola. Odbij to lekko i z uśmiechem.
 - Jeśli wątku nie da się sensownie odczytać, powiedz to wprost zamiast
   zmyślać kontekst.
-- Jeśli NIE przywołano Cię po imieniu albo nikt nie pyta Cię o zdanie —
-  milczysz. Zwróć wtedy dokładnie jeden token: [CISZA]
-  (bez żadnego innego tekstu)."""
+- Jeśli NIE przywołano Cię po imieniu albo nikt nie pyta Cię o zdanie (i nie
+  jest to pytanie o nagrane spotkanie) — milczysz. Zwróć wtedy dokładnie
+  jeden token: [CISZA] (bez żadnego innego tekstu)."""
 
 
-def _generate_reply(user_msg: str) -> str:
-    """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
+# Tools that let Momentum recall recorded meetings (see transcripts.py). Exposed to
+# the model via OpenAI function-calling; descriptions are in Polish so the model maps
+# Polish questions onto them reliably.
+_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "lista_spotkan",
+            "description": (
+                "Zwraca listę nagranych spotkań (data, kanał, uczestnicy, id), "
+                "od najnowszych. Użyj, gdy pytanie dotyczy tego, co padło na "
+                "spotkaniu/nagraniu/rozmowie lub co ktoś powiedział."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dni": {"type": "integer", "description": "Ile dni wstecz przeszukać."}
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "czytaj_spotkanie",
+            "description": (
+                "Zwraca transkrypcję wskazanego spotkania. Podaj 'osoba', aby "
+                "dostać tylko wypowiedzi jednej osoby."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "id spotkania z lista_spotkan"},
+                    "osoba": {
+                        "type": "string",
+                        "description": "opcjonalnie: imię/nick osoby, by zawęzić do jej wypowiedzi",
+                    },
+                },
+                "required": ["id"],
+            },
+        },
+    },
+]
 
-    Same pattern as ``transcribe.py``: a synchronous client built from
-    OPENAI_API_KEY, imported lazily so an unset key never breaks cog loading.
 
-    Newer models (gpt-5 class) reject ``max_tokens`` and a non-default
-    ``temperature``; if the first call fails on such a parameter, retry once
-    with the conservative set (``max_completion_tokens``, default temperature).
+def _run_tool(name: str, args: dict) -> str:
+    """Execute a transcript tool-call and return a string result for the model."""
+    if name == "lista_spotkan":
+        dni = args.get("dni") or MOMENTUM_TRANSCRIPT_LIST_DAYS
+        items = transcripts.list_transcripts(within_days=dni)
+        if not items:
+            return "Brak zapisanych spotkań w tym okresie."
+        return json.dumps(items, ensure_ascii=False)
+    if name == "czytaj_spotkanie":
+        tid = args.get("id")
+        body = transcripts.read_transcript(tid)
+        if not body:
+            return f"Nie znaleziono spotkania o id '{tid}'."
+        osoba = args.get("osoba")
+        if osoba:
+            filtered = transcripts.filter_by_speaker(body, osoba)
+            if not filtered:
+                return f"W tym spotkaniu nie znalazłem wypowiedzi osoby '{osoba}'."
+            body = filtered
+        if len(body) > MOMENTUM_TRANSCRIPT_MAX_CHARS:
+            body = body[:MOMENTUM_TRANSCRIPT_MAX_CHARS] + "\n…[transkrypcja skrócona]"
+        return body
+    return f"Nieznane narzędzie: {name}"
+
+
+def _chat(client, messages: list, *, max_tokens: int, with_tools: bool):
+    """One chat completion with the gpt-5-class param-compat fallback.
+
+    Newer models reject ``max_tokens`` and a non-default ``temperature`` (wanting
+    ``max_completion_tokens`` / the default); retry once with the conservative set.
     """
-    from openai import OpenAI
-
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_msg},
-    ]
+    kwargs = {"model": MOMENTUM_MODEL, "messages": messages}
+    if with_tools:
+        kwargs["tools"] = _TOOLS
     try:
-        resp = client.chat.completions.create(
-            model=MOMENTUM_MODEL,
-            messages=messages,
-            temperature=MOMENTUM_TEMPERATURE,
-            max_tokens=MOMENTUM_MAX_TOKENS,
+        return client.chat.completions.create(
+            **kwargs, temperature=MOMENTUM_TEMPERATURE, max_tokens=max_tokens
         )
     except Exception as e:
         if not is_param_compat_error(str(e)):
@@ -127,11 +211,59 @@ def _generate_reply(user_msg: str) -> str:
             "Model %s odrzucił max_tokens/temperature — ponawiam z max_completion_tokens",
             MOMENTUM_MODEL,
         )
-        resp = client.chat.completions.create(
-            model=MOMENTUM_MODEL,
-            messages=messages,
-            max_completion_tokens=MOMENTUM_MAX_TOKENS,
-        )
+        return client.chat.completions.create(**kwargs, max_completion_tokens=max_tokens)
+
+
+def _generate_reply(user_msg: str, today_str: str) -> str:
+    """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
+
+    Same pattern as ``transcribe.py``: a synchronous client built from
+    OPENAI_API_KEY, imported lazily so an unset key never breaks cog loading.
+
+    The model may call transcript tools (lista_spotkan/czytaj_spotkanie) to answer
+    questions about recorded meetings; we run the tool loop here and feed the results
+    back until it produces a final text answer.
+    """
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": f"Dzisiaj jest {today_str}."},
+        {"role": "user", "content": user_msg},
+    ]
+
+    tools_used = False
+    for _ in range(MOMENTUM_TOOL_ROUNDS):
+        # Once a transcript has been pulled in, allow a longer answer.
+        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
+        resp = _chat(client, messages, max_tokens=cap, with_tools=True)
+        msg = resp.choices[0].message
+        if not msg.tool_calls:
+            return (msg.content or "").strip()
+        tools_used = True
+        messages.append({
+            "role": "assistant",
+            "content": msg.content or "",
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+                for tc in msg.tool_calls
+            ],
+        })
+        for tc in msg.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            result = _run_tool(tc.function.name, args)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+    # Tool budget exhausted — force a final answer from what we've gathered.
+    resp = _chat(client, messages, max_tokens=MOMENTUM_TRANSCRIPT_MAX_TOKENS, with_tools=False)
     return (resp.choices[0].message.content or "").strip()
 
 
@@ -202,7 +334,7 @@ class Przywolanie(commands.Cog):
             ]
 
             user_msg = build_summon_prompt(window, self.bot.user.id)
-            reply = await asyncio.to_thread(_generate_reply, user_msg)
+            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key())
             if not reply or reply == "[CISZA]":
                 logger.info("Model zwrócił ciszę")
                 return

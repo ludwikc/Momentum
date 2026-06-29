@@ -258,6 +258,8 @@ def _run_tool(name: str, args: dict) -> str:
             # pgvector literal — most reliable form through PostgREST.
             vec_str = "[" + ",".join(map(str, vec)) + "]"
             rows = db.search_knowledge(pytanie, vec_str, MOMENTUM_KB_MATCH_COUNT, kategoria)
+            logger.info("szukaj_w_bazie: %r%s → %d trafień", pytanie,
+                        f" [kat={kategoria}]" if kategoria else "", len(rows))
         except Exception:
             logger.exception("szukaj_w_bazie: błąd embeddingu/zapytania do bazy wiedzy")
             return "Nie udało się przeszukać bazy wiedzy (błąd techniczny)."

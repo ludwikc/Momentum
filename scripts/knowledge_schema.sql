@@ -1,14 +1,19 @@
 -- Baza wiedzy Momentum — schemat + wyszukiwanie hybrydowe (pgvector + FTS, RRF).
 --
 -- Uruchom RĘCZNIE raz w panelu Supabase: SQL editor → wklej całość → Run.
--- Wymaga rozszerzeń `vector` (pgvector) i `unaccent` (oba dostępne na Supabase).
+-- Wymaga rozszerzenia `vector` (pgvector, dostępne na Supabase).
 --
 -- Wymiar wektora (1024) MUSI zgadzać się z config.MOMENTUM_KB_EMBED_DIMS oraz
 -- z `dimensions` używanym przy embedowaniu (scripts/ingest_knowledge.py i
 -- cogs/przywolanie.py). Zmieniasz jedno — zmień wszystkie trzy.
 
 create extension if not exists vector;
-create extension if not exists unaccent;
+-- Uwaga: NIE używamy unaccent() w kolumnie generowanej `fts` — unaccent jest
+-- oznaczone STABLE (nie IMMUTABLE), więc Postgres odrzuca je w wyrażeniu
+-- `generated always as ... stored` (ERROR 42P17). to_tsvector('simple', ...)
+-- i tak robi lowercasing; składanie diakrytyków pomijamy (nogę znaczeniową robi
+-- pgvector). Gdybyś kiedyś chciał accent-insensitive FTS — trzeba dodać własny
+-- IMMUTABLE wrapper na unaccent i użyć go i w kolumnie, i w match_knowledge.
 
 create table if not exists knowledge_base (
   id           bigint generated always as identity primary key,
@@ -19,7 +24,7 @@ create table if not exists knowledge_base (
   content_hash text not null unique,            -- idempotentny re-import
   embedding    vector(1024),                     -- text-embedding-3-large, dims=1024
   fts          tsvector generated always as (
-                 to_tsvector('simple', unaccent(coalesce(temat,'') || ' ' || coalesce(tresc,'')))
+                 to_tsvector('simple', coalesce(temat,'') || ' ' || coalesce(tresc,''))
                ) stored,
   created_at   timestamptz default now()
 );
@@ -50,11 +55,11 @@ language sql stable as $$
   lex as (
     select kb.id,
            row_number() over (
-             order by ts_rank(kb.fts, websearch_to_tsquery('simple', unaccent(query_text))) desc
+             order by ts_rank(kb.fts, websearch_to_tsquery('simple', query_text)) desc
            ) as r
     from knowledge_base kb
     where (filter_kategoria is null or kb.kategoria = filter_kategoria)
-      and kb.fts @@ websearch_to_tsquery('simple', unaccent(query_text))
+      and kb.fts @@ websearch_to_tsquery('simple', query_text)
     limit 30
   )
   select kb.id, kb.temat, kb.tresc, kb.kategoria,

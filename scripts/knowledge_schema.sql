@@ -1,19 +1,16 @@
--- Baza wiedzy Momentum — schemat + wyszukiwanie hybrydowe (pgvector + FTS, RRF).
+-- Baza wiedzy Momentum — schemat + wyszukiwanie hybrydowe (pgvector + trigramy, RRF).
 --
 -- Uruchom RĘCZNIE raz w panelu Supabase: SQL editor → wklej całość → Run.
--- Wymaga rozszerzenia `vector` (pgvector, dostępne na Supabase).
+-- Idempotentny: można wkleić ponownie po zmianach (godzi też starsze instalacje,
+-- które miały leksykalną nogę opartą na FTS — usuwa nieużywaną kolumnę `fts`).
+-- Wymaga rozszerzeń `vector` (pgvector) i `pg_trgm` (oba dostępne na Supabase).
 --
 -- Wymiar wektora (1024) MUSI zgadzać się z config.MOMENTUM_KB_EMBED_DIMS oraz
 -- z `dimensions` używanym przy embedowaniu (scripts/ingest_knowledge.py i
 -- cogs/przywolanie.py). Zmieniasz jedno — zmień wszystkie trzy.
 
 create extension if not exists vector;
--- Uwaga: NIE używamy unaccent() w kolumnie generowanej `fts` — unaccent jest
--- oznaczone STABLE (nie IMMUTABLE), więc Postgres odrzuca je w wyrażeniu
--- `generated always as ... stored` (ERROR 42P17). to_tsvector('simple', ...)
--- i tak robi lowercasing; składanie diakrytyków pomijamy (nogę znaczeniową robi
--- pgvector). Gdybyś kiedyś chciał accent-insensitive FTS — trzeba dodać własny
--- IMMUTABLE wrapper na unaccent i użyć go i w kolumnie, i w match_knowledge.
+create extension if not exists pg_trgm;
 
 create table if not exists knowledge_base (
   id           bigint generated always as identity primary key,
@@ -23,21 +20,24 @@ create table if not exists knowledge_base (
   kategoria    text,
   content_hash text not null unique,            -- idempotentny re-import
   embedding    vector(1024),                     -- text-embedding-3-large, dims=1024
-  fts          tsvector generated always as (
-                 to_tsvector('simple', coalesce(temat,'') || ' ' || coalesce(tresc,''))
-               ) stored,
   created_at   timestamptz default now()
 );
 
+-- Godzenie starszej instalacji (noga leksykalna była na FTS): usuń nieużywane.
+drop index if exists knowledge_fts_idx;
+alter table knowledge_base drop column if exists fts;
+
 create index if not exists knowledge_embedding_idx
   on knowledge_base using hnsw (embedding vector_cosine_ops);
-create index if not exists knowledge_fts_idx
-  on knowledge_base using gin (fts);
+-- Trigramowy indeks pod leksykalną nogę (word_similarity) — odporny na odmianę.
+create index if not exists knowledge_trgm_idx
+  on knowledge_base using gin ((temat || ' ' || tresc) gin_trgm_ops);
 
 
 -- Wyszukiwanie hybrydowe: łączy ranking semantyczny (cosine na pgvector) z
--- rankingiem leksykalnym (Postgres full-text) metodą Reciprocal Rank Fusion
--- (k=60). Zwraca najlepsze `match_count` dopasowań; opcjonalny filtr kategorii.
+-- rankingiem leksykalnym (trigramy, word_similarity — łapie konkretne frazy/nazwy
+-- mimo polskiej odmiany) metodą Reciprocal Rank Fusion (k=60). Zwraca najlepsze
+-- `match_count` dopasowań; opcjonalny filtr kategorii.
 create or replace function match_knowledge(
   query_text       text,
   query_embedding  vector(1024),
@@ -55,11 +55,11 @@ language sql stable as $$
   lex as (
     select kb.id,
            row_number() over (
-             order by ts_rank(kb.fts, websearch_to_tsquery('simple', query_text)) desc
+             order by word_similarity(query_text, kb.temat || ' ' || kb.tresc) desc
            ) as r
     from knowledge_base kb
     where (filter_kategoria is null or kb.kategoria = filter_kategoria)
-      and kb.fts @@ websearch_to_tsquery('simple', query_text)
+      and word_similarity(query_text, kb.temat || ' ' || kb.tresc) > 0.3
     limit 30
   )
   select kb.id, kb.temat, kb.tresc, kb.kategoria,

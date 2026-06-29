@@ -89,7 +89,7 @@ class RecordingPanel(discord.ui.View):
             await interaction.response.send_message("⚠️ Nic teraz nie nagrywam.", ephemeral=True)
             return
         await interaction.response.defer()
-        await self.cog._finish_and_publish()  # updates this panel to the "ended" state
+        await self.cog._finish_and_publish(suppress_auto=True)  # updates this panel to the "ended" state
         self.stop()
 
 
@@ -112,6 +112,10 @@ class VoiceRecord(commands.Cog):
         self.participants: list[int] = []  # user ids present during the recording (ordered)
         self._panel_msg: discord.WebhookMessage | None = None
         self._safety_task: asyncio.Task | None = None
+        # Watched channels where a mod manually stopped recording while people were
+        # still present — auto-record stays paused here until the channel empties
+        # (a new call) or a mod runs /nagraj again.
+        self._suppressed: set[int] = set()
         # Serializes start/stop so rapid voice-state events can't double-trigger.
         self._lock = asyncio.Lock()
 
@@ -177,6 +181,8 @@ class VoiceRecord(commands.Cog):
         self.is_auto = auto
         self.rec_id = rec_id
         self.participants = [m.id for m in channel.members if not m.bot]
+        # A deliberate (re-)start re-arms normal auto behavior for this channel.
+        self._suppressed.discard(channel.id)
         self._safety_task = asyncio.create_task(self._safety_stop())
         logger.info("Recording started in #%s -> %s (auto=%s)", channel.name, wav_path, auto)
         return wav_path
@@ -240,10 +246,16 @@ class VoiceRecord(commands.Cog):
             return None
         return mp3_path
 
-    async def _finish_and_publish(self, reason: str | None = None) -> str:
+    async def _finish_and_publish(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
         """Stop the recording, transcode, upload (or keep local), notify. Returns a status message."""
         # Snapshot panel/participant data before teardown clears the recording state.
         channel, started, rec_id = self.channel, self.start_time, self.rec_id
+        # A manual stop while the call is still populated must not be undone by the
+        # auto-record sweep: pause auto-record for this channel until it empties.
+        if (suppress_auto and channel is not None
+                and channel.id in AUTO_RECORD_CHANNEL_IDS
+                and self._humans(channel) >= AUTO_RECORD_MIN_MEMBERS):
+            self._suppressed.add(channel.id)
         participants = list(self.participants)
         # The thank-you and summary are only worth posting for an actual group
         # call — skip both when fewer than RECORDING_MIN_PARTICIPANTS took part.
@@ -506,7 +518,7 @@ class VoiceRecord(commands.Cog):
             await interaction.response.send_message("⚠️ Nic teraz nie nagrywam.", ephemeral=True)
             return
         await interaction.response.defer(ephemeral=True)
-        msg = await self._finish_and_publish()
+        msg = await self._finish_and_publish(suppress_auto=True)
         await interaction.followup.send(f"⏹️ Zatrzymano. {msg}", ephemeral=True)
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
@@ -555,8 +567,17 @@ class VoiceRecord(commands.Cog):
             if self.recording:
                 return  # manual (or already-running auto) recording in progress
 
+            # Lift suppression once a manually-stopped channel has emptied: the call
+            # ended, so the next call there should auto-record again.
+            for cid in list(self._suppressed):
+                ch = self.bot.get_channel(cid)
+                if not isinstance(ch, discord.VoiceChannel) or self._humans(ch) < AUTO_RECORD_MIN_MEMBERS:
+                    self._suppressed.discard(cid)
+
             # Start: first watched channel that has reached the member threshold.
             for cid in AUTO_RECORD_CHANNEL_IDS:
+                if cid in self._suppressed:
+                    continue  # manually stopped while populated — wait for it to empty
                 channel = self.bot.get_channel(cid)
                 if isinstance(channel, discord.VoiceChannel) and self._humans(channel) >= AUTO_RECORD_MIN_MEMBERS:
                     try:

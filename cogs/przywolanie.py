@@ -31,6 +31,7 @@ from discord.ext import commands
 import db
 import transcripts
 from config import (
+    MOMENTUM_COACHING_MONTHLY_LIMIT,
     MOMENTUM_CONTEXT_MESSAGES,
     MOMENTUM_DAILY_LIMIT,
     MOMENTUM_KB_ENABLED,
@@ -68,6 +69,16 @@ def _today_key() -> str:
     """Warsaw-local date as ``YYYY-MM-DD`` — the daily bucket for rate limiting."""
     now = datetime.now(_WARSAW) if _WARSAW else datetime.now()
     return now.date().isoformat()
+
+
+def _coaching_limit_text(user_id: int) -> str:
+    """Message shown when a user hits their monthly coaching cap — nudges to 1:1."""
+    return (
+        f"<@{user_id}>, wykorzystałeś już swój miesięczny limit coachingu z "
+        f"Momentum ({MOMENTUM_COACHING_MONTHLY_LIMIT} sesji) — odnowi się na "
+        "początku kolejnego miesiąca. Chcesz ruszyć szybciej i mocniej? Umów "
+        "sesję 1:1 z Ludwikiem: /coaching-ludwik 🚀"
+    )
 
 SYSTEM_PROMPT = """Jesteś Momentum — pełnoprawnym członkiem społeczności Lifehackerów.
 Nie jesteś "botem od zadań" ani narzędziem. Jesteś częścią tej
@@ -412,6 +423,23 @@ class Przywolanie(commands.Cog):
         self.rate_limiter = DailyRateLimiter(MOMENTUM_DAILY_LIMIT)
         logger.info("Przywolanie cog initialized")
 
+    async def _coaching_quota_ok(self, user_id: int, is_owner: bool) -> bool:
+        """Check and consume one monthly coaching use. Owner is exempt.
+
+        Returns True if allowed (a use was recorded), False if the monthly cap
+        is reached. Fail-open: a Supabase hiccup never locks a user out.
+        """
+        if is_owner:
+            return True
+        try:
+            res = await asyncio.to_thread(
+                db.log_capped_month, str(user_id), "coaching", MOMENTUM_COACHING_MONTHLY_LIMIT
+            )
+            return bool(res and res.get("logged"))
+        except Exception:
+            logger.exception("Błąd limitu coachingu — przepuszczam (fail-open)")
+            return True
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         # Never react to ourselves or other bots (prevents loops).
@@ -440,9 +468,25 @@ class Przywolanie(commands.Cog):
                 logger.warning("Momentum przywołany, ale brak OPENAI_API_KEY — pomijam")
                 return
 
-            # Per-user daily cap to protect the OpenAI budget. The owner is
-            # exempt; everyone else is throttled before the model call.
-            if not is_owner and not self.rate_limiter.allow(
+            coaching = is_coaching_request(message.content)
+
+            # Limity chroniące budżet (właściciel zwolniony z obu):
+            # - coaching → własny MIESIĘCZNY cap (trwały, w Supabase),
+            # - zwykłe przywołanie → dzienny cap (w pamięci).
+            if coaching:
+                if not await self._coaching_quota_ok(message.author.id, is_owner):
+                    logger.info(
+                        "Miesięczny limit coachingu wyczerpany przez %s",
+                        message.author.id,
+                    )
+                    await message.channel.send(
+                        _coaching_limit_text(message.author.id),
+                        allowed_mentions=discord.AllowedMentions(
+                            everyone=False, roles=False, users=True
+                        ),
+                    )
+                    return
+            elif not is_owner and not self.rate_limiter.allow(
                 message.author.id, _today_key()
             ):
                 logger.info(
@@ -452,7 +496,6 @@ class Przywolanie(commands.Cog):
                 )
                 return
 
-            coaching = is_coaching_request(message.content)
             logger.info(
                 "Momentum przywołany na kanale %s przez %s%s",
                 message.channel.id,
@@ -510,10 +553,9 @@ class Przywolanie(commands.Cog):
             return
 
         is_owner = interaction.user.id == MOMENTUM_OWNER_ID
-        if not is_owner and not self.rate_limiter.allow(interaction.user.id, _today_key()):
+        if not await self._coaching_quota_ok(interaction.user.id, is_owner):
             await interaction.response.send_message(
-                f"Na dziś wyczerpałeś limit wywołań Momentum ({MOMENTUM_DAILY_LIMIT}).",
-                ephemeral=True,
+                _coaching_limit_text(interaction.user.id), ephemeral=True
             )
             return
 

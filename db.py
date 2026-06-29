@@ -111,6 +111,25 @@ def log_capped_join(discord_id: str, activity: str, max_per_day: int) -> dict:
     return result.data
 
 
+def log_capped_month(discord_id: str, activity: str, max_per_month: int) -> dict:
+    """
+    Log an activity up to a per-MONTH cap (Warsaw-local month). Used for the
+    monthly coaching limit. Counts/inserts via the log_capped_month RPC
+    (scripts/coaching_limit.sql).
+
+    Returns:
+        dict with {logged: bool, monthly_count: int} — logged is False (and no
+        row written) once the cap is reached.
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "log_capped_month",
+        {"p_discord_id": discord_id, "p_activity": activity, "p_max_per_month": max_per_month},
+    ).execute()
+
+    return result.data
+
+
 def add_deep_work_time(discord_id: str, seconds: int) -> dict:
     """Add to a user's lifetime Deep Work connection time. Returns {total_seconds}."""
     supabase = get_supabase()

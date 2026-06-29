@@ -96,3 +96,9 @@ MOMENTUM_KB_ENABLED     = True
 MOMENTUM_KB_EMBED_MODEL = "text-embedding-3-large"  # model embeddingów (import + zapytanie)
 MOMENTUM_KB_EMBED_DIMS  = 1024                       # MUSI = vector(N) w schemacie
 MOMENTUM_KB_MATCH_COUNT = 3                          # ile tematów zwracać (~2000 tok.)
+
+# Coaching ma własny, MIESIĘCZNY limit per użytkownik (trwały — liczony w Supabase
+# przez RPC log_capped_month na tabeli activity_logs, activity_type='coaching').
+# Dotyczy obu wejść: /coaching-momentum oraz prośby w naturalnym języku. Właściciel
+# jest zwolniony. Reset następuje na początku kolejnego miesiąca (czas warszawski).
+MOMENTUM_COACHING_MONTHLY_LIMIT = 5

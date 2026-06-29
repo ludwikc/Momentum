@@ -552,6 +552,32 @@ class Przywolanie(commands.Cog):
             except Exception:
                 pass
 
+    @app_commands.command(
+        name="coaching-ludwik",
+        description="Indywidualne sesje 1:1 z Ludwikiem — umów termin.",
+    )
+    async def coaching_ludwik(self, interaction: discord.Interaction):
+        # Pure CTA: an ephemeral embed with a link button to the booking page.
+        # No model call, no rate limit — just a private prompt to the caller.
+        embed = discord.Embed(
+            title="Coaching 1:1 z Ludwikiem",
+            description=(
+                f"Chcesz pracować z <@{MOMENTUM_OWNER_ID}> indywidualnie?\n"
+                "Umów sesję 1:1 tutaj:"
+            ),
+            color=discord.Color.blurple(),
+        )
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(
+                label="Umów sesję",
+                style=discord.ButtonStyle.link,
+                url="https://buy.siadlak.com/checkout/coaching",
+                emoji="📅",
+            )
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Przywolanie(bot))

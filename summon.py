@@ -13,6 +13,11 @@ import re
 # "momentu", ...) are NOT matched — they collide with everyday speech.
 _SUMMON_RE = re.compile(r"\bmomentum\b", re.IGNORECASE)
 
+# Coaching request: matches the "coach" stem so Polish inflections work too
+# ("coaching", "coachingu", "coacha", "coachem"). When a summon matches this,
+# Momentum is forced to consult the knowledge base before replying.
+_COACHING_RE = re.compile(r"\bcoach", re.IGNORECASE)
+
 _PARTICIPANTS_HEADER = (
     "Uczestnicy rozmowy (użyj dokładnie tych tokenów, gdy zwracasz się do kogoś):"
 )
@@ -25,6 +30,15 @@ _CLOSING_INSTRUCTION = (
 def is_summon(content: str, bot_mentioned: bool) -> bool:
     """True only when the bot is @-mentioned or the whole word 'momentum' appears."""
     return bot_mentioned or bool(_SUMMON_RE.search(content))
+
+
+def is_coaching_request(content: str) -> bool:
+    """True when the message explicitly asks for coaching (e.g. 'potrzebuję coachingu').
+
+    Used on top of ``is_summon`` to switch Momentum into coaching mode, which
+    forces a knowledge-base lookup before it replies.
+    """
+    return bool(_COACHING_RE.search(content or ""))
 
 
 class DailyRateLimiter:

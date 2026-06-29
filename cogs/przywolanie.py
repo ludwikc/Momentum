@@ -25,6 +25,7 @@ import os
 from datetime import datetime
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 import db
@@ -45,7 +46,13 @@ from config import (
     MOMENTUM_TRANSCRIPT_MAX_CHARS,
     MOMENTUM_TOOL_ROUNDS,
 )
-from summon import DailyRateLimiter, build_summon_prompt, is_param_compat_error, is_summon
+from summon import (
+    DailyRateLimiter,
+    build_summon_prompt,
+    is_coaching_request,
+    is_param_compat_error,
+    is_summon,
+)
 
 logger = logging.getLogger("momentum_bot.przywolanie")
 
@@ -139,6 +146,20 @@ CZEGO NIE ROBISZ:
 - Jeśli NIE przywołano Cię po imieniu albo nikt nie pyta Cię o zdanie (i nie
   jest to pytanie o nagrane spotkanie) — milczysz. Zwróć wtedy dokładnie
   jeden token: [CISZA] (bez żadnego innego tekstu)."""
+
+
+# Wstrzykiwane jako dodatkowy komunikat systemowy w trybie coachingu (slash
+# /coaching-momentum albo prośba w naturalnym języku, np. „potrzebuję coachingu").
+# W tym trybie wymuszamy też wywołanie szukaj_w_bazie (tool_choice), więc lekcje
+# z bazy są już w kontekście, gdy model formułuje odpowiedź.
+COACHING_INSTRUCTION = (
+    "TRYB COACHINGU: rozmówca WPROST poprosił Cię o coaching. To jednoznaczne "
+    "zaproszenie — NIE zwracasz [CISZA], zawsze się angażujesz. Oprzyj rozmowę na "
+    "lekcjach z bazy wiedzy (właśnie je pobrałeś narzędziem szukaj_w_bazie). "
+    "Prowadź jak coach: krótko nazwij, co widzisz pod spodem, zaproponuj jeden "
+    "konkretny, mały krok i zostaw jedno pogłębiające pytanie. Dalej mówisz swoim "
+    "głosem, po polsku i zwięźle — nie cytujesz lekcji sztywno."
+)
 
 
 # Tools that let Momentum recall recorded meetings (see transcripts.py). Exposed to
@@ -279,15 +300,20 @@ def _run_tool(name: str, args: dict) -> str:
     return f"Nieznane narzędzie: {name}"
 
 
-def _chat(client, messages: list, *, max_tokens: int, with_tools: bool):
+def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_choice=None):
     """One chat completion with the gpt-5-class param-compat fallback.
 
     Newer models reject ``max_tokens`` and a non-default ``temperature`` (wanting
     ``max_completion_tokens`` / the default); retry once with the conservative set.
+
+    ``tool_choice`` (when given) is forwarded to force/steer tool use — coaching
+    mode passes the szukaj_w_bazie function to guarantee a knowledge-base lookup.
     """
     kwargs = {"model": MOMENTUM_MODEL, "messages": messages}
     if with_tools:
         kwargs["tools"] = _TOOLS
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
     try:
         return client.chat.completions.create(
             **kwargs, temperature=MOMENTUM_TEMPERATURE, max_tokens=max_tokens
@@ -302,7 +328,7 @@ def _chat(client, messages: list, *, max_tokens: int, with_tools: bool):
         return client.chat.completions.create(**kwargs, max_completion_tokens=max_tokens)
 
 
-def _generate_reply(user_msg: str, today_str: str) -> str:
+def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> str:
     """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
 
     Same pattern as ``transcribe.py``: a synchronous client built from
@@ -311,6 +337,10 @@ def _generate_reply(user_msg: str, today_str: str) -> str:
     The model may call transcript tools (lista_spotkan/czytaj_spotkanie) to answer
     questions about recorded meetings; we run the tool loop here and feed the results
     back until it produces a final text answer.
+
+    When ``coaching`` is set, a coaching system message is added and the first
+    round forces a szukaj_w_bazie call (tool_choice), so the reply is always
+    grounded in the knowledge base.
     """
     from openai import OpenAI
 
@@ -318,14 +348,22 @@ def _generate_reply(user_msg: str, today_str: str) -> str:
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": f"Dzisiaj jest {today_str}."},
-        {"role": "user", "content": user_msg},
     ]
+    if coaching:
+        messages.append({"role": "system", "content": COACHING_INSTRUCTION})
+    messages.append({"role": "user", "content": user_msg})
+
+    # Force the knowledge-base lookup on the first round in coaching mode.
+    force_kb = coaching and MOMENTUM_KB_ENABLED
 
     tools_used = False
     for _ in range(MOMENTUM_TOOL_ROUNDS):
-        # Once a transcript has been pulled in, allow a longer answer.
+        # Once a tool has been pulled in, allow a longer answer.
         cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
-        resp = _chat(client, messages, max_tokens=cap, with_tools=True)
+        tool_choice = None
+        if force_kb and not tools_used:
+            tool_choice = {"type": "function", "function": {"name": "szukaj_w_bazie"}}
+        resp = _chat(client, messages, max_tokens=cap, with_tools=True, tool_choice=tool_choice)
         msg = resp.choices[0].message
         if not msg.tool_calls:
             return (msg.content or "").strip()
@@ -401,10 +439,12 @@ class Przywolanie(commands.Cog):
                 )
                 return
 
+            coaching = is_coaching_request(message.content)
             logger.info(
-                "Momentum przywołany na kanale %s przez %s",
+                "Momentum przywołany na kanale %s przez %s%s",
                 message.channel.id,
                 message.author.id,
+                " (coaching)" if coaching else "",
             )
 
             history = [
@@ -422,7 +462,7 @@ class Przywolanie(commands.Cog):
             ]
 
             user_msg = build_summon_prompt(window, self.bot.user.id)
-            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key())
+            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key(), coaching)
             if not reply or reply == "[CISZA]":
                 logger.info("Model zwrócił ciszę")
                 return
@@ -439,6 +479,78 @@ class Przywolanie(commands.Cog):
             import traceback
 
             traceback.print_exc()
+
+    @app_commands.command(
+        name="coaching-momentum",
+        description="Poproś Momentum o coaching oparty na bazie lekcji społeczności.",
+    )
+    @app_commands.describe(temat="Czego ma dotyczyć coaching (opcjonalnie).")
+    async def coaching_momentum(
+        self, interaction: discord.Interaction, temat: str | None = None
+    ):
+        # Explicit coaching path: always grounds in the knowledge base
+        # (_generate_reply(..., coaching=True) forces a szukaj_w_bazie lookup).
+        if not os.getenv("OPENAI_API_KEY"):
+            await interaction.response.send_message(
+                "Coaching jest chwilowo niedostępny.", ephemeral=True
+            )
+            return
+
+        is_owner = interaction.user.id == MOMENTUM_OWNER_ID
+        if not is_owner and not self.rate_limiter.allow(interaction.user.id, _today_key()):
+            await interaction.response.send_message(
+                f"Na dziś wyczerpałeś limit wywołań Momentum ({MOMENTUM_DAILY_LIMIT}).",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(thinking=True)
+        try:
+            logger.info(
+                "Coaching (slash) na kanale %s przez %s",
+                interaction.channel_id,
+                interaction.user.id,
+            )
+            history = [
+                m async for m in interaction.channel.history(limit=MOMENTUM_CONTEXT_MESSAGES)
+            ]
+            history.reverse()
+            window = [
+                {
+                    "author_id": m.author.id,
+                    "display_name": m.author.display_name,
+                    "is_bot": m.author.bot,
+                    "content": m.content,
+                }
+                for m in history
+            ]
+
+            user_msg = build_summon_prompt(window, self.bot.user.id)
+            if temat:
+                user_msg += (
+                    f"\n\n{interaction.user.display_name} prosi o coaching na temat: {temat}"
+                )
+            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key(), True)
+            if not reply or reply == "[CISZA]":
+                reply = "Jestem. O czym chcesz pogadać w ramach coachingu?"
+
+            await interaction.followup.send(
+                reply,
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=False, roles=False, users=True
+                ),
+            )
+        except Exception as e:
+            logger.error("Błąd w /coaching-momentum: %s", e)
+            import traceback
+
+            traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    "Coś poszło nie tak przy coachingu — spróbuj ponownie za chwilę."
+                )
+            except Exception:
+                pass
 
 
 async def setup(bot: commands.Bot):

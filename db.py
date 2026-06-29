@@ -201,3 +201,41 @@ def link_discord_to_portal_user(discord_id: str, user_id: str) -> bool:
     ).execute()
 
     return True
+
+
+# === Knowledge Base (hybrid pgvector + FTS search) ===
+
+def search_knowledge(
+    query_text: str,
+    query_embedding,
+    match_count: int = 3,
+    kategoria: str | None = None,
+) -> list[dict]:
+    """
+    Hybrid search over the knowledge_base table (semantic + lexical, RRF).
+
+    Calls the match_knowledge RPC defined in scripts/knowledge_schema.sql.
+
+    Args:
+        query_text: the question/topic in natural language (used for the FTS leg)
+        query_embedding: the query embedding — pass as a pgvector-literal string
+            like "[0.1,0.2,...]" (see cogs/przywolanie.py); a plain list also works
+            but the string form is the most reliable through PostgREST
+        match_count: how many top matches to return
+        kategoria: optional category filter
+
+    Returns:
+        List of {id, temat, odpowiedz, kategoria, score}, best first (may be empty).
+    """
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "match_knowledge",
+        {
+            "query_text": query_text,
+            "query_embedding": query_embedding,
+            "match_count": match_count,
+            "filter_kategoria": kategoria,
+        },
+    ).execute()
+
+    return result.data or []

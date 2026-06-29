@@ -27,10 +27,15 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
+import db
 import transcripts
 from config import (
     MOMENTUM_CONTEXT_MESSAGES,
     MOMENTUM_DAILY_LIMIT,
+    MOMENTUM_KB_ENABLED,
+    MOMENTUM_KB_EMBED_DIMS,
+    MOMENTUM_KB_EMBED_MODEL,
+    MOMENTUM_KB_MATCH_COUNT,
     MOMENTUM_MAX_TOKENS,
     MOMENTUM_MODEL,
     MOMENTUM_OWNER_ID,
@@ -110,6 +115,15 @@ PAMIĘĆ ZE SPOTKAŃ:
 - To sięganie do transkrypcji jest dozwolone i nie jest "wyręczaniem w
   zadaniach" — to część bycia obecnym członkiem społeczności.
 
+BAZA WIEDZY SPOŁECZNOŚCI:
+- Masz dostęp do bazy gotowych tematów i odpowiedzi społeczności. Gdy pytanie
+  dotyczy tematu, na który może być tam gotowa wiedza, sięgnij po narzędzie
+  szukaj_w_bazie — jako 'pytanie' podaj rzeczywiste pytanie wyłuskane z całej
+  rozmowy (własnymi słowami), a nie samo zdanie, którym Cię przywołano.
+- To, co znajdziesz, traktuj jako materiał źródłowy: odpowiadasz dalej własnymi
+  słowami i swoim głosem, krótko — nie cytujesz sztywno i nie wklejasz całości.
+- Jeśli baza nic nie zwróci, nie zmyślaj — odezwij się z tego, co realnie wiesz.
+
 CZEGO NIE ROBISZ:
 - Nie wyręczasz w zadaniach (przepisy, "napisz mi maila", ciekawostki) —
   to nie Twoja rola. Odbij to lekko i z uśmiechem.
@@ -165,6 +179,38 @@ _TOOLS = [
     },
 ]
 
+# Knowledge-base search (see db.search_knowledge + scripts/knowledge_schema.sql).
+# Appended only when enabled, so MOMENTUM_KB_ENABLED actually hides the tool from
+# the model when off.
+if MOMENTUM_KB_ENABLED:
+    _TOOLS.append({
+        "type": "function",
+        "function": {
+            "name": "szukaj_w_bazie",
+            "description": (
+                "Przeszukuje bazę wiedzy społeczności (gotowe tematy i odpowiedzi). "
+                "Użyj, gdy pytanie dotyczy tematu, na który może istnieć gotowa "
+                "odpowiedź. Jako 'pytanie' podaj rzeczywiste pytanie wyłuskane z "
+                "całej rozmowy, sformułowane własnymi słowami — nie samo zdanie, "
+                "którym Cię przywołano."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pytanie": {
+                        "type": "string",
+                        "description": "Pytanie/temat do wyszukania, własnymi słowami.",
+                    },
+                    "kategoria": {
+                        "type": "string",
+                        "description": "opcjonalnie: zawęź wyszukiwanie do jednej kategorii",
+                    },
+                },
+                "required": ["pytanie"],
+            },
+        },
+    })
+
 
 def _run_tool(name: str, args: dict) -> str:
     """Execute a transcript tool-call and return a string result for the model."""
@@ -194,6 +240,37 @@ def _run_tool(name: str, args: dict) -> str:
                 "masz tylko jej fragment — nie twierdź, że czegoś nie powiedziano.]"
             )
         return body
+    if name == "szukaj_w_bazie":
+        pytanie = (args.get("pytanie") or "").strip()
+        if not pytanie:
+            return "Nie podano pytania do wyszukania w bazie wiedzy."
+        kategoria = args.get("kategoria") or None
+        try:
+            from openai import OpenAI
+
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            emb = client.embeddings.create(
+                model=MOMENTUM_KB_EMBED_MODEL,
+                dimensions=MOMENTUM_KB_EMBED_DIMS,
+                input=pytanie,
+            )
+            vec = emb.data[0].embedding
+            # pgvector literal — most reliable form through PostgREST.
+            vec_str = "[" + ",".join(map(str, vec)) + "]"
+            rows = db.search_knowledge(pytanie, vec_str, MOMENTUM_KB_MATCH_COUNT, kategoria)
+        except Exception:
+            logger.exception("szukaj_w_bazie: błąd embeddingu/zapytania do bazy wiedzy")
+            return "Nie udało się przeszukać bazy wiedzy (błąd techniczny)."
+        if not rows:
+            return "Brak trafień w bazie wiedzy."
+        parts = []
+        for row in rows:
+            kat = row.get("kategoria")
+            head = f"Temat: {row.get('temat', '')}"
+            if kat:
+                head += f"  [kategoria: {kat}]"
+            parts.append(f"{head}\nOdpowiedź: {row.get('odpowiedz', '')}")
+        return "\n\n---\n\n".join(parts)
     return f"Nieznane narzędzie: {name}"
 
 

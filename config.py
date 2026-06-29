@@ -86,3 +86,13 @@ MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summ
 #   zero tokens. The owner is exempt from both limits.
 MOMENTUM_OWNER_ID = 404038151565213696
 MOMENTUM_DAILY_LIMIT = 5
+
+# Baza wiedzy (cogs.przywolanie + scripts/ingest_knowledge.py). Momentum może
+# przeszukać ~20k par temat→odpowiedź zapisanych w Supabase (tabela knowledge_base,
+# wyszukiwanie hybrydowe pgvector+FTS przez RPC match_knowledge) — ale tylko gdy
+# model uzna pytanie za istotne, więc zwykła rozmowa nie kosztuje tokenów bazy.
+# EMBED_DIMS musi zgadzać się z wymiarem vector() w scripts/knowledge_schema.sql.
+MOMENTUM_KB_ENABLED     = True
+MOMENTUM_KB_EMBED_MODEL = "text-embedding-3-large"  # model embeddingów (import + zapytanie)
+MOMENTUM_KB_EMBED_DIMS  = 1024                       # MUSI = vector(N) w schemacie
+MOMENTUM_KB_MATCH_COUNT = 3                          # ile tematów zwracać (~2000 tok.)

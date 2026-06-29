@@ -2,11 +2,11 @@
 """Import the Momentum knowledge base (JSONL) into Supabase with embeddings.
 
 Reads ``data/knowledge.jsonl`` (one object per line:
-``{"temat": ..., "odpowiedz": ..., "kategoria": ...}``), embeds each entry with
-OpenAI and upserts it into the ``knowledge_base`` table created by
-``scripts/knowledge_schema.sql``.
+``{"id": ..., "temat": ..., "tresc": ..., "kategoria": ...}``), embeds each entry
+with OpenAI and upserts it into the ``knowledge_base`` table created by
+``scripts/knowledge_schema.sql``. The source ``id`` is kept as ``source_id``.
 
-Idempotent: every row carries a ``content_hash`` (sha256 of temat|odpowiedz|kategoria);
+Idempotent: every row carries a ``content_hash`` (sha256 of temat|tresc|kategoria);
 entries already present with the same hash are skipped, so re-runs cost no extra
 embedding tokens and only new/changed entries are sent.
 
@@ -44,16 +44,16 @@ EMBED_BATCH = 100   # inputs per OpenAI embeddings request
 UPSERT_BATCH = 200  # rows per Supabase upsert
 
 
-def _content_hash(temat: str, odpowiedz: str, kategoria: str | None) -> str:
+def _content_hash(temat: str, tresc: str, kategoria: str | None) -> str:
     return hashlib.sha256(
-        f"{temat}|{odpowiedz}|{kategoria or ''}".encode("utf-8")
+        f"{temat}|{tresc}|{kategoria or ''}".encode("utf-8")
     ).hexdigest()
 
 
-def _embed_text(temat: str, odpowiedz: str, kategoria: str | None) -> str:
+def _embed_text(temat: str, tresc: str, kategoria: str | None) -> str:
     """The string we actually embed — category prefix helps disambiguate."""
     prefix = f"[{kategoria}] " if kategoria else ""
-    return f"{prefix}{temat}\n\n{odpowiedz}"
+    return f"{prefix}{temat}\n\n{tresc}"
 
 
 def load_entries(path: str, limit: int | None) -> list[dict]:
@@ -70,16 +70,18 @@ def load_entries(path: str, limit: int | None) -> list[dict]:
                 logger.warning("Linia %d: niepoprawny JSON (%s) — pomijam", lineno, e)
                 continue
             temat = (obj.get("temat") or "").strip()
-            odpowiedz = (obj.get("odpowiedz") or "").strip()
+            tresc = (obj.get("tresc") or "").strip()
             kategoria = (obj.get("kategoria") or "").strip() or None
-            if not temat or not odpowiedz:
-                logger.warning("Linia %d: brak 'temat' lub 'odpowiedz' — pomijam", lineno)
+            source_id = obj.get("id")
+            if not temat or not tresc:
+                logger.warning("Linia %d: brak 'temat' lub 'tresc' — pomijam", lineno)
                 continue
             entries.append({
+                "source_id": source_id,
                 "temat": temat,
-                "odpowiedz": odpowiedz,
+                "tresc": tresc,
                 "kategoria": kategoria,
-                "content_hash": _content_hash(temat, odpowiedz, kategoria),
+                "content_hash": _content_hash(temat, tresc, kategoria),
             })
             if limit and len(entries) >= limit:
                 break
@@ -162,14 +164,15 @@ def main() -> int:
     imported = 0
     for i in range(0, len(todo), EMBED_BATCH):
         chunk = todo[i:i + EMBED_BATCH]
-        texts = [_embed_text(e["temat"], e["odpowiedz"], e["kategoria"]) for e in chunk]
+        texts = [_embed_text(e["temat"], e["tresc"], e["kategoria"]) for e in chunk]
         vectors = embed_batch(client, texts)
 
         rows = []
         for e, vec in zip(chunk, vectors):
             rows.append({
+                "source_id": e["source_id"],
                 "temat": e["temat"],
-                "odpowiedz": e["odpowiedz"],
+                "tresc": e["tresc"],
                 "kategoria": e["kategoria"],
                 "content_hash": e["content_hash"],
                 "embedding": "[" + ",".join(map(str, vec)) + "]",

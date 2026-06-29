@@ -269,7 +269,7 @@ def _run_tool(name: str, args: dict) -> str:
             head = f"Temat: {row.get('temat', '')}"
             if kat:
                 head += f"  [kategoria: {kat}]"
-            parts.append(f"{head}\nOdpowiedź: {row.get('odpowiedz', '')}")
+            parts.append(f"{head}\nTreść: {row.get('tresc', '')}")
         return "\n\n---\n\n".join(parts)
     return f"Nieznane narzędzie: {name}"
 

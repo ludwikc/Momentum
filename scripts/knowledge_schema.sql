@@ -12,13 +12,14 @@ create extension if not exists unaccent;
 
 create table if not exists knowledge_base (
   id           bigint generated always as identity primary key,
+  source_id    bigint,                           -- 'id' z pliku źródłowego (opcjonalne)
   temat        text not null,
-  odpowiedz    text not null,
+  tresc        text not null,
   kategoria    text,
   content_hash text not null unique,            -- idempotentny re-import
   embedding    vector(1024),                     -- text-embedding-3-large, dims=1024
   fts          tsvector generated always as (
-                 to_tsvector('simple', unaccent(coalesce(temat,'') || ' ' || coalesce(odpowiedz,'')))
+                 to_tsvector('simple', unaccent(coalesce(temat,'') || ' ' || coalesce(tresc,'')))
                ) stored,
   created_at   timestamptz default now()
 );
@@ -37,7 +38,7 @@ create or replace function match_knowledge(
   query_embedding  vector(1024),
   match_count      int default 3,
   filter_kategoria text default null
-) returns table (id bigint, temat text, odpowiedz text, kategoria text, score float)
+) returns table (id bigint, temat text, tresc text, kategoria text, score float)
 language sql stable as $$
   with sem as (
     select kb.id, row_number() over (order by kb.embedding <=> query_embedding) as r
@@ -56,7 +57,7 @@ language sql stable as $$
       and kb.fts @@ websearch_to_tsquery('simple', unaccent(query_text))
     limit 30
   )
-  select kb.id, kb.temat, kb.odpowiedz, kb.kategoria,
+  select kb.id, kb.temat, kb.tresc, kb.kategoria,
          coalesce(1.0/(60+sem.r),0) + coalesce(1.0/(60+lex.r),0) as score
   from knowledge_base kb
   left join sem on sem.id = kb.id

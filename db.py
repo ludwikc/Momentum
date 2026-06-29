@@ -225,7 +225,7 @@ def search_knowledge(
         kategoria: optional category filter
 
     Returns:
-        List of {id, temat, odpowiedz, kategoria, score}, best first (may be empty).
+        List of {id, temat, tresc, kategoria, score}, best first (may be empty).
     """
     supabase = get_supabase()
     result = supabase.rpc(

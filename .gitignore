@@ -2,8 +2,7 @@
 /linkdb.py
 /private.py
 # /requirements.txt  # Now tracked for Supabase migration
-/__pycache__
-/cogs/__pycache__
+__pycache__/
 images.py
 .vscode
 .env

@@ -1,10 +1,10 @@
-import discord
 from discord.ext import commands, tasks
 import logging
 from datetime import datetime
 import pytz
-from db import log_capped_join, add_deep_work_time, get_deep_work_seconds
+from db import log_capped_join, add_deep_work_time, get_user_activity_stats
 from config import PROGRESS_CHANNEL_ID
+from activity_embed import build_progress_embed
 
 DAILY_COACHING_CHANNEL_ID = 1120658406160732160
 DEEP_WORK_CHANNEL_ID = 1023996094524424313
@@ -13,29 +13,6 @@ DAILY_COACHING_MAX_PER_DAY = 1
 DEEP_WORK_MAX_PER_DAY = 3
 
 logger = logging.getLogger("momentum_bot.session_tracker")
-
-
-def _plural_pl(n: int, one: str, few: str, many: str) -> str:
-    """Polish plural selection (e.g. godzina/godziny/godzin)."""
-    if n == 1:
-        return one
-    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
-        return few
-    return many
-
-
-def format_duration_pl(seconds: int) -> str:
-    """Format a duration in seconds as Polish 'X godzin i Y minut'."""
-    minutes_total = max(seconds, 0) // 60
-    hours = minutes_total // 60
-    minutes = minutes_total % 60
-    h_word = _plural_pl(hours, "godzina", "godziny", "godzin")
-    m_word = _plural_pl(minutes, "minuta", "minuty", "minut")
-    if hours > 0 and minutes > 0:
-        return f"{hours} {h_word} i {minutes} {m_word}"
-    if hours > 0:
-        return f"{hours} {h_word}"
-    return f"{minutes} {m_word}"
 
 
 class SessionTracker(commands.Cog):
@@ -62,15 +39,16 @@ class SessionTracker(commands.Cog):
     def cog_unload(self):
         self.flush_deep_work.cancel()
 
-    async def _post(self, member, main_line: str, counter_line: str):
+    async def _post(self, member, headline: str):
         channel = self.bot.get_channel(PROGRESS_CHANNEL_ID)
         if not channel:
             return
-        embed = discord.Embed(title="Aktywność", color=0x280586)
-        embed.add_field(name="", value=main_line, inline=False)
-        embed.add_field(name=counter_line, value="", inline=False)
-        avatar = member.avatar or member.default_avatar
-        embed.set_thumbnail(url=avatar.url)
+        try:
+            stats = get_user_activity_stats(str(member.id))
+        except Exception as e:
+            logger.error(f"Failed to fetch activity stats for {member.id}: {e}")
+            stats = None
+        embed = build_progress_embed(member, headline, stats)
         await channel.send(content=member.mention, embed=embed)
 
     @commands.Cog.listener()
@@ -91,11 +69,8 @@ class SessionTracker(commands.Cog):
                 )
                 if result and result.get("logged"):
                     n = result.get("monthly_count", 1)
-                    x = result.get("total_count", n)
                     await self._post(
-                        member,
-                        f"To {n} Daily Coaching w tym miesiącu.",
-                        f"🔢 Daily Coaching: {x}",
+                        member, f"To {n} Daily Coaching w tym miesiącu."
                     )
             except Exception as e:
                 logger.error(f"Daily Coaching tracking error for {member.id}: {e}")
@@ -110,12 +85,8 @@ class SessionTracker(commands.Cog):
                 )
                 if result and result.get("logged"):
                     n = result.get("monthly_count", 1)
-                    total = get_deep_work_seconds(str(member.id))
-                    secs = total.get("total_seconds", 0) if total else 0
                     await self._post(
-                        member,
-                        f"To {n} sesja Deep Work w tym miesiącu.",
-                        f"⚓️ Deep Work: {format_duration_pl(secs)}",
+                        member, f"To {n} sesja Deep Work w tym miesiącu."
                     )
             except Exception as e:
                 logger.error(f"Deep Work tracking error for {member.id}: {e}")

@@ -220,7 +220,10 @@ BEGIN
         'total_trening',   COALESCE(t.total_trening, 0),
         'total_medytacja', COALESCE(t.total_medytacja, 0),
         'total_sukces',    COALESCE(t.total_sukces, 0),
-        'total_dziennik',  COALESCE(t.total_dziennik, 0)
+        'total_dziennik',  COALESCE(t.total_dziennik, 0),
+        'total_daily_coaching', COALESCE(t.total_daily_coaching, 0),
+        'total_deep_work',      COALESCE(t.total_deep_work, 0),
+        'deep_work_seconds',    COALESCE(ua.deep_work_seconds, 0)
     ) INTO v_result
     FROM (SELECT p_discord_id AS discord_id) base
     LEFT JOIN user_activities ua ON ua.discord_id = base.discord_id
@@ -229,7 +232,9 @@ BEGIN
             COUNT(*) FILTER (WHERE activity_type = 'trening')   AS total_trening,
             COUNT(*) FILTER (WHERE activity_type = 'medytacja') AS total_medytacja,
             COUNT(*) FILTER (WHERE activity_type = 'sukces')    AS total_sukces,
-            COUNT(*) FILTER (WHERE activity_type = 'dziennik')  AS total_dziennik
+            COUNT(*) FILTER (WHERE activity_type = 'dziennik')  AS total_dziennik,
+            COUNT(*) FILTER (WHERE activity_type = 'daily_coaching') AS total_daily_coaching,
+            COUNT(*) FILTER (WHERE activity_type = 'deep_work')      AS total_deep_work
         FROM activity_logs
         WHERE discord_id = p_discord_id
         GROUP BY discord_id

@@ -86,7 +86,7 @@ no restart.
 ├── gdrive.py                # Google Drive Shared-Drive upload helper
 ├── transcribe.py            # OpenAI Whisper transcription + gpt-4o-mini summary
 ├── dave_patch.py            # runtime DAVE (E2EE) decryption patch for voice_recv
-├── activity_embed.py        # shared embed builder for activity posts
+├── activity_embed.py        # unified progress-card builder (activities + Daily Coaching + Deep Work) + Polish duration/plural helpers
 ├── random_msg.py            # inspirational quote list (used by /gm)
 ├── private.py               # DISCORD_TOKEN (gitignored)
 ├── gdrive_service_account.json  # GCP service-account key (gitignored)
@@ -183,7 +183,7 @@ PostgreSQL RPC functions — no client-side SQL/query building. RPCs:
 | RPC | Params | Returns / purpose |
 |---|---|---|
 | `upsert_activity` | `p_discord_id`, `p_activity`, `p_xp_amount=10` | Log an activity; auto monthly reset; returns streaks |
-| `get_user_activity_stats` | `p_discord_id` | All activity streaks for the embed (or None) |
+| `get_user_activity_stats` | `p_discord_id` | Everything the unified progress card shows: monthly streaks + lifetime activity totals + `total_daily_coaching`, `total_deep_work`, `deep_work_seconds` (or None). Extended by `scripts/unified_progress_stats.sql` |
 | `get_activity_leaderboard` | `p_activity`, `p_limit=10` | Ranked `{rank, discord_id, streak_count, user_id}` |
 | `log_capped_join` | `p_discord_id`, `p_activity`, `p_max_per_day` | Daily-capped join (daily_coaching/deep_work); `{logged, monthly_count, total_count}` |
 | `add_deep_work_time` | `p_discord_id`, `p_seconds` | Bank deep-work seconds; `{total_seconds}` |
@@ -216,7 +216,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 12 | `queue_cog` | Speaking queue with arrow at the current speaker; advances on mute, re-shows on unmute; greets joiners (daily + deep-work, deep-work greeting once/day) | `/kolejka`; `on_voice_state_update` (`1120658406160732160`, deep-work `1023996094524424313`) |
 | 13 | `photo_reply` | On a photo in the watched thread, offers an author-locked "trening" button → logs trening + posts embed | `on_message` (thread `1245416699453509682`) |
 | 14 | `meditation_voice` | Tuesday 06:00–06:59 meditation-voice attendance; ≥10 min credits "medytacja"; welcome DM on join | `on_voice_state_update` (`988452597549641758`), tasks.loop 1m straggler sweep |
-| 15 | `session_tracker` | Daily-coaching joins (cap 1/day) and deep-work joins (cap 3/day) via `log_capped_join`; banks deep-work time on leave and periodically | `on_voice_state_update`, tasks.loop 10m flush |
+| 15 | `session_tracker` | Daily-coaching joins (cap 1/day) and deep-work joins (cap 3/day) via `log_capped_join`; posts the shared unified progress card (`build_progress_embed`); banks deep-work time on leave and periodically | `on_voice_state_update`, tasks.loop 10m flush |
 | 16 | `voicerecord` | The recording pipeline (see below) | `/nagraj`, `/stop_nagrywania` (mod-only), auto-record |
 | 17 | `daily_invite` | Posts the 12:34 `@here` invite to the coaching channel (once/day guard) | tasks.loop 1m |
 
@@ -300,6 +300,15 @@ Loose, not commitments (mirrors README):
 ---
 
 ## Changelog
+
+**2026-07**
+- **Unified the progress card**: every post to the progress channel (activities, Daily
+  Coaching, Deep Work) now renders the same full per-user card via
+  `activity_embed.build_progress_embed` — event-specific headline + all lifetime counters,
+  incl. `🔢 Daily Coaching: N` and `⚓️ Deep Work: <czas> (<sesje>)`. Requires applying
+  `scripts/unified_progress_stats.sql` (extends `get_user_activity_stats`); until then the
+  two new rows are simply omitted. Spec:
+  `docs/superpowers/specs/2026-07-03-unified-progress-card-design.md`.
 
 **2026-06 (last ~6 months of work)**
 - Migrated the entire data layer from **MongoDB → Supabase** (`db.py` RPCs).

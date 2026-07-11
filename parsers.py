@@ -1,0 +1,110 @@
+"""Pure input parsers for the StudyLion-port features (reminders, todo).
+
+No discord/pytz imports on purpose: everything here is unit-tested with the
+system Python (tests/test_parsers.py). Timezone handling stays in the cogs.
+"""
+import re
+from datetime import datetime, timedelta
+
+# One duration token: an amount + a unit. Longer unit words must precede their
+# prefixes (e.g. "dni" before "d") because regex alternation is first-match.
+_DURATION_TOKEN = re.compile(
+    r"(\d+)\s*(dni|dzień|dzien|d|godzin\w*|godz|h|minut\w*|min|m|sekund\w*|sek|s)",
+    re.IGNORECASE,
+)
+
+# First letter of the (Polish or short) unit → seconds. g = godziny.
+_UNIT_SECONDS = {"d": 86400, "g": 3600, "h": 3600, "m": 60, "s": 1}
+
+_ALL_KEYWORDS = {"all", "-", "wszystkie", "wszystko"}
+
+_CLOCK_RE = re.compile(r"^(\d{1,2})[:.](\d{2})$")
+
+
+def parse_duration_pl(text: str) -> int | None:
+    """Parse "3h", "1d 2h 30m", "10 minut" etc. into seconds.
+
+    A bare integer is interpreted as minutes (mirrors StudyLion's slash-command
+    convention). Returns None when the text isn't a valid duration.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text) * 60
+
+    total = 0
+    pos = 0
+    matched = False
+    while pos < len(text):
+        if text[pos].isspace():
+            pos += 1
+            continue
+        m = _DURATION_TOKEN.match(text, pos)
+        if not m:
+            return None
+        amount, unit = int(m.group(1)), m.group(2).lower()
+        total += amount * _UNIT_SECONDS[unit[0]]
+        matched = True
+        pos = m.end()
+    return total if matched else None
+
+
+def parse_wallclock_pl(text: str, now: datetime) -> datetime | None:
+    """Parse "16:00", "16.30", "2026-07-12 09:30" or "2026-07-12" into a naive
+    datetime in the same (naive) frame as `now`.
+
+    A bare time that is not in the future rolls over to tomorrow. Returns None
+    on anything unparseable.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+
+    m = _CLOCK_RE.match(text)
+    if m:
+        hour, minute = int(m.group(1)), int(m.group(2))
+        if hour > 23 or minute > 59:
+            return None
+        candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate <= now:
+            candidate += timedelta(days=1)
+        return candidate
+
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def parse_index_ranges(text: str, max_index: int) -> list[int] | None:
+    """Parse "1", "1,3", "2-5", "1, 3-4, 8" or all/-/wszystkie into a sorted,
+    de-duplicated list of 1-based indices.
+
+    Returns None when any token is invalid or out of 1..max_index (mirrors
+    StudyLion's strict range parsing).
+    """
+    text = (text or "").strip().lower()
+    if not text:
+        return None
+    if text in _ALL_KEYWORDS:
+        return list(range(1, max_index + 1))
+
+    indices: set[int] = set()
+    for token in text.split(","):
+        token = token.strip()
+        if re.fullmatch(r"\d+", token):
+            start = end = int(token)
+        else:
+            m = re.fullmatch(r"(\d+)\s*-\s*(\d+)", token)
+            if not m:
+                return None
+            start, end = int(m.group(1)), int(m.group(2))
+            if start > end:
+                return None
+        if start < 1 or end > max_index:
+            return None
+        indices.update(range(start, end + 1))
+    return sorted(indices)

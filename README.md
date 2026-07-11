@@ -38,6 +38,18 @@ Single-server, single-purpose, personal project — no setup docs here on purpos
 - **Photo proof** — photo-reply listener with an author-locked "trening" confirmation button.
 - **Leaderboards** — `/leaderboard` ranks top performers per activity.
 
+### 🧰 Productivity suite (StudyLion port)
+- **To-do list** — `/todo` with stable numbering, range operations (`1,3-5`, `all`), a toggle
+  select menu, and coin rewards per completed task (capped per 24h).
+- **Reminders** — `/przypomnij` (DM): relative (`za:3h`) or wall-clock (`o:16:00`, Warsaw),
+  optional repeats that never burst after downtime; `/przypomnienia` to list/cancel.
+- **Pomodoro** — `/pomodoro` runs a shared focus/break timer per voice channel with live Discord
+  countdowns; survives bot restarts mid-cycle, auto-restarts when someone rejoins.
+- **Voice-time tracking** — every voice channel counts toward daily/weekly/monthly/lifetime
+  stats (`/statystyki`) and mints coins.
+- **Coin economy** 🪙 — earned via voice time, tasks, `/done`, GM; `/portfel`, `/przelew`,
+  a colour-role **shop** (`/sklep`), and a **rank ladder** for voice hours (`/rangi`).
+
 ### 💬 Community & engagement
 - **Q&A** — `/pytanie` answers frequently-asked questions.
 - **Anonymous messages** — `/anonim` and `/sekret` relay anonymous posts to dedicated channels.
@@ -66,4 +78,7 @@ Loose, for-fun list — not commitments.
       summary; could live as an opt-in personal DM instead).
 - [ ] **Multi-channel auto-record** — watch more than one voice channel.
 - [ ] **Streak recovery / freezes** — let people protect a streak on a missed day.
-- [ ] **Personal stats dashboard** — a per-member view of streaks, wake-ups, and Deep Work hours.
+- [x] **Personal stats dashboard** — shipped as `/statystyki`.
+- [ ] **StudyLion port, wave 2** — private rented rooms, scheduled accountability sessions,
+      rolemenus, message XP, weekly/monthly goals (blueprints in
+      `docs/superpowers/specs/2026-07-11-studylion-port-design.md`).

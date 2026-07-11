@@ -2,7 +2,9 @@
 
 Polish-language Discord bot for the **siadlak.VIP / Lifehackerzy** community. Runs the daily
 12:34 coaching ritual (invite → reminders → auto-recording → transcript → AI summary), tracks
-habits/streaks, and handles community plumbing (anonymous posts, Q&A, invite-based roles).
+habits/streaks, ships a StudyLion-style productivity suite (todo, przypomnienia, pomodoro,
+voice-time stats, coin economy + shop + rangi), and handles community plumbing (anonymous
+posts, Q&A, invite-based roles).
 
 Single-server, single-maintainer project. No setup walkthrough here on purpose — this is a
 reference for working on the running bot.
@@ -42,7 +44,7 @@ global) then clears the global set so commands don't show up twice.
 main.py (core)
   ├─ load_dotenv() + logging → bot.log + stderr (logger "momentum_bot")
   ├─ intents: message_content, members, voice_states, guilds
-  ├─ load EXTENSIONS (17 cogs)
+  ├─ load EXTENSIONS (27 cogs)
   ├─ on_ready: per-guild command sync, then clear global
   └─ graceful shutdown on SIGINT/SIGTERM (posts offline notice)
 
@@ -86,7 +88,10 @@ no restart.
 ├── gdrive.py                # Google Drive Shared-Drive upload helper
 ├── transcribe.py            # OpenAI Whisper transcription + gpt-4o-mini summary
 ├── dave_patch.py            # runtime DAVE (E2EE) decryption patch for voice_recv
-├── activity_embed.py        # unified progress-card builder (activities + Daily Coaching + Deep Work) + Polish duration/plural helpers
+├── activity_embed.py        # unified progress-card builder (activities + Daily Coaching + Deep Work + voice/tasks/coins) + Polish duration/plural helpers
+├── parsers.py               # pure input parsers: durations ("3h", "1d 2h"), wall-clock ("16:00"), index ranges ("1,3-5") — unit-tested
+├── pomodoro_math.py         # pure pomodoro stage arithmetic (last_started anchor) — unit-tested
+├── tests/                   # stdlib-unittest tests for the pure helpers (python3 -m unittest discover tests)
 ├── random_msg.py            # inspirational quote list (used by /gm)
 ├── private.py               # DISCORD_TOKEN (gitignored)
 ├── gdrive_service_account.json  # GCP service-account key (gitignored)
@@ -94,7 +99,7 @@ no restart.
 ├── data/now_recording.mp3   # "now recording" intro sound
 ├── recordings/              # transient WAV/MP3 during a recording (gitignored)
 ├── run_bot.sh               # launcher (foreground / --daemon)
-└── cogs/                    # 17 feature extensions (see below)
+└── cogs/                    # 27 feature extensions (see below)
 ```
 
 Stray/unused (see [Known issues](#known-issues--cleanup)): `Momentum/` (nested stale copy),
@@ -128,6 +133,15 @@ All in `config.py`:
 | `RECORDING_SUMMARY_CHANNEL_ID` | `1128649406640558110` | Where the AI summary embed is posted |
 | `OPENAI_TRANSCRIBE_MODEL` | `"whisper-1"` | Transcription model |
 | `OPENAI_SUMMARY_MODEL` | `"gpt-4o-mini"` | Summary model |
+| **StudyLion port** (spec: `docs/superpowers/specs/2026-07-11-studylion-port-design.md`) | | |
+| `COINS_EMOJI` / `VOICE_COINS_PER_HOUR` / `VOICE_COIN_DAILY_CAP_HOURS` | 🪙 / `50` / `16` | Coin minting for voice time (pro-rated/s, Warsaw-day cap) |
+| `TASK_REWARD_COINS` / `TASK_REWARD_LIMIT_24H` | `50` / `10` | Coins per completed todo task; max rewarded tasks per rolling 24h |
+| `DONE_REWARD_COINS` / `GM_REWARD_COINS` | `10` / `10` | Coin bonus for `/done` and the GM check-in |
+| `TODO_MAX_OPEN` / `TODO_MAX_CONTENT` | `100` / `100` | Todo caps (open tasks / chars) |
+| `REMINDER_MAX_PER_USER` / `REMINDER_MIN_REPEAT_SECONDS` / `REMINDER_MAX_CONTENT` | `25` / `600` / `2000` | Reminder caps |
+| `POMODORO_DEFAULT_FOCUS_MIN` / `_BREAK_MIN` / `_MAX_STAGE_MIN` | `25` / `5` / `1440` | Pomodoro stage defaults/bounds |
+| `UNTRACKED_VOICE_CHANNEL_IDS` / `VOICE_FLUSH_MINUTES` | `[]` / `5` | Voice-tracking exclusions + flush cadence |
+| `VOICE_RANKS` / `RANKS_ANNOUNCE_CHANNEL_ID` | `[]` / progress channel | Rank ladder `(hours, role_id, reward)`; empty ⇒ ranks dormant |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`
@@ -190,6 +204,18 @@ PostgreSQL RPC functions — no client-side SQL/query building. RPCs:
 | `check_morning_checkin` | `p_discord_id` | GM check-in; `{success, is_early_bird, current_momentum, total_checkins, message}` |
 | `get_wakeup_leaderboard` | `p_type` (`total`/`momentum`/`early_bird`), `p_limit=10` | Wake-up ranking |
 | `link_discord_to_portal_user` | `p_discord_id`, `p_user_id` | Link Discord ↔ Platform account |
+| **StudyLion port** (`scripts/studylion_port.sql`) | | |
+| `adjust_coins` / `get_coin_summary` / `transfer_coins` | discord_id, amount, reason… | Ledger-backed balance changes (floor 0), wallet summary, atomic transfers |
+| `todo_add/list/set_done/remove/edit` | discord_id, ids/content… | Todo CRUD; `todo_set_done` also mints task rewards (24h rolling cap) in-transaction |
+| `reminder_add/list/cancel`, `reminders_due`, `reminder_ack` | … | Reminder CRUD + due-poll; ack advances repeats past missed occurrences / flags failures |
+| `add_voice_time` / `get_voice_stats` | discord_id, channel, seconds, rate, cap | Warsaw-day voice aggregates + idempotent coin minting; today/week/month/total sums |
+| `pomodoro_upsert/set_stopped/delete/list_all` | channel_id… | Persisted timers (last_started anchor ⇒ restart-resumable) |
+| `record_rank_award` | discord_id, hours | One-time-per-threshold rank reward guard |
+| `shop_list/add_item/remove_item/buy` | role_id, price… | Colour-role shop; `shop_buy` debits atomically |
+
+`get_user_activity_stats` and `get_activity_leaderboard` are further extended by
+`studylion_port.sql` (coins/voice/tasks/GM fields; `coins` + `voice` leaderboard categories) —
+it supersedes `unified_progress_stats.sql`/`unified_leaderboard.sql`.
 
 Streak/cap/day logic lives server-side in the RPCs and is Warsaw-day aware.
 
@@ -218,6 +244,16 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 15 | `session_tracker` | Daily-coaching joins (cap 1/day) and deep-work joins (cap 3/day) via `log_capped_join`; posts the shared unified progress card (`build_progress_embed`); banks deep-work time on leave and periodically | `on_voice_state_update`, tasks.loop 10m flush |
 | 16 | `voicerecord` | The recording pipeline (see below) | `/nagraj`, `/stop_nagrywania` (mod-only), auto-record |
 | 17 | `daily_invite` | Posts the 12:34 `@here` invite to the coaching channel (once/day guard) | tasks.loop 1m |
+| 18 | `przywolanie` | Momentum replies when summoned by name/@mention (OpenAI, transcripts lookup, knowledge base, coaching CTA + limits) | `on_message` |
+| 19 | `reboot` | Owner restarts the bot from Discord | `/momentum-reboot` |
+| 20 | `economy` | Monety: wallet, transfers, owner grants (StudyLion port) | `/portfel`, `/przelew`, `/monety-admin` (owner) |
+| 21 | `todo` | Per-user tasklist with coin rewards (50/task, ≤10/24h), range ops (`1,3-5`, `all`), toggle select menu | `/todo dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj` |
+| 22 | `reminders` | DM reminders: relative (`za:3h`) or wall-clock (`o:16:00`), repeats ≥10 min with anti-burst advance, DM-ability probe at creation | `/przypomnij`, `/przypomnienia [usun:]`; tasks.loop 1m poller |
+| 23 | `pomodoro` | Per-voice-channel focus/break timer (StudyLion `last_started` model): `<t:…:R>` countdowns in the VC chat, best-effort channel status, auto-stop when empty + auto-restart on join, resumes mid-cycle after bot restart | `/pomodoro start|stop|status`; `on_voice_state_update`; per-timer asyncio task |
+| 24 | `voice_tracker` | Tracks time in ALL voice channels (minus `UNTRACKED_VOICE_CHANNEL_IDS`) into Warsaw-day aggregates; mints coins (50/h, ≤16h/day); dispatches `momentum_voice_flushed` | `on_voice_state_update`, tasks.loop 5m flush |
+| 25 | `statystyki` | Personal stats embed: voice today/week/month/total, monety, zadania, activities, Daily Coaching, Deep Work, GM | `/statystyki [uzytkownik]` |
+| 26 | `ranks` | Voice-hour rank ladder (`VOICE_RANKS`): award-highest/remove-others roles, one-time coin rewards, public announcement; dormant when unconfigured | `/rangi`; listens to `momentum_voice_flushed` |
+| 27 | `shop` | Colour-role shop (DB-driven items, single-slot swap without refund, atomic debit + refund on role failure) | `/sklep`; `/sklep-admin dodaj|usun|lista` (manage_guild) |
 
 ---
 
@@ -256,16 +292,22 @@ publishing or the bot.
 
 ## Commands / listeners / tasks reference
 
-**Slash:** `/gm`, `/done <activity>`, `/leaderboard <activity>`, `/sekret <msg>`, `/anonim <msg>`,
-`/pytanie <q>`, `/kolejka`, `/nagraj`, `/stop_nagrywania` (last two mod-only).
+**Slash:** `/gm`, `/done <activity>`, `/leaderboard <activity>` (8 categories), `/sekret <msg>`,
+`/anonim <msg>`, `/pytanie <q>`, `/kolejka`, `/nagraj`, `/stop_nagrywania` (last two mod-only),
+`/momentum-reboot` (owner) — plus the StudyLion port: `/portfel [user]`, `/przelew <komu> <ile>`,
+`/monety-admin` (owner), `/todo <dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj>`,
+`/przypomnij tekst: [za:|o:] [co:]`, `/przypomnienia [usun:]`,
+`/pomodoro <start|stop|status>`, `/statystyki [user]`, `/rangi`, `/sklep`,
+`/sklep-admin <dodaj|usun|lista>` (manage_guild).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
-**Listeners:** `on_message` (gmlistener, photo_reply), `on_member_join`/`on_member_remove`
+**Listeners:** `on_message` (gmlistener, photo_reply, przywolanie), `on_member_join`/`on_member_remove`
 (auto_assign_role), `on_voice_state_update` (queue_cog, meditation_voice, session_tracker,
-voicerecord).
+voicerecord, voice_tracker, pomodoro), custom `momentum_voice_flushed` (ranks ← voice_tracker).
 
 **Background tasks:** daily_invite 1m · dailyreminder 1m · auto_assign_role invite cache 1m ·
-meditation_voice straggler sweep 1m · voicerecord auto_sweep 60s · session_tracker deep-work flush 10m.
+meditation_voice straggler sweep 1m · voicerecord auto_sweep 60s · session_tracker deep-work flush 10m ·
+reminders due-poll 1m · voice_tracker flush 5m · pomodoro: one asyncio task per running timer.
 
 ---
 
@@ -280,6 +322,9 @@ meditation_voice straggler sweep 1m · voicerecord auto_sweep 60s · session_tra
   (`429 insufficient_quota`) — code is ready; recording + Drive upload work regardless.
 - **Hardcoded channel IDs** inside several cogs (GM, meditation, deep-work, photo thread, invite
   map) rather than centralized in `config.py` — fine for a single server.
+- **Superseded SQL scripts** — `scripts/unified_progress_stats.sql` and
+  `scripts/unified_leaderboard.sql` are fully contained in (and superseded by)
+  `scripts/studylion_port.sql`; keep them only as history.
 
 ---
 
@@ -293,7 +338,9 @@ Loose, not commitments (mirrors README):
 - [ ] **Speaking-time analytics** — per-participant talk time from per-user recording tracks.
 - [ ] **Weekly digest** — roll up calls, streaks, leaderboard movers.
 - [ ] **Action-item extraction** — opt-in per-person follow-ups (was trimmed from the summary).
-- [ ] **Multi-channel auto-record**, **streak freezes**, **personal stats dashboard**.
+- [ ] **Multi-channel auto-record**, **streak freezes** (~~personal stats dashboard~~ → `/statystyki`).
+- [ ] **StudyLion port, wave 2** — private rented rooms, scheduled accountability sessions,
+  rolemenus, text/message XP, weekly-monthly goals, seasons (blueprints in the port spec).
 - [ ] **Cleanup** — delete the stray `Momentum/` dir and the dead `linkdb.py`/`emoji.py`/`images.py`.
 
 ---
@@ -301,6 +348,30 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-07**
+- **StudyLion port, wave 1** (spec: `docs/superpowers/specs/2026-07-11-studylion-port-design.md`;
+  requires `scripts/studylion_port.sql` in Supabase — everything degrades gracefully until applied):
+  - **Monety** 🪙 — ledger-backed coin economy (`coin_transactions` + `user_activities.coins`,
+    floor 0): earned for voice time (50/h, ≤16h/day), todo tasks (50, ≤10/24h), `/done` (+10),
+    GM (+10), rank-ups; spent in the shop; `/portfel`, `/przelew`, `/monety-admin`.
+  - **`/todo`** — flat per-user tasklist with StudyLion semantics: stable numbering, range ops
+    (`1,3-5`, `all`), strikethrough completed, soft delete, `rewarded` flag (no double-pay),
+    author-locked toggle select.
+  - **`/przypomnij` + `/przypomnienia`** — DM reminders (relative `za:` or Warsaw wall-clock `o:`),
+    repeats ≥10 min with anchored advance past missed occurrences, upfront DM-ability probe,
+    send-then-ack polling (1m), failures flagged never retried.
+  - **`/pomodoro`** — per-voice-channel focus/break timer on StudyLion's `last_started` model
+    (resumes mid-cycle after restart), live `<t:…:R>` countdowns in the VC text chat instead of
+    rate-limited channel renames, auto-stop on empty + auto-restart on join.
+  - **Voice tracking** — all voice channels into `voice_time_daily` (Warsaw days) with idempotent
+    coin minting; **`/statystyki`** (today/week/month/all-time + wallet/tasks/activities/GM);
+    **`/rangi`** voice-hour rank ladder (config `VOICE_RANKS`, dormant until filled);
+    **`/sklep`** colour-role shop (`/sklep-admin` manages items, no deploy needed).
+  - `/leaderboard` gains 🪙 Monety (earned this month, transfers excluded) and 🎙️ Głosowe
+    (month voice time); the progress card gains 🎙️/✅/🪙 rows.
+  - New pure helpers `parsers.py` + `pomodoro_math.py` with stdlib-unittest tests (`tests/`).
+  - Deliberately not ported: moderation/video enforcement, premium/gems/sponsors/topgg, skins
+    (needs StudyLion's external image-render service), multi-guild config UIs, translations —
+    rationale in the spec.
 - **Unified the leaderboard**: `/leaderboard` now covers all six progress-card categories —
   Daily Coaching and Deep Work rank by this month's joins (Warsaw month) via an extended
   `get_activity_leaderboard` (`scripts/unified_leaderboard.sql`, must be applied in

@@ -3,13 +3,15 @@ from discord.ext import commands
 from discord import app_commands
 from discord import Embed
 import logging
+from activity_embed import format_duration_pl
 from db import get_activity_leaderboard
 
 logger = logging.getLogger("momentum_bot.leaderboard")
 
 # Same categories as the unified progress card: activity value -> (emoji, label).
-# The two join-based ones need get_activity_leaderboard from
-# scripts/unified_leaderboard.sql applied in Supabase.
+# The join-based ones need get_activity_leaderboard from
+# scripts/unified_leaderboard.sql; 'coins'/'voice' (StudyLion port) need
+# scripts/studylion_port.sql. All rank within the current Warsaw month.
 CATEGORIES = {
     "trening": ("💪", "Trening"),
     "medytacja": ("🧘", "Medytacja"),
@@ -17,7 +19,18 @@ CATEGORIES = {
     "dziennik": ("📝", "Dziennik"),
     "daily_coaching": ("🔢", "Daily Coaching"),
     "deep_work": ("⚓️", "Deep Work"),
+    "coins": ("🪙", "Monety"),
+    "voice": ("🎙️", "Głosowe"),
 }
+
+
+def _format_value(activity_type: str, count: int) -> str:
+    """'voice' ranks by seconds → render as a duration; the rest are counts."""
+    if activity_type == "voice":
+        return f"🎙️ {format_duration_pl(count)}"
+    if activity_type == "coins":
+        return f"🪙 {count}"
+    return f"🔥 Total: {count}"
 
 
 class leaderboard(commands.Cog):
@@ -73,7 +86,7 @@ class leaderboard(commands.Cog):
                         rank = entry["rank"]
                         embed.add_field(
                             name=f"{rank}. {user.display_name}",
-                            value=f"🔥 Total: {streak_count}",
+                            value=_format_value(activity_type, streak_count),
                             inline=False,
                         )
                     except Exception as e:

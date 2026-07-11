@@ -127,6 +127,15 @@ EXTENSIONS = [
     "cogs.daily_invite",  # daily @here invite to the Daily Coaching channel
     "cogs.przywolanie",  # Momentum replies when summoned by name in a conversation
     "cogs.reboot",  # /momentum-reboot — owner restarts the bot from Discord
+    # --- StudyLion port, wave 1 (2026-07; needs scripts/studylion_port.sql) ---
+    "cogs.economy",  # monety: /portfel, /przelew, /monety-admin
+    "cogs.todo",  # /todo — lista zadań z nagrodami
+    "cogs.reminders",  # /przypomnij + /przypomnienia (DM)
+    "cogs.pomodoro",  # /pomodoro — wspólny timer na kanale głosowym
+    "cogs.voice_tracker",  # czas na głosowych → monety (wszystkie kanały)
+    "cogs.statystyki",  # /statystyki — osobista karta statystyk
+    "cogs.ranks",  # rangi za godziny na głosowych (VOICE_RANKS)
+    "cogs.shop",  # /sklep — kolory nicku za monety
 ]
 
 # Function to load extensions

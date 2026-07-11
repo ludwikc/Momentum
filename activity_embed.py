@@ -1,5 +1,5 @@
 import discord
-from config import ACTIVITIES
+from config import ACTIVITIES, COINS_EMOJI
 
 
 def _plural_pl(n: int, one: str, few: str, many: str) -> str:
@@ -71,6 +71,32 @@ def build_progress_embed(user, headline, all_stats):
             dw_text = sessions_text
         embed.add_field(
             name=f"⚓️ Deep Work: {dw_text}",
+            value="",
+            inline=False,
+        )
+
+    # StudyLion-port rows (need scripts/studylion_port.sql; hidden until the
+    # extended get_user_activity_stats returns them — same pattern as above).
+    voice_seconds = stats.get("voice_seconds_total", 0)
+    if voice_seconds > 0:
+        embed.add_field(
+            name=f"🎙️ Na głosowych: {format_duration_pl(voice_seconds)}",
+            value="",
+            inline=False,
+        )
+
+    tasks_done = stats.get("tasks_done_total", 0)
+    if tasks_done > 0:
+        embed.add_field(
+            name=f"✅ Zadania: {tasks_done}",
+            value="",
+            inline=False,
+        )
+
+    coins = stats.get("coins", 0)
+    if coins > 0:
+        embed.add_field(
+            name=f"{COINS_EMOJI} Monety: {coins}",
             value="",
             inline=False,
         )

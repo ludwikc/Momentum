@@ -102,3 +102,44 @@ MOMENTUM_KB_MATCH_COUNT = 3                          # ile tematów zwracać (~2
 # Dotyczy obu wejść: /coaching-momentum oraz prośby w naturalnym języku. Właściciel
 # jest zwolniony. Reset następuje na początku kolejnego miesiąca (czas warszawski).
 MOMENTUM_COACHING_MONTHLY_LIMIT = 5
+
+# =============================================================================
+# StudyLion port (spec: docs/superpowers/specs/2026-07-11-studylion-port-design.md)
+# Requires scripts/studylion_port.sql applied in Supabase.
+# =============================================================================
+
+# --- Monety (coin economy) ---
+COINS_EMOJI = "🪙"
+VOICE_COINS_PER_HOUR = 50          # StudyLion default: 50/h, pro-rated per second
+VOICE_COIN_DAILY_CAP_HOURS = 16    # coins mint for at most this many voice hours/day
+TASK_REWARD_COINS = 50             # per completed todo task (StudyLion default)
+TASK_REWARD_LIMIT_24H = 10         # max rewarded tasks per rolling 24h (StudyLion default)
+DONE_REWARD_COINS = 10             # bonus for /done activity log
+GM_REWARD_COINS = 10               # bonus for the GM morning check-in
+
+# --- Todo (/todo) ---
+TODO_MAX_OPEN = 100                # max open (unticked) tasks per user
+TODO_MAX_CONTENT = 100             # max task length (StudyLion default)
+
+# --- Reminders (/przypomnij) ---
+REMINDER_MAX_PER_USER = 25         # StudyLion default (Discord select cap)
+REMINDER_MIN_REPEAT_SECONDS = 600  # min repeat interval (StudyLion default)
+REMINDER_MAX_CONTENT = 2000
+
+# --- Pomodoro (/pomodoro) ---
+POMODORO_DEFAULT_FOCUS_MIN = 25
+POMODORO_DEFAULT_BREAK_MIN = 5
+POMODORO_MAX_STAGE_MIN = 1440      # StudyLion's per-stage bound
+
+# --- Voice tracking ---
+# All voice channels are tracked except these (e.g. an AFK channel).
+UNTRACKED_VOICE_CHANNEL_IDS: list[int] = []
+VOICE_FLUSH_MINUTES = 5            # periodic flush; bounds restart loss to <5 min
+
+# --- Rangi (activity ranks) ---
+# (hours, role_id, reward_coins) — lifetime tracked voice hours thresholds.
+# Empty ⇒ the ranks cog stays dormant. StudyLion's template ladder for reference:
+# [(1, <id>, 1000), (4, <id>, 2000), (8, <id>, 3000), (16, <id>, 4000),
+#  (32, <id>, 5000), (64, <id>, 6000), (80, <id>, 7000)]
+VOICE_RANKS: list[tuple[int, int, int]] = []
+RANKS_ANNOUNCE_CHANNEL_ID = PROGRESS_CHANNEL_ID

@@ -247,3 +247,236 @@ def search_knowledge(
     ).execute()
 
     return result.data or []
+
+
+# === Economy (StudyLion port — scripts/studylion_port.sql) ===
+
+def adjust_coins(discord_id: str, amount: int, reason: str, metadata: dict | None = None) -> dict:
+    """Change a user's coin balance through the ledger. Floors at 0:
+    returns {ok: False, error: 'insufficient', balance} instead of going negative."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "adjust_coins",
+        {"p_discord_id": discord_id, "p_amount": amount,
+         "p_reason": reason, "p_metadata": metadata},
+    ).execute()
+    return result.data
+
+
+def get_coin_summary(discord_id: str) -> dict:
+    """{balance, earned_month, earned_total} (earned = positive, transfers-in excluded)."""
+    supabase = get_supabase()
+    result = supabase.rpc("get_coin_summary", {"p_discord_id": discord_id}).execute()
+    return result.data
+
+
+def transfer_coins(from_id: str, to_id: str, amount: int) -> dict:
+    """Atomic member→member coin transfer. {ok, from_balance, to_balance} or {ok: False, error}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "transfer_coins",
+        {"p_from": from_id, "p_to": to_id, "p_amount": amount},
+    ).execute()
+    return result.data
+
+
+# === Todo list (StudyLion port) ===
+
+def todo_add(discord_id: str, items: list[str], max_open: int = 100) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "todo_add",
+        {"p_discord_id": discord_id, "p_items": items, "p_max_open": max_open},
+    ).execute()
+    return result.data
+
+
+def todo_list(discord_id: str) -> list[dict]:
+    """Live (non-deleted) tasks ordered by id: [{id, content, completed_at, created_at}]."""
+    supabase = get_supabase()
+    result = supabase.rpc("todo_list", {"p_discord_id": discord_id}).execute()
+    return result.data or []
+
+
+def todo_set_done(
+    discord_id: str, ids: list[int], done: bool,
+    reward_coins: int = 50, reward_limit_24h: int = 10,
+) -> dict:
+    """Tick/untick tasks; ticking rewards unrewarded ones up to the rolling-24h
+    limit inside the same transaction. {ok, changed, rewarded, coins_minted, balance}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "todo_set_done",
+        {"p_discord_id": discord_id, "p_ids": ids, "p_done": done,
+         "p_reward_coins": reward_coins, "p_reward_limit_24h": reward_limit_24h},
+    ).execute()
+    return result.data
+
+
+def todo_remove(discord_id: str, ids: list[int]) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "todo_remove", {"p_discord_id": discord_id, "p_ids": ids}
+    ).execute()
+    return result.data
+
+
+def todo_edit(discord_id: str, item_id: int, content: str) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "todo_edit",
+        {"p_discord_id": discord_id, "p_id": item_id, "p_content": content},
+    ).execute()
+    return result.data
+
+
+# === Reminders (StudyLion port) ===
+
+def reminder_add(
+    discord_id: str, content: str, remind_at_iso: str,
+    every_seconds: int | None = None,
+    max_per_user: int = 25, min_every_seconds: int = 600,
+) -> dict:
+    """{ok, id, count} or {ok: False, error: 'past'|'min_interval'|'limit'}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "reminder_add",
+        {"p_discord_id": discord_id, "p_content": content,
+         "p_remind_at": remind_at_iso, "p_every_seconds": every_seconds,
+         "p_max_per_user": max_per_user, "p_min_every_seconds": min_every_seconds},
+    ).execute()
+    return result.data
+
+
+def reminder_list(discord_id: str) -> list[dict]:
+    supabase = get_supabase()
+    result = supabase.rpc("reminder_list", {"p_discord_id": discord_id}).execute()
+    return result.data or []
+
+
+def reminder_cancel(discord_id: str, ids: list[int]) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "reminder_cancel", {"p_discord_id": discord_id, "p_ids": ids}
+    ).execute()
+    return result.data
+
+
+def reminders_due() -> list[dict]:
+    """Due, unfailed reminders (no mutation — ack each after the DM attempt)."""
+    supabase = get_supabase()
+    result = supabase.rpc("reminders_due", {}).execute()
+    return result.data or []
+
+
+def reminder_ack(reminder_id: int, ok: bool) -> dict:
+    """After a delivery attempt: advance repeating / delete one-shot / flag failed."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "reminder_ack", {"p_id": reminder_id, "p_ok": ok}
+    ).execute()
+    return result.data
+
+
+# === Voice time tracking (StudyLion port) ===
+
+def add_voice_time(
+    discord_id: str, channel_id: str, seconds: int,
+    coins_per_hour: int = 50, daily_cap_seconds: int = 57600,
+) -> dict:
+    """Record voice seconds (Warsaw-day aggregate) and mint capped coins.
+    Returns {day_seconds, total_seconds, coins_minted}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "add_voice_time",
+        {"p_discord_id": discord_id, "p_channel_id": channel_id,
+         "p_seconds": seconds, "p_coins_per_hour": coins_per_hour,
+         "p_daily_cap_seconds": daily_cap_seconds},
+    ).execute()
+    return result.data
+
+
+def get_voice_stats(discord_id: str) -> dict:
+    """{today_seconds, week_seconds, month_seconds, total_seconds} (Warsaw boundaries)."""
+    supabase = get_supabase()
+    result = supabase.rpc("get_voice_stats", {"p_discord_id": discord_id}).execute()
+    return result.data
+
+
+# === Pomodoro timers (StudyLion port) ===
+
+def pomodoro_upsert(
+    channel_id: str, focus_seconds: int, break_seconds: int,
+    last_started_iso: str | None, started_by: str,
+) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "pomodoro_upsert",
+        {"p_channel_id": channel_id, "p_focus_seconds": focus_seconds,
+         "p_break_seconds": break_seconds, "p_last_started": last_started_iso,
+         "p_started_by": started_by},
+    ).execute()
+    return result.data
+
+
+def pomodoro_set_stopped(channel_id: str, auto_restart: bool) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "pomodoro_set_stopped",
+        {"p_channel_id": channel_id, "p_auto_restart": auto_restart},
+    ).execute()
+    return result.data
+
+
+def pomodoro_delete(channel_id: str) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc("pomodoro_delete", {"p_channel_id": channel_id}).execute()
+    return result.data
+
+
+def pomodoro_list_all() -> list[dict]:
+    supabase = get_supabase()
+    result = supabase.rpc("pomodoro_list_all", {}).execute()
+    return result.data or []
+
+
+# === Ranks (StudyLion port) ===
+
+def record_rank_award(discord_id: str, hours: int) -> dict:
+    """{newly_awarded: bool} — True exactly once per threshold per user."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "record_rank_award", {"p_discord_id": discord_id, "p_hours": hours}
+    ).execute()
+    return result.data
+
+
+# === Shop (StudyLion port) ===
+
+def shop_list() -> list[dict]:
+    supabase = get_supabase()
+    result = supabase.rpc("shop_list", {}).execute()
+    return result.data or []
+
+
+def shop_add_item(role_id: str, name: str, price: int) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "shop_add_item", {"p_role_id": role_id, "p_name": name, "p_price": price}
+    ).execute()
+    return result.data
+
+
+def shop_remove_item(role_id: str) -> dict:
+    supabase = get_supabase()
+    result = supabase.rpc("shop_remove_item", {"p_role_id": role_id}).execute()
+    return result.data
+
+
+def shop_buy(discord_id: str, role_id: str) -> dict:
+    """Atomic debit for a shop item. {ok, name, price, balance} or {ok: False, error}."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "shop_buy", {"p_discord_id": discord_id, "p_role_id": role_id}
+    ).execute()
+    return result.data

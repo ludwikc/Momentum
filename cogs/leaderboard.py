@@ -7,7 +7,17 @@ from db import get_activity_leaderboard
 
 logger = logging.getLogger("momentum_bot.leaderboard")
 
-act = {"trening": "💪", "medytacja": "🧘", "sukces": "💎", "dziennik": "📝"}
+# Same categories as the unified progress card: activity value -> (emoji, label).
+# The two join-based ones need get_activity_leaderboard from
+# scripts/unified_leaderboard.sql applied in Supabase.
+CATEGORIES = {
+    "trening": ("💪", "Trening"),
+    "medytacja": ("🧘", "Medytacja"),
+    "sukces": ("💎", "Sukces"),
+    "dziennik": ("📝", "Dziennik"),
+    "daily_coaching": ("🔢", "Daily Coaching"),
+    "deep_work": ("⚓️", "Deep Work"),
+}
 
 
 class leaderboard(commands.Cog):
@@ -17,13 +27,13 @@ class leaderboard(commands.Cog):
 
     @app_commands.command(
         name="leaderboard",
-        description=f'Pokaż leaderboard dla wybranej aktywności: {", ".join(act)}',
+        description="Pokaż leaderboard dla wybranej aktywności (ten miesiąc)",
     )
     @app_commands.describe(activity="Wybierz aktywność")
     @app_commands.choices(
         activity=[
-            app_commands.Choice(name=f"{emoji} {name.capitalize()}", value=name)
-            for name, emoji in act.items()
+            app_commands.Choice(name=f"{emoji} {label}", value=name)
+            for name, (emoji, label) in CATEGORIES.items()
         ]
     )
     async def leaderboard_command(
@@ -31,9 +41,9 @@ class leaderboard(commands.Cog):
     ):
         activity_type = activity.value
 
-        if activity_type not in act:
+        if activity_type not in CATEGORIES:
             await interaction.response.send_message(
-                f'Niepoprawna aktywność. Dostępne aktywności: {", ".join(act)}',
+                f'Niepoprawna aktywność. Dostępne aktywności: {", ".join(CATEGORIES)}',
                 ephemeral=True,
             )
             return
@@ -42,10 +52,10 @@ class leaderboard(commands.Cog):
             # Get leaderboard from Supabase
             entries = get_activity_leaderboard(activity_type, 10)
 
-            emoji = act[activity_type]
+            emoji, label = CATEGORIES[activity_type]
 
             embed = Embed(
-                title=f"🏆 Leaderboard dla {activity_type.capitalize()} {emoji}",
+                title=f"🏆 Leaderboard dla {label} {emoji}",
                 color=0x280586,
             )
 

@@ -141,17 +141,6 @@ def add_deep_work_time(discord_id: str, seconds: int) -> dict:
     return result.data
 
 
-def get_deep_work_seconds(discord_id: str) -> dict:
-    """Get a user's lifetime Deep Work connection time. Returns {total_seconds}."""
-    supabase = get_supabase()
-    result = supabase.rpc(
-        "get_deep_work_seconds",
-        {"p_discord_id": discord_id}
-    ).execute()
-
-    return result.data
-
-
 # === Wake-up / Morning Check-in Functions ===
 
 def check_morning_checkin(discord_id: str) -> dict:

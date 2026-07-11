@@ -184,10 +184,9 @@ PostgreSQL RPC functions — no client-side SQL/query building. RPCs:
 |---|---|---|
 | `upsert_activity` | `p_discord_id`, `p_activity`, `p_xp_amount=10` | Log an activity; auto monthly reset; returns streaks |
 | `get_user_activity_stats` | `p_discord_id` | Everything the unified progress card shows: monthly streaks + lifetime activity totals + `total_daily_coaching`, `total_deep_work`, `deep_work_seconds` (or None). Extended by `scripts/unified_progress_stats.sql` |
-| `get_activity_leaderboard` | `p_activity`, `p_limit=10` | Ranked `{rank, discord_id, streak_count, user_id}` |
+| `get_activity_leaderboard` | `p_activity`, `p_limit=10` | Ranked `{rank, discord_id, streak_count, user_id}`; also accepts `daily_coaching`/`deep_work` (this month's join count) after `scripts/unified_leaderboard.sql` |
 | `log_capped_join` | `p_discord_id`, `p_activity`, `p_max_per_day` | Daily-capped join (daily_coaching/deep_work); `{logged, monthly_count, total_count}` |
 | `add_deep_work_time` | `p_discord_id`, `p_seconds` | Bank deep-work seconds; `{total_seconds}` |
-| `get_deep_work_seconds` | `p_discord_id` | Lifetime deep-work `{total_seconds}` |
 | `check_morning_checkin` | `p_discord_id` | GM check-in; `{success, is_early_bird, current_momentum, total_checkins, message}` |
 | `get_wakeup_leaderboard` | `p_type` (`total`/`momentum`/`early_bird`), `p_limit=10` | Wake-up ranking |
 | `link_discord_to_portal_user` | `p_discord_id`, `p_user_id` | Link Discord ↔ Platform account |
@@ -209,7 +208,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 5 | `auto_assign_role` | Caches invites, diffs use-counts on join, assigns a role per the hardcoded invite→role map | `on_member_join`, `on_member_remove`, tasks.loop 1m |
 | 6 | `prefixdone` | Nudges legacy `!`-commands to `/done` | `!trening`/`!medytacja`/`!sukces`(`!sumit`,`!mit`)/`!dziennik`/`!done` |
 | 7 | `done` | Logs an activity (`upsert_activity`) and posts a streak embed (monthly + consecutive-day + lifetime) | `/done <activity>` |
-| 8 | `leaderboard` | Top-10 ranking embed for an activity | `/leaderboard <activity>` |
+| 8 | `leaderboard` | Top-10 monthly ranking embed for any progress-card category (4 activities + Daily Coaching + Deep Work) | `/leaderboard <activity>` |
 | 9 | `sekret` | Posts an anonymous secret (spoiler-wrapped, role-pinged) in the secrets channel | `/sekret <message>` (1–1900 chars) |
 | 10 | `anonim` | Posts an anonymous spoiler message inline in the same channel | `/anonim <message>` |
 | 11 | `qacog` | FAQ lookup against ~5 hardcoded Q&A pairs (exact + partial match) | `/pytanie <question>` |
@@ -302,6 +301,12 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-07**
+- **Unified the leaderboard**: `/leaderboard` now covers all six progress-card categories —
+  Daily Coaching and Deep Work rank by this month's joins (Warsaw month) via an extended
+  `get_activity_leaderboard` (`scripts/unified_leaderboard.sql`, must be applied in
+  Supabase or the two new options error out gracefully). Removed the unused
+  `get_deep_work_seconds` wrapper from `db.py`. Spec:
+  `docs/superpowers/specs/2026-07-11-unified-leaderboard-design.md`.
 - **Unified the progress card**: every post to the progress channel (activities, Daily
   Coaching, Deep Work) now renders the same full per-user card via
   `activity_embed.build_progress_embed` — event-specific headline + all lifetime counters,

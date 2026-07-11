@@ -259,18 +259,42 @@ RETURNS TABLE (
     user_id UUID
 ) AS $$
 BEGIN
-    RETURN QUERY EXECUTE format(
-        'SELECT
-            ROW_NUMBER() OVER (ORDER BY streak_%I DESC) as rank,
-            ua.discord_id,
-            ua.streak_%I as streak_count,
-            ua.user_id
-        FROM user_activities ua
-        WHERE ua.streak_%I > 0
-        ORDER BY ua.streak_%I DESC
-        LIMIT $1',
-        p_activity, p_activity, p_activity, p_activity
-    ) USING p_limit;
+    IF p_activity IN ('daily_coaching', 'deep_work') THEN
+        -- Join-based activities have no streak_* column in user_activities;
+        -- count this month's rows in activity_logs instead (Warsaw month).
+        RETURN QUERY
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY c.cnt DESC) AS rank,
+            c.discord_id,
+            c.cnt::INTEGER AS streak_count,
+            c.user_id
+        FROM (
+            SELECT
+                al.discord_id,
+                COUNT(*) AS cnt,
+                (ARRAY_AGG(al.user_id))[1] AS user_id
+            FROM activity_logs al
+            WHERE al.activity_type = p_activity
+              AND (al.logged_at AT TIME ZONE 'Europe/Warsaw')::date
+                  >= DATE_TRUNC('month', (NOW() AT TIME ZONE 'Europe/Warsaw'))::date
+            GROUP BY al.discord_id
+        ) c
+        ORDER BY c.cnt DESC
+        LIMIT p_limit;
+    ELSE
+        RETURN QUERY EXECUTE format(
+            'SELECT
+                ROW_NUMBER() OVER (ORDER BY streak_%I DESC) as rank,
+                ua.discord_id,
+                ua.streak_%I as streak_count,
+                ua.user_id
+            FROM user_activities ua
+            WHERE ua.streak_%I > 0
+            ORDER BY ua.streak_%I DESC
+            LIMIT $1',
+            p_activity, p_activity, p_activity, p_activity
+        ) USING p_limit;
+    END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

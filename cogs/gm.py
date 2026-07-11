@@ -4,7 +4,8 @@ from discord.ext import commands
 import random
 import logging
 from random_msg import random_message
-from db import check_morning_checkin
+from config import COINS_EMOJI, GM_REWARD_COINS
+from db import award_coins_safe, check_morning_checkin
 
 GM_CHANNEL_ID = 1021389566445375558
 EMOJI_ONLY_USERS = {1413621120250417347, 1274430409391870089}
@@ -69,6 +70,10 @@ class GMCommand(commands.Cog):
                 )
             else:
                 public_message = f"GM {interaction.user.mention}"
+
+            # StudyLion-port economy hook: small coin bonus for the check-in.
+            if award_coins_safe(user_id, GM_REWARD_COINS, "gm"):
+                public_message += f" (+{GM_REWARD_COINS} {COINS_EMOJI})"
 
             # Send public response
             await interaction.response.send_message(public_message)

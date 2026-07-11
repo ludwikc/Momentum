@@ -3,7 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 from config import ACTIVITIES as act
-from db import upsert_activity, get_user_activity_stats
+from config import DONE_REWARD_COINS
+from db import award_coins_safe, upsert_activity, get_user_activity_stats
 from activity_embed import build_activity_embed
 
 logger = logging.getLogger("momentum_bot.done")
@@ -38,6 +39,12 @@ class done(commands.Cog):
                     ephemeral=True,
                 )
                 return
+
+            # StudyLion-port economy hook: small coin bonus per logged activity
+            # (before fetching stats so the card shows the fresh balance).
+            award_coins_safe(
+                user_id, DONE_REWARD_COINS, "done", {"activity": activity_type}
+            )
 
             # Build response embed (monthly count + consecutive-day streak +
             # lifetime grand totals)

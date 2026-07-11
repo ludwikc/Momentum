@@ -263,6 +263,19 @@ def adjust_coins(discord_id: str, amount: int, reason: str, metadata: dict | Non
     return result.data
 
 
+def award_coins_safe(
+    discord_id: str, amount: int, reason: str, metadata: dict | None = None
+) -> dict | None:
+    """Best-effort coin award for hooks in non-economy flows (/done, GM):
+    never raises — the host flow must not break when the economy is down
+    (e.g. scripts/studylion_port.sql not applied yet)."""
+    try:
+        return adjust_coins(discord_id, amount, reason, metadata)
+    except Exception as e:
+        logger.warning(f"Coin award failed ({reason}) for {discord_id}: {e}")
+        return None
+
+
 def get_coin_summary(discord_id: str) -> dict:
     """{balance, earned_month, earned_total} (earned = positive, transfers-in excluded)."""
     supabase = get_supabase()

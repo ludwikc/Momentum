@@ -4,7 +4,8 @@ import random
 import re
 import logging
 from datetime import datetime
-from db import check_morning_checkin
+from config import COINS_EMOJI, GM_REWARD_COINS
+from db import award_coins_safe, check_morning_checkin
 
 GM_CHANNEL_ID = 1021389566445375558
 EMOJI_ONLY_USERS = {1413621120250417347, 1274430409391870089}
@@ -101,6 +102,10 @@ class GMListener(commands.Cog):
                 f"To twoja {total_checkins} pobudka z samego rana! "
                 f"Twoje momentum wynosi {current_momentum} {MOMENTUM_EMOJI}!"
             )
+
+            # StudyLion-port economy hook: small coin bonus for the check-in.
+            if award_coins_safe(user_id, GM_REWARD_COINS, "gm"):
+                reply_message += f" (+{GM_REWARD_COINS} {COINS_EMOJI})"
 
             await message.reply(reply_message)
 

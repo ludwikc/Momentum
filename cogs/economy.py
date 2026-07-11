@@ -9,10 +9,8 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 
-from config import COINS_EMOJI
+from config import COINS_EMOJI, MOMENTUM_OWNER_ID as OWNER_ID
 from db import adjust_coins, get_coin_summary, transfer_coins
-
-OWNER_ID = 404038151565213696
 
 logger = logging.getLogger("momentum_bot.economy")
 

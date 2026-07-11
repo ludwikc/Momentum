@@ -17,6 +17,7 @@ from config import (
     TODO_MAX_CONTENT,
     TODO_MAX_OPEN,
 )
+from activity_embed import _plural_pl
 from db import todo_add, todo_edit, todo_list, todo_remove, todo_set_done
 from parsers import parse_index_ranges
 
@@ -196,7 +197,7 @@ class Todo(commands.GroupCog, group_name="todo", description="Twoja lista zadań
                     await interaction.response.send_message(DB_ERROR_MSG, ephemeral=True)
                 return
             added = result.get("added", len(pieces))
-            word = "zadanie" if added == 1 else ("zadania" if added < 5 else "zadań")
+            word = _plural_pl(added, "zadanie", "zadania", "zadań")
             await interaction.response.send_message(
                 f"➕ Dodano {added} {word}. Zobacz: `/todo lista`.", ephemeral=True
             )
@@ -237,7 +238,8 @@ class Todo(commands.GroupCog, group_name="todo", description="Twoja lista zadań
                     "Te zadania są już odhaczone (albo nie istnieją).", ephemeral=True
                 )
                 return
-            msg = f"✅ {interaction.user.mention} odhacza {changed} zadań!"
+            word = _plural_pl(changed, "zadanie", "zadania", "zadań")
+            msg = f"✅ {interaction.user.mention} odhacza {changed} {word}!"
             if changed == 1:
                 msg = f"✅ {interaction.user.mention} odhacza zadanie!"
             if minted:
@@ -258,8 +260,9 @@ class Todo(commands.GroupCog, group_name="todo", description="Twoja lista zadań
                 return
             result = todo_set_done(str(interaction.user.id), ids, False)
             changed = (result or {}).get("changed", 0)
+            word = _plural_pl(changed, "zadanie", "zadania", "zadań")
             await interaction.response.send_message(
-                f"↩️ Odznaczono {changed} zadań." if changed else
+                f"↩️ Odznaczono {changed} {word}." if changed else
                 "Te zadania nie były odhaczone.",
                 ephemeral=True,
             )
@@ -277,8 +280,9 @@ class Todo(commands.GroupCog, group_name="todo", description="Twoja lista zadań
                 return
             result = todo_remove(str(interaction.user.id), ids)
             removed = (result or {}).get("removed", 0)
+            word = _plural_pl(removed, "zadanie", "zadania", "zadań")
             await interaction.response.send_message(
-                f"🗑️ Usunięto {removed} zadań.", ephemeral=True
+                f"🗑️ Usunięto {removed} {word}.", ephemeral=True
             )
         except Exception as e:
             logger.error(f"Error in /todo usun: {e}")
@@ -295,8 +299,9 @@ class Todo(commands.GroupCog, group_name="todo", description="Twoja lista zadań
                 )
                 return
             todo_remove(str(interaction.user.id), [i["id"] for i in items])
+            word = _plural_pl(len(items), "zadanie", "zadania", "zadań")
             await interaction.response.send_message(
-                f"🗑️ Wyczyszczono listę ({len(items)} zadań).", ephemeral=True
+                f"🗑️ Wyczyszczono listę ({len(items)} {word}).", ephemeral=True
             )
         except Exception as e:
             logger.error(f"Error in /todo wyczysc: {e}")

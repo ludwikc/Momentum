@@ -751,6 +751,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Balance + earnings summary for /portfel.
+CREATE OR REPLACE FUNCTION get_coin_summary(p_discord_id TEXT)
+RETURNS JSON AS $$
+DECLARE
+    v_balance BIGINT;
+    v_earned_month BIGINT;
+    v_earned_total BIGINT;
+    v_month_start DATE := DATE_TRUNC('month', (NOW() AT TIME ZONE 'Europe/Warsaw'))::date;
+BEGIN
+    SELECT coins INTO v_balance FROM user_activities WHERE discord_id = p_discord_id;
+
+    SELECT
+        COALESCE(SUM(amount) FILTER (
+            WHERE (created_at AT TIME ZONE 'Europe/Warsaw')::date >= v_month_start), 0),
+        COALESCE(SUM(amount), 0)
+    INTO v_earned_month, v_earned_total
+    FROM coin_transactions
+    WHERE discord_id = p_discord_id AND amount > 0 AND reason <> 'transfer_in';
+
+    RETURN json_build_object(
+        'balance', COALESCE(v_balance, 0),
+        'earned_month', v_earned_month,
+        'earned_total', v_earned_total
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Atomic member→member transfer (no fee, min 1; mirrors StudyLion /send).
 CREATE OR REPLACE FUNCTION transfer_coins(
     p_from TEXT,

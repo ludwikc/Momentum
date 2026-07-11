@@ -19,6 +19,7 @@ from config import (
     REMINDER_MAX_PER_USER,
     REMINDER_MIN_REPEAT_SECONDS,
 )
+from activity_embed import _plural_pl
 from db import reminder_ack, reminder_add, reminder_cancel, reminder_list, reminders_due
 from parsers import parse_duration_pl, parse_index_ranges, parse_wallclock_pl
 
@@ -224,8 +225,9 @@ class Reminders(commands.Cog):
                 ids = [rows[i - 1]["id"] for i in indices]
                 result = reminder_cancel(str(interaction.user.id), ids)
                 removed = (result or {}).get("removed", 0)
+                word = _plural_pl(removed, "przypomnienie", "przypomnienia", "przypomnień")
                 await interaction.response.send_message(
-                    f"🗑️ Usunięto {removed} przypomnień.", ephemeral=True
+                    f"🗑️ Usunięto {removed} {word}.", ephemeral=True
                 )
                 return
 

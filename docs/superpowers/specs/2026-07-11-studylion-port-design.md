@@ -72,7 +72,7 @@ Earning (defaults mirror StudyLion where it has one):
 |---|---|---|
 | Voice time | 50/h, pro-rated per second (`VOICE_COINS_PER_HOUR`) | 16 h/day (`VOICE_COIN_DAILY_CAP_HOURS`, Warsaw day) |
 | Completed task | 50 (`TASK_REWARD_COINS`) | 10 rewarded tasks / rolling 24 h (`TASK_REWARD_LIMIT_24H`) |
-| `/done` activity | 10 (`DONE_REWARD_COINS`) | inherits the activity's own semantics |
+| `/done` activity | 10 (`DONE_REWARD_COINS`) | once per activity per Warsaw day (`award_activity_coins`; streaks stay uncapped, only coins are gated) |
 | GM check-in | 10 (`GM_REWARD_COINS`) | 1/day (check-in itself is 1/day) |
 | Rank-up | per-rank `reward` from `VOICE_RANKS` | once per threshold (persisted) |
 
@@ -228,9 +228,10 @@ YAGNI at this community's scale; wave 2 can add `parent_id`).
 ### 7. Cross-cutting extensions
 
 - `/leaderboard` gains 🪙 **Monety** (coins *earned* this Warsaw month, positive
-  ledger sum excluding `transfer_in` — monthly spirit of the existing board; balances
-  aren't monthly) and 🎙️ **Głosowe** (this month's voice seconds; the cog renders
-  seconds via `format_duration_pl`). Same RPC shape, two new branches.
+  ledger sum excluding `transfer_in` and positive `shop` rows, i.e. refunds —
+  monthly spirit of the existing board; balances aren't monthly) and 🎙️ **Głosowe**
+  (this month's voice seconds; the cog renders seconds via `format_duration_pl`).
+  Same RPC shape, two new branches.
 - `get_user_activity_stats` v3 additionally returns `coins`, `voice_seconds_total`,
   `tasks_done_total`, `tasks_open`, `gm_total`, `gm_momentum` — feeds both
   `/statystyki` and the unified progress card (new auto-hidden rows: 🪙 Monety,

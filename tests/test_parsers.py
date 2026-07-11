@@ -1,7 +1,12 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 
-from parsers import parse_duration_pl, parse_index_ranges, parse_wallclock_pl
+from parsers import (
+    parse_db_timestamp,
+    parse_duration_pl,
+    parse_index_ranges,
+    parse_wallclock_pl,
+)
 
 
 class TestParseDurationPl(unittest.TestCase):
@@ -75,6 +80,47 @@ class TestParseWallclockPl(unittest.TestCase):
         self.assertIsNone(parse_wallclock_pl("25:99", self.NOW))
         self.assertIsNone(parse_wallclock_pl("kiedyś", self.NOW))
         self.assertIsNone(parse_wallclock_pl("", self.NOW))
+
+
+class TestParseDbTimestamp(unittest.TestCase):
+    """Postgres JSON trims trailing zeros in fractional seconds; Python 3.10's
+    fromisoformat only accepts exactly 3 or 6 digits — the parser must
+    normalize (a bad parse would permanently kill a repeating reminder)."""
+
+    def test_no_fraction(self):
+        self.assertEqual(
+            parse_db_timestamp("2026-07-11T10:00:00+00:00"),
+            datetime(2026, 7, 11, 10, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_trimmed_single_digit_fraction(self):
+        self.assertEqual(
+            parse_db_timestamp("2026-07-11T10:00:00.5+00:00"),
+            datetime(2026, 7, 11, 10, 0, 0, 500000, tzinfo=timezone.utc),
+        )
+
+    def test_trimmed_two_digit_fraction(self):
+        self.assertEqual(
+            parse_db_timestamp("2026-07-11T10:00:00.12+00:00"),
+            datetime(2026, 7, 11, 10, 0, 0, 120000, tzinfo=timezone.utc),
+        )
+
+    def test_full_six_digit_fraction(self):
+        self.assertEqual(
+            parse_db_timestamp("2026-07-11T10:00:00.123456+00:00"),
+            datetime(2026, 7, 11, 10, 0, 0, 123456, tzinfo=timezone.utc),
+        )
+
+    def test_zulu_suffix(self):
+        self.assertEqual(
+            parse_db_timestamp("2026-07-11T10:00:00Z"),
+            datetime(2026, 7, 11, 10, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_space_separator_and_offset(self):
+        result = parse_db_timestamp("2026-07-11 10:00:00.5+02:00")
+        self.assertEqual(result.microsecond, 500000)
+        self.assertEqual(result.utcoffset().total_seconds(), 7200)
 
 
 class TestParseIndexRanges(unittest.TestCase):

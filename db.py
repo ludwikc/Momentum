@@ -276,8 +276,26 @@ def award_coins_safe(
         return None
 
 
+def award_activity_coins_safe(
+    discord_id: str, activity: str, amount: int
+) -> dict | None:
+    """/done coin bonus, once per activity per Warsaw day (dedup in SQL).
+    Never raises — same contract as award_coins_safe."""
+    try:
+        supabase = get_supabase()
+        result = supabase.rpc(
+            "award_activity_coins",
+            {"p_discord_id": discord_id, "p_activity": activity, "p_amount": amount},
+        ).execute()
+        return result.data
+    except Exception as e:
+        logger.warning(f"Activity coin award failed ({activity}) for {discord_id}: {e}")
+        return None
+
+
 def get_coin_summary(discord_id: str) -> dict:
-    """{balance, earned_month, earned_total} (earned = positive, transfers-in excluded)."""
+    """{balance, earned_month, earned_total} (earned = positive; transfers-in
+    and shop refunds excluded)."""
     supabase = get_supabase()
     result = supabase.rpc("get_coin_summary", {"p_discord_id": discord_id}).execute()
     return result.data

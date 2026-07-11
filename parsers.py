@@ -20,6 +20,20 @@ _ALL_KEYWORDS = {"all", "-", "wszystkie", "wszystko"}
 
 _CLOCK_RE = re.compile(r"^(\d{1,2})[:.](\d{2})$")
 
+_FRACTION_RE = re.compile(r"\.(\d{1,6})")
+
+
+def parse_db_timestamp(value: str) -> datetime:
+    """PostgREST timestamptz JSON → aware datetime.
+
+    Postgres trims trailing zeros in fractional seconds (".5", ".1234"), which
+    Python 3.10's fromisoformat rejects (it wants exactly 3 or 6 digits) — pad
+    the fraction to 6 digits and normalize a Z suffix.
+    """
+    value = value.replace("Z", "+00:00")
+    value = _FRACTION_RE.sub(lambda m: "." + m.group(1).ljust(6, "0"), value, count=1)
+    return datetime.fromisoformat(value)
+
 
 def parse_duration_pl(text: str) -> int | None:
     """Parse "3h", "1d 2h 30m", "10 minut" etc. into seconds.

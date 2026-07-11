@@ -21,16 +21,21 @@ from config import (
 )
 from activity_embed import _plural_pl
 from db import reminder_ack, reminder_add, reminder_cancel, reminder_list, reminders_due
-from parsers import parse_duration_pl, parse_index_ranges, parse_wallclock_pl
+from parsers import (
+    parse_db_timestamp,
+    parse_duration_pl,
+    parse_index_ranges,
+    parse_wallclock_pl,
+)
 
 logger = logging.getLogger("momentum_bot.reminders")
 
 DB_ERROR_MSG = "Wystąpił błąd bazy danych. Spróbuj ponownie później."
 
-
-def _parse_db_ts(value: str) -> datetime:
-    """PostgREST timestamptz JSON → aware datetime."""
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+# Sanity clamps: beyond these a duration is a typo, and datetime arithmetic
+# would overflow (za:99999999d → OverflowError before the command's try block).
+MAX_DELAY_SECONDS = 10 * 365 * 86400   # "za" ≤ 10 lat
+MAX_REPEAT_SECONDS = 366 * 86400       # "co" ≤ rok
 
 
 def _format_every(seconds: int) -> str:
@@ -112,6 +117,12 @@ class Reminders(commands.Cog):
                     ephemeral=True,
                 )
                 return
+            if seconds > MAX_DELAY_SECONDS:
+                await interaction.response.send_message(
+                    "Aż tak daleko nie planujemy — maksymalnie 10 lat. 😉",
+                    ephemeral=True,
+                )
+                return
             remind_at = now_warsaw + timedelta(seconds=seconds)
         else:
             naive = parse_wallclock_pl(o, now_warsaw.replace(tzinfo=None))
@@ -141,6 +152,11 @@ class Reminders(commands.Cog):
                     f"Powtarzanie nie może być częstsze niż co "
                     f"{REMINDER_MIN_REPEAT_SECONDS // 60} minut.",
                     ephemeral=True,
+                )
+                return
+            if every_seconds > MAX_REPEAT_SECONDS:
+                await interaction.response.send_message(
+                    "Powtarzanie maksymalnie co rok.", ephemeral=True
                 )
                 return
 
@@ -240,7 +256,7 @@ class Reminders(commands.Cog):
             else:
                 lines = []
                 for idx, row in enumerate(rows, start=1):
-                    ts = int(_parse_db_ts(row["remind_at"]).timestamp())
+                    ts = int(parse_db_timestamp(row["remind_at"]).timestamp())
                     line = f"**[{idx}]** <t:{ts}:R> — {row['content'][:60]}"
                     if row.get("every_seconds"):
                         line += f" ({_format_every(row['every_seconds'])})"
@@ -277,7 +293,7 @@ class Reminders(commands.Cog):
                 )
                 every = row.get("every_seconds")
                 if every:
-                    remind_at = _parse_db_ts(row["remind_at"])
+                    remind_at = parse_db_timestamp(row["remind_at"])
                     now = datetime.now(pytz.utc)
                     periods = int((now - remind_at).total_seconds() // every) + 1
                     next_at = remind_at + timedelta(seconds=periods * every)

@@ -21,17 +21,13 @@ from config import (
     POMODORO_MAX_STAGE_MIN,
 )
 from db import pomodoro_delete, pomodoro_list_all, pomodoro_set_stopped, pomodoro_upsert
+from parsers import parse_db_timestamp
 from pomodoro_math import current_stage
 
 logger = logging.getLogger("momentum_bot.pomodoro")
 
 DB_ERROR_MSG = "Wystąpił błąd bazy danych. Spróbuj ponownie później."
 MAX_SLEEP = 300  # chunked sleeps (StudyLion drift guard)
-
-
-def _parse_db_ts(value: str) -> datetime:
-    """PostgREST timestamptz JSON → aware datetime."""
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class TimerState:
@@ -77,30 +73,36 @@ class Pomodoro(commands.GroupCog, group_name="pomodoro", description="Wspólny t
             logger.error(f"Failed to load pomodoro timers: {e}")
             return
         for row in rows:
-            channel_id = int(row["channel_id"])
-            if channel_id in self.timers:
-                continue
-            last_started = (
-                _parse_db_ts(row["last_started"]) if row.get("last_started") else None
-            )
-            state = TimerState(
-                row["focus_seconds"],
-                row["break_seconds"],
-                last_started,
-                row.get("auto_restart", False),
-                row.get("started_by"),
-            )
-            if self.bot.get_channel(channel_id) is None:
-                # Channel vanished while we were offline.
-                try:
-                    pomodoro_delete(str(channel_id))
-                except Exception:
-                    pass
-                continue
-            self.timers[channel_id] = state
-            if state.running:
-                state.task = asyncio.create_task(self._run_timer(channel_id))
-                logger.info(f"Resumed pomodoro in channel {channel_id}")
+            # Per-row guard: one malformed row must not abort the whole resume.
+            try:
+                channel_id = int(row["channel_id"])
+                if channel_id in self.timers:
+                    continue
+                last_started = (
+                    parse_db_timestamp(row["last_started"])
+                    if row.get("last_started")
+                    else None
+                )
+                state = TimerState(
+                    row["focus_seconds"],
+                    row["break_seconds"],
+                    last_started,
+                    row.get("auto_restart", False),
+                    row.get("started_by"),
+                )
+                if self.bot.get_channel(channel_id) is None:
+                    # Channel vanished while we were offline.
+                    try:
+                        pomodoro_delete(str(channel_id))
+                    except Exception:
+                        pass
+                    continue
+                self.timers[channel_id] = state
+                if state.running:
+                    state.task = asyncio.create_task(self._run_timer(channel_id))
+                    logger.info(f"Resumed pomodoro in channel {channel_id}")
+            except Exception as e:
+                logger.error(f"Failed to restore pomodoro row {row!r}: {e}")
         logger.info("Pomodoro cog is ready")
 
     def cog_unload(self):

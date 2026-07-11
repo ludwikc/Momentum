@@ -751,6 +751,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- One-per-activity-per-Warsaw-day coin bonus for /done (spam guard: the
+-- ledger row with the matching activity is the dedup key).
+CREATE OR REPLACE FUNCTION award_activity_coins(
+    p_discord_id TEXT,
+    p_activity TEXT,
+    p_amount BIGINT
+)
+RETURNS JSON AS $$
+DECLARE
+    v_day DATE := (NOW() AT TIME ZONE 'Europe/Warsaw')::date;
+    v_already BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM coin_transactions
+        WHERE discord_id = p_discord_id
+          AND reason = 'done'
+          AND metadata ->> 'activity' = p_activity
+          AND (created_at AT TIME ZONE 'Europe/Warsaw')::date = v_day
+    ) INTO v_already;
+
+    IF v_already THEN
+        RETURN json_build_object('ok', false, 'error', 'already_today');
+    END IF;
+
+    RETURN adjust_coins(
+        p_discord_id, p_amount, 'done',
+        jsonb_build_object('activity', p_activity)
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Balance + earnings summary for /portfel.
 CREATE OR REPLACE FUNCTION get_coin_summary(p_discord_id TEXT)
 RETURNS JSON AS $$
@@ -762,13 +793,17 @@ DECLARE
 BEGIN
     SELECT coins INTO v_balance FROM user_activities WHERE discord_id = p_discord_id;
 
+    -- "Earned" = positive rows minus gifts and refunds: transfers-in are
+    -- excluded, and positive 'shop' rows are exactly the refunds of failed
+    -- role grants (purchases are negative).
     SELECT
         COALESCE(SUM(amount) FILTER (
             WHERE (created_at AT TIME ZONE 'Europe/Warsaw')::date >= v_month_start), 0),
         COALESCE(SUM(amount), 0)
     INTO v_earned_month, v_earned_total
     FROM coin_transactions
-    WHERE discord_id = p_discord_id AND amount > 0 AND reason <> 'transfer_in';
+    WHERE discord_id = p_discord_id AND amount > 0
+      AND reason NOT IN ('transfer_in', 'shop');
 
     RETURN json_build_object(
         'balance', COALESCE(v_balance, 0),
@@ -1479,19 +1514,20 @@ BEGIN
         ORDER BY c.cnt DESC
         LIMIT p_limit;
     ELSIF p_activity = 'coins' THEN
-        -- Coins EARNED this Warsaw month (positive ledger rows, transfers-in
-        -- excluded so gifting can't game the board).
+        -- Coins EARNED this Warsaw month (positive ledger rows; transfers-in
+        -- excluded so gifting can't game the board, positive 'shop' rows
+        -- excluded because those are refunds, not earnings).
         RETURN QUERY
         SELECT
             ROW_NUMBER() OVER (ORDER BY c.earned DESC) AS rank,
             c.discord_id,
-            c.earned::INTEGER AS streak_count,
+            LEAST(c.earned, 2147483647)::INTEGER AS streak_count,
             ua.user_id
         FROM (
             SELECT ct.discord_id, SUM(ct.amount) AS earned
             FROM coin_transactions ct
             WHERE ct.amount > 0
-              AND ct.reason <> 'transfer_in'
+              AND ct.reason NOT IN ('transfer_in', 'shop')
               AND (ct.created_at AT TIME ZONE 'Europe/Warsaw')::date
                   >= DATE_TRUNC('month', (NOW() AT TIME ZONE 'Europe/Warsaw'))::date
             GROUP BY ct.discord_id

@@ -136,7 +136,7 @@ All in `config.py`:
 | **StudyLion port** (spec: `docs/superpowers/specs/2026-07-11-studylion-port-design.md`) | | |
 | `COINS_EMOJI` / `VOICE_COINS_PER_HOUR` / `VOICE_COIN_DAILY_CAP_HOURS` | 🪙 / `50` / `16` | Coin minting for voice time (pro-rated/s, Warsaw-day cap) |
 | `TASK_REWARD_COINS` / `TASK_REWARD_LIMIT_24H` | `50` / `10` | Coins per completed todo task; max rewarded tasks per rolling 24h |
-| `DONE_REWARD_COINS` / `GM_REWARD_COINS` | `10` / `10` | Coin bonus for `/done` and the GM check-in |
+| `DONE_REWARD_COINS` / `GM_REWARD_COINS` | `10` / `10` | Coin bonus for `/done` (1×/activity/Warsaw-day) and the GM check-in |
 | `TODO_MAX_OPEN` / `TODO_MAX_CONTENT` | `100` / `100` | Todo caps (open tasks / chars) |
 | `REMINDER_MAX_PER_USER` / `REMINDER_MIN_REPEAT_SECONDS` / `REMINDER_MAX_CONTENT` | `25` / `600` / `2000` | Reminder caps |
 | `POMODORO_DEFAULT_FOCUS_MIN` / `_BREAK_MIN` / `_MAX_STAGE_MIN` | `25` / `5` / `1440` | Pomodoro stage defaults/bounds |
@@ -205,7 +205,7 @@ PostgreSQL RPC functions — no client-side SQL/query building. RPCs:
 | `get_wakeup_leaderboard` | `p_type` (`total`/`momentum`/`early_bird`), `p_limit=10` | Wake-up ranking |
 | `link_discord_to_portal_user` | `p_discord_id`, `p_user_id` | Link Discord ↔ Platform account |
 | **StudyLion port** (`scripts/studylion_port.sql`) | | |
-| `adjust_coins` / `get_coin_summary` / `transfer_coins` | discord_id, amount, reason… | Ledger-backed balance changes (floor 0), wallet summary, atomic transfers |
+| `adjust_coins` / `award_activity_coins` / `get_coin_summary` / `transfer_coins` | discord_id, amount, reason… | Ledger-backed balance changes (floor 0), 1×/day /done bonus, wallet summary, atomic transfers |
 | `todo_add/list/set_done/remove/edit` | discord_id, ids/content… | Todo CRUD; `todo_set_done` also mints task rewards (24h rolling cap) in-transaction |
 | `reminder_add/list/cancel`, `reminders_due`, `reminder_ack` | … | Reminder CRUD + due-poll; ack advances repeats past missed occurrences / flags failures |
 | `add_voice_time` / `get_voice_stats` | discord_id, channel, seconds, rate, cap | Warsaw-day voice aggregates + idempotent coin minting; today/week/month/total sums |
@@ -351,8 +351,9 @@ Loose, not commitments (mirrors README):
 - **StudyLion port, wave 1** (spec: `docs/superpowers/specs/2026-07-11-studylion-port-design.md`;
   requires `scripts/studylion_port.sql` in Supabase — everything degrades gracefully until applied):
   - **Monety** 🪙 — ledger-backed coin economy (`coin_transactions` + `user_activities.coins`,
-    floor 0): earned for voice time (50/h, ≤16h/day), todo tasks (50, ≤10/24h), `/done` (+10),
-    GM (+10), rank-ups; spent in the shop; `/portfel`, `/przelew`, `/monety-admin`.
+    floor 0): earned for voice time (50/h, ≤16h/day), todo tasks (50, ≤10/24h), `/done`
+    (+10, 1×/aktywność/dzień), GM (+10), rank-ups; spent in the shop; `/portfel`,
+    `/przelew`, `/monety-admin`.
   - **`/todo`** — flat per-user tasklist with StudyLion semantics: stable numbering, range ops
     (`1,3-5`, `all`), strikethrough completed, soft delete, `rewarded` flag (no double-pay),
     author-locked toggle select.

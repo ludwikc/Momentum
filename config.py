@@ -75,6 +75,11 @@ MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
 # omits the param entirely (for non-reasoning models). Auto-disabled at runtime
 # if the model rejects it.
 MOMENTUM_REASONING_EFFORT = "low"
+# Transport for the summon model calls. False = Chat Completions (current).
+# True = Responses API: chains tool rounds via previous_response_id so the model
+# reuses prior reasoning/context instead of re-sending it — lower latency on
+# multi-round coaching/advice replies. Rollout flag; flip on after a live check.
+MOMENTUM_USE_RESPONSES = False
 
 # Momentum can look up past meeting transcripts (saved by the recorder under
 # transcripts/) via OpenAI tool-calls, so it can answer e.g. "co powiedział Jakub

@@ -48,10 +48,12 @@ from config import (
     MOMENTUM_TRANSCRIPT_LIST_DAYS,
     MOMENTUM_TRANSCRIPT_MAX_CHARS,
     MOMENTUM_TOOL_ROUNDS,
+    MOMENTUM_USE_RESPONSES,
 )
 from summon import (
     DailyRateLimiter,
     build_summon_prompt,
+    extract_tool_calls,
     is_coaching_request,
     is_param_compat_error,
     is_summon,
@@ -326,6 +328,11 @@ def _run_tool(name: str, args: dict) -> str:
     return f"Nieznane narzędzie: {name}"
 
 
+# The same tools in the Responses API's flat shape (no nested "function" key).
+# Derived from _TOOLS so the definitions live in one place.
+_TOOLS_RESPONSES = [{"type": "function", **t["function"]} for t in _TOOLS]
+
+
 # Param-compat decisions for MOMENTUM_MODEL, learned from the first rejecting call
 # and cached module-wide so every later call (and every round of a tool loop) skips
 # the wasted failing round-trip.
@@ -384,23 +391,96 @@ def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_cho
             raise
 
 
-def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> str:
-    """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
+def _respond(client, *, instructions: str, input, max_output_tokens: int,
+             with_tools: bool = True, tool_choice=None, previous_id=None):
+    """One Responses API call, dropping ``reasoning`` if the model rejects it.
 
-    Same pattern as ``transcribe.py``: a synchronous client built from
-    OPENAI_API_KEY, imported lazily so an unset key never breaks cog loading.
-
-    The model may call transcript tools (lista_spotkan/czytaj_spotkanie) to answer
-    questions about recorded meetings; we run the tool loop here and feed the results
-    back until it produces a final text answer.
-
-    When ``coaching`` is set, a coaching system message is added and the first
-    round forces a szukaj_w_bazie call (tool_choice), so the reply is always
-    grounded in the knowledge base.
+    ``previous_id`` chains onto a prior turn so the model reuses its earlier
+    reasoning/context instead of us resending the whole conversation each round —
+    the latency win over Chat Completions. Shares the reasoning-effort support
+    flag with the chat path (only one transport runs per process).
     """
-    from openai import OpenAI
+    global _reasoning_effort_supported
+    kwargs = {
+        "model": MOMENTUM_MODEL,
+        "instructions": instructions,
+        "input": input,
+        "max_output_tokens": max_output_tokens,
+        "store": True,  # required for previous_response_id chaining
+    }
+    if previous_id is not None:
+        kwargs["previous_response_id"] = previous_id
+    if with_tools:
+        kwargs["tools"] = _TOOLS_RESPONSES
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+    while True:
+        call_kwargs = dict(kwargs)
+        if _reasoning_effort_supported and MOMENTUM_REASONING_EFFORT:
+            call_kwargs["reasoning"] = {"effort": MOMENTUM_REASONING_EFFORT}
+        try:
+            return client.responses.create(**call_kwargs)
+        except Exception as e:
+            if _reasoning_effort_supported and "reasoning" in str(e).lower():
+                _reasoning_effort_supported = False
+                logger.info("Model %s nie akceptuje reasoning (Responses) — wyłączam", MOMENTUM_MODEL)
+                continue
+            raise
 
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool) -> str:
+    """Responses-API tool loop: chains rounds via previous_response_id so each
+    round after the first sends only the tool outputs, not the whole context."""
+    instructions = f"{SYSTEM_PROMPT}\n\nDzisiaj jest {today_str}."
+    if coaching:
+        instructions += f"\n\n{COACHING_INSTRUCTION}"
+    force_kb = coaching and MOMENTUM_KB_ENABLED
+
+    inp = user_msg          # first turn: the summon prompt as plain user input
+    previous_id = None
+    tools_used = False
+    for round_idx in range(1, MOMENTUM_TOOL_ROUNDS + 1):
+        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
+        tool_choice = None
+        if force_kb and not tools_used:
+            tool_choice = {"type": "function", "name": "szukaj_w_bazie"}
+        resp = _respond(
+            client, instructions=instructions, input=inp,
+            max_output_tokens=cap, tool_choice=tool_choice, previous_id=previous_id,
+        )
+        calls = extract_tool_calls(resp.output)
+        if not calls:
+            return (resp.output_text or "").strip()
+        tools_used = True
+        logger.info(
+            "Momentum tool-loop runda %d/%d: %s",
+            round_idx, MOMENTUM_TOOL_ROUNDS, [name for _, name, _ in calls],
+        )
+        previous_id = resp.id
+        inp = []
+        for call_id, name, arguments in calls:
+            try:
+                args = json.loads(arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            inp.append({
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": _run_tool(name, args),
+            })
+
+    # Tool budget exhausted — force a final answer from what we've gathered.
+    resp = _respond(
+        client, instructions=instructions, input=inp,
+        max_output_tokens=MOMENTUM_TRANSCRIPT_MAX_TOKENS, with_tools=False,
+        previous_id=previous_id,
+    )
+    return (resp.output_text or "").strip()
+
+
+def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool) -> str:
+    """Chat Completions tool loop (current default). Resends the full message list
+    every round — the Responses path is the lower-latency chained variant."""
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": f"Dzisiaj jest {today_str}."},
@@ -453,6 +533,23 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> st
     # Tool budget exhausted — force a final answer from what we've gathered.
     resp = _chat(client, messages, max_tokens=MOMENTUM_TRANSCRIPT_MAX_TOKENS, with_tools=False)
     return (resp.choices[0].message.content or "").strip()
+
+
+def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> str:
+    """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
+
+    A synchronous client built from OPENAI_API_KEY (imported lazily so an unset
+    key never breaks cog loading). MOMENTUM_USE_RESPONSES picks the transport:
+    the Responses API (chained tool rounds, lower latency) or Chat Completions
+    (current default). Both run the same tool loop and honour coaching mode
+    (forced szukaj_w_bazie on the first round).
+    """
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    if MOMENTUM_USE_RESPONSES:
+        return _reply_via_responses(client, user_msg, today_str, coaching)
+    return _reply_via_chat(client, user_msg, today_str, coaching)
 
 
 class Przywolanie(commands.Cog):

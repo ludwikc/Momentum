@@ -90,6 +90,20 @@ def is_param_compat_error(message: str) -> bool:
     return any(hint in lowered for hint in ("max_tokens", "max_completion_tokens", "temperature"))
 
 
+def extract_tool_calls(output) -> list[tuple[str, str, str]]:
+    """From a Responses ``output`` list, return ``(call_id, name, arguments)`` for
+    each ``function_call`` item, in order.
+
+    Non-tool items (assistant text, reasoning) are skipped. Kept here (no openai
+    import) so the Responses tool-loop plumbing stays unit-testable.
+    """
+    calls: list[tuple[str, str, str]] = []
+    for item in output:
+        if getattr(item, "type", None) == "function_call":
+            calls.append((item.call_id, item.name, item.arguments or ""))
+    return calls
+
+
 def build_summon_prompt(window: list[dict], bot_user_id: int) -> str:
     """Build the OpenAI ``user`` message: participants map + transcript + closing.
 

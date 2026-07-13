@@ -1,7 +1,10 @@
 """Unit tests for the pure summoning helpers (no discord/openai imports)."""
+from types import SimpleNamespace
+
 from summon import (
     DailyRateLimiter,
     build_summon_prompt,
+    extract_tool_calls,
     is_param_compat_error,
     is_summon,
 )
@@ -139,3 +142,28 @@ def test_param_compat_error_ignores_unrelated_errors():
     assert is_param_compat_error("You exceeded your current quota (insufficient_quota)") is False
     assert is_param_compat_error("Incorrect API key provided") is False
     assert is_param_compat_error("") is False
+
+
+# --- extract_tool_calls -------------------------------------------------------
+
+def test_extract_tool_calls_returns_function_calls_in_order():
+    output = [
+        SimpleNamespace(type="reasoning"),
+        SimpleNamespace(
+            type="function_call",
+            call_id="c1",
+            name="szukaj_w_bazie",
+            arguments='{"pytanie":"jak zacząć"}',
+        ),
+        SimpleNamespace(type="message", content="ignored"),
+        SimpleNamespace(type="function_call", call_id="c2", name="lista_spotkan", arguments=""),
+    ]
+    assert extract_tool_calls(output) == [
+        ("c1", "szukaj_w_bazie", '{"pytanie":"jak zacząć"}'),
+        ("c2", "lista_spotkan", ""),
+    ]
+
+
+def test_extract_tool_calls_empty_when_no_function_calls():
+    output = [SimpleNamespace(type="message", content="hej"), SimpleNamespace(type="reasoning")]
+    assert extract_tool_calls(output) == []

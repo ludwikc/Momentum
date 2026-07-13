@@ -1,6 +1,8 @@
-# SIADLAXITY Discord Bot Documentation
+# Momentum Discord Bot Documentation
 
-This document provides a comprehensive overview of all features supported by the SIADLAXITY Discord bot, explaining the purpose and functionality of each component.
+This document provides a comprehensive overview of all features supported by the Momentum Discord bot, explaining the purpose and functionality of each component.
+
+> **Bot identity:** Momentum is a standalone Discord application (ID `1468726880395067412`), distinct from **SIADLAXITY** (`1363266006516105456`), which is the separate siadlak.VIP portal bot. `main.py` verifies this identity at startup.
 
 ## Table of Contents
 

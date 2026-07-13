@@ -8,6 +8,8 @@ import logging
 import sys
 import os
 
+from config import MOMENTUM_BOT_ID
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -79,6 +81,21 @@ async def notify_status(message: str):
 async def on_ready():
     """Called when the bot is ready and connected to Discord."""
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+    # Identity guard: this project must run as Momentum. SIADLAXITY
+    # (1363266006516105456) is a separate app (the siadlak.VIP portal); a wrong
+    # token would otherwise silently act as that bot (wrong channels, "Missing
+    # Access"). Refuse to run rather than fail quietly.
+    if bot.user.id != MOMENTUM_BOT_ID:
+        logger.critical(
+            f"Wrong bot identity: logged in as {bot.user} (ID: {bot.user.id}), "
+            f"expected Momentum (ID: {MOMENTUM_BOT_ID}). The token in private.py "
+            f"belongs to a different Discord application — refusing to start. "
+            f"Fix DISCORD_TOKEN in private.py and restart."
+        )
+        await bot.close()
+        return
+
     logger.info(f"Connected to {len(bot.guilds)} servers")
 
     # Sync slash commands. This bot is single-server, so we register commands

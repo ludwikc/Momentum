@@ -98,6 +98,13 @@ MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summ
 MOMENTUM_OWNER_ID = 404038151565213696
 MOMENTUM_DAILY_LIMIT = 5
 
+# This project's Discord application identity. SIADLAXITY (1363266006516105456)
+# is a *separate* bot (the siadlak.VIP portal); if its token ever lands in
+# private.py the bot would silently act as the wrong identity (wrong channels,
+# "Missing Access"). main.py checks bot.user.id against this at startup and
+# refuses to run on a mismatch.
+MOMENTUM_BOT_ID = 1468726880395067412
+
 # Baza wiedzy (cogs.przywolanie + scripts/ingest_knowledge.py). Momentum może
 # przeszukać ~20k par temat→odpowiedź zapisanych w Supabase (tabela knowledge_base,
 # wyszukiwanie hybrydowe pgvector+FTS przez RPC match_knowledge) — ale tylko gdy

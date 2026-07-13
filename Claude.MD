@@ -55,6 +55,9 @@ gdrive.py / transcribe.py / dave_patch.py → recording-pipeline helpers
 
 Key facts:
 - **Owner ID:** `404038151565213696` · **Status/notify channel:** `1015575570760880168`
+- **Bot identity (Discord app):** Momentum — `1468726880395067412` (`config.MOMENTUM_BOT_ID`).
+  SIADLAXITY (`1363266006516105456`) is a *separate* app (the siadlak.VIP portal bot);
+  `main.py` guards this at startup and refuses to run under any other token.
 - **Recorder account mentioned in the 12:34 reminder:** `272937604339466240`
 - All scheduled logic polls once per minute against Warsaw-local time.
 
@@ -348,6 +351,12 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-07**
+- **Bot-identity guard** — `main.py` now verifies at startup that the logged-in
+  Discord ID is Momentum (`1468726880395067412`, `config.MOMENTUM_BOT_ID`) and
+  refuses to run under any other token — e.g. SIADLAXITY (`1363266006516105456`),
+  the separate siadlak.VIP portal bot — preventing the silent "wrong bot /
+  Missing Access" confusion. Also corrected the stale "SIADLAXITY" title in
+  `Momentum_Bot_Documentation.md`.
 - **StudyLion port, wave 1** (spec: `docs/superpowers/specs/2026-07-11-studylion-port-design.md`;
   requires `scripts/studylion_port.sql` in Supabase — everything degrades gracefully until applied):
   - **Monety** 🪙 — ledger-backed coin economy (`coin_transactions` + `user_activities.coins`,

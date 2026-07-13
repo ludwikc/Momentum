@@ -75,6 +75,28 @@ def _today_key() -> str:
     return now.date().isoformat()
 
 
+def _window_from_history(history: list) -> list[dict]:
+    """Map Discord messages (chronological) to the dicts build_summon_prompt wants.
+
+    Uses ``clean_content`` rather than raw ``content``. KLUCZOWE: when someone
+    pings the bot with @Momentum (instead of typing the word "Momentum"), the raw
+    content carries an opaque ``<@bot_id>`` token the model can't recognise as
+    itself — so it judged it wasn't the one being addressed and returned [CISZA].
+    ``clean_content`` resolves that ping to "@Momentum" (and human pings to their
+    names), so the model sees who is actually being asked. The participants map is
+    built from author ids, so the model can still ping people back with raw tokens.
+    """
+    return [
+        {
+            "author_id": m.author.id,
+            "display_name": m.author.display_name,
+            "is_bot": m.author.bot,
+            "content": m.clean_content,
+        }
+        for m in history
+    ]
+
+
 def _coaching_limit_text(user_id: int) -> str:
     """Message shown when a user hits their monthly coaching cap — nudges to 1:1."""
     return (
@@ -642,15 +664,7 @@ class Przywolanie(commands.Cog):
                 m async for m in message.channel.history(limit=MOMENTUM_CONTEXT_MESSAGES)
             ]
             history.reverse()  # chronological; includes the summoning message
-            window = [
-                {
-                    "author_id": m.author.id,
-                    "display_name": m.author.display_name,
-                    "is_bot": m.author.bot,
-                    "content": m.content,
-                }
-                for m in history
-            ]
+            window = _window_from_history(history)
 
             user_msg = build_summon_prompt(window, self.bot.user.id)
             # Show "Momentum pisze…" for the whole (possibly multi-round) call so a
@@ -666,7 +680,11 @@ class Przywolanie(commands.Cog):
                 coaching,
             )
             if not reply or reply == "[CISZA]":
-                logger.info("Model zwrócił ciszę")
+                # Log the summoning text (truncated) so a misfired silence on a
+                # genuine question is diagnosable from the logs alone.
+                logger.info(
+                    "Model zwrócił ciszę (przywołanie: %.200r)", message.clean_content
+                )
                 return
 
             await message.channel.send(
@@ -716,15 +734,7 @@ class Przywolanie(commands.Cog):
                 m async for m in interaction.channel.history(limit=MOMENTUM_CONTEXT_MESSAGES)
             ]
             history.reverse()
-            window = [
-                {
-                    "author_id": m.author.id,
-                    "display_name": m.author.display_name,
-                    "is_bot": m.author.bot,
-                    "content": m.content,
-                }
-                for m in history
-            ]
+            window = _window_from_history(history)
 
             user_msg = build_summon_prompt(window, self.bot.user.id)
             if temat:

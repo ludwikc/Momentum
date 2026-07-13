@@ -69,6 +69,12 @@ MOMENTUM_MODEL = "gpt-5.2"        # OpenAI model used for in-conversation replie
 MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
 MOMENTUM_MAX_TOKENS = 250         # keep replies short (a few sentences)
 MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
+# gpt-5.2 is a reasoning model: left unset it "thinks" at its default effort
+# before every reply (seconds each), and that stacks across tool-call rounds.
+# Lower = faster/shallower. One of "none","low","medium","high","xhigh"; ""
+# omits the param entirely (for non-reasoning models). Auto-disabled at runtime
+# if the model rejects it.
+MOMENTUM_REASONING_EFFORT = "low"
 
 # Momentum can look up past meeting transcripts (saved by the recorder under
 # transcripts/) via OpenAI tool-calls, so it can answer e.g. "co powiedział Jakub

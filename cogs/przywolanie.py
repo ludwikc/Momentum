@@ -22,6 +22,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from datetime import datetime
 
 import discord
@@ -41,6 +42,7 @@ from config import (
     MOMENTUM_MAX_TOKENS,
     MOMENTUM_MODEL,
     MOMENTUM_OWNER_ID,
+    MOMENTUM_REASONING_EFFORT,
     MOMENTUM_TEMPERATURE,
     MOMENTUM_TRANSCRIPT_MAX_TOKENS,
     MOMENTUM_TRANSCRIPT_LIST_DAYS,
@@ -324,32 +326,62 @@ def _run_tool(name: str, args: dict) -> str:
     return f"Nieznane narzędzie: {name}"
 
 
-def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_choice=None):
-    """One chat completion with the gpt-5-class param-compat fallback.
+# Param-compat decisions for MOMENTUM_MODEL, learned from the first rejecting call
+# and cached module-wide so every later call (and every round of a tool loop) skips
+# the wasted failing round-trip.
+_needs_conservative_params = False   # model rejected max_tokens / non-default temperature
+_reasoning_effort_supported = True   # model rejected the reasoning_effort param
 
-    Newer models reject ``max_tokens`` and a non-default ``temperature`` (wanting
-    ``max_completion_tokens`` / the default); retry once with the conservative set.
+
+def _create_completion(client, base_kwargs: dict, max_tokens: int):
+    """One chat.completions.create applying the cached param-compat decisions."""
+    kwargs = dict(base_kwargs)
+    if _reasoning_effort_supported and MOMENTUM_REASONING_EFFORT:
+        kwargs["reasoning_effort"] = MOMENTUM_REASONING_EFFORT
+    if _needs_conservative_params:
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["temperature"] = MOMENTUM_TEMPERATURE
+        kwargs["max_tokens"] = max_tokens
+    return client.chat.completions.create(**kwargs)
+
+
+def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_choice=None):
+    """One chat completion, adapting once to what MOMENTUM_MODEL accepts.
+
+    gpt-5-class models reason at ``reasoning_effort`` (kept low for latency) and
+    reject ``max_tokens``/non-default ``temperature`` (wanting
+    ``max_completion_tokens``). Each incompatibility is learned from the first
+    rejecting call and cached module-wide, so later calls — and the other rounds of
+    a tool loop — never repeat the wasted attempt.
 
     ``tool_choice`` (when given) is forwarded to force/steer tool use — coaching
-    mode passes the szukaj_w_bazie function to guarantee a knowledge-base lookup.
+    mode passes szukaj_w_bazie to guarantee a knowledge-base lookup.
     """
-    kwargs = {"model": MOMENTUM_MODEL, "messages": messages}
+    global _needs_conservative_params, _reasoning_effort_supported
+    base = {"model": MOMENTUM_MODEL, "messages": messages}
     if with_tools:
-        kwargs["tools"] = _TOOLS
+        base["tools"] = _TOOLS
         if tool_choice is not None:
-            kwargs["tool_choice"] = tool_choice
-    try:
-        return client.chat.completions.create(
-            **kwargs, temperature=MOMENTUM_TEMPERATURE, max_tokens=max_tokens
-        )
-    except Exception as e:
-        if not is_param_compat_error(str(e)):
+            base["tool_choice"] = tool_choice
+    while True:
+        try:
+            return _create_completion(client, base, max_tokens)
+        except Exception as e:
+            err = str(e).lower()
+            if _reasoning_effort_supported and "reasoning_effort" in err:
+                _reasoning_effort_supported = False
+                logger.info("Model %s nie akceptuje reasoning_effort — wyłączam", MOMENTUM_MODEL)
+                continue
+            if not _needs_conservative_params and is_param_compat_error(err):
+                _needs_conservative_params = True
+                logger.info(
+                    "Model %s odrzucił max_tokens/temperature — przełączam na "
+                    "max_completion_tokens (na stałe)",
+                    MOMENTUM_MODEL,
+                )
+                continue
             raise
-        logger.info(
-            "Model %s odrzucił max_tokens/temperature — ponawiam z max_completion_tokens",
-            MOMENTUM_MODEL,
-        )
-        return client.chat.completions.create(**kwargs, max_completion_tokens=max_tokens)
 
 
 def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> str:
@@ -381,7 +413,7 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> st
     force_kb = coaching and MOMENTUM_KB_ENABLED
 
     tools_used = False
-    for _ in range(MOMENTUM_TOOL_ROUNDS):
+    for round_idx in range(1, MOMENTUM_TOOL_ROUNDS + 1):
         # Once a tool has been pulled in, allow a longer answer.
         cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
         tool_choice = None
@@ -392,6 +424,12 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> st
         if not msg.tool_calls:
             return (msg.content or "").strip()
         tools_used = True
+        logger.info(
+            "Momentum tool-loop runda %d/%d: %s",
+            round_idx,
+            MOMENTUM_TOOL_ROUNDS,
+            [tc.function.name for tc in msg.tool_calls],
+        )
         messages.append({
             "role": "assistant",
             "content": msg.content or "",
@@ -518,7 +556,18 @@ class Przywolanie(commands.Cog):
             ]
 
             user_msg = build_summon_prompt(window, self.bot.user.id)
-            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key(), coaching)
+            # Show "Momentum pisze…" for the whole (possibly multi-round) call so a
+            # slow reasoning/tool loop doesn't look like the bot froze.
+            started = time.monotonic()
+            async with message.channel.typing():
+                reply = await asyncio.to_thread(
+                    _generate_reply, user_msg, _today_key(), coaching
+                )
+            logger.info(
+                "Momentum odpowiedział w %.1fs (coaching=%s)",
+                time.monotonic() - started,
+                coaching,
+            )
             if not reply or reply == "[CISZA]":
                 logger.info("Model zwrócił ciszę")
                 return

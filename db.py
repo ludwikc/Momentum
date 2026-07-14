@@ -471,6 +471,17 @@ def pomodoro_list_all() -> list[dict]:
     return result.data or []
 
 
+# === Profile tags (StudyLion port — scripts/profile_tags.sql) ===
+
+def profile_set_tags(discord_id: str, tags: list[str]) -> dict:
+    """Replace a user's /profil tags (max 5 × 30 chars, validated server-side too)."""
+    supabase = get_supabase()
+    result = supabase.rpc(
+        "profile_set_tags", {"p_discord_id": discord_id, "p_tags": tags}
+    ).execute()
+    return result.data
+
+
 # === Ranks (StudyLion port) ===
 
 def record_rank_award(discord_id: str, hours: int) -> dict:

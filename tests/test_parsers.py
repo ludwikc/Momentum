@@ -5,6 +5,7 @@ from parsers import (
     parse_db_timestamp,
     parse_duration_pl,
     parse_index_ranges,
+    parse_profile_tags,
     parse_wallclock_pl,
 )
 
@@ -121,6 +122,39 @@ class TestParseDbTimestamp(unittest.TestCase):
         result = parse_db_timestamp("2026-07-11 10:00:00.5+02:00")
         self.assertEqual(result.microsecond, 500000)
         self.assertEqual(result.utcoffset().total_seconds(), 7200)
+
+
+class TestParseProfileTags(unittest.TestCase):
+    """/profil tags: `;`-separated, ≤5 tags, ≤30 chars each."""
+
+    def test_basic_split_and_trim(self):
+        self.assertEqual(
+            parse_profile_tags("Programowanie; Medycyna ;Sport", 5, 30),
+            ["Programowanie", "Medycyna", "Sport"],
+        )
+
+    def test_empty_pieces_dropped(self):
+        self.assertEqual(parse_profile_tags("a;;b; ;c", 5, 30), ["a", "b", "c"])
+
+    def test_empty_string_clears(self):
+        self.assertEqual(parse_profile_tags("", 5, 30), [])
+        self.assertEqual(parse_profile_tags("  ", 5, 30), [])
+
+    def test_case_insensitive_dedupe_keeps_first(self):
+        self.assertEqual(
+            parse_profile_tags("Nauka; nauka; NAUKA; sport", 5, 30),
+            ["Nauka", "sport"],
+        )
+
+    def test_too_many_tags_returns_none(self):
+        self.assertIsNone(parse_profile_tags("a;b;c;d;e;f", 5, 30))
+
+    def test_too_long_tag_returns_none(self):
+        self.assertIsNone(parse_profile_tags("x" * 31, 5, 30))
+
+    def test_exactly_at_limits_ok(self):
+        tags = parse_profile_tags("a;b;c;d;" + "x" * 30, 5, 30)
+        self.assertEqual(tags, ["a", "b", "c", "d", "x" * 30])
 
 
 class TestParseIndexRanges(unittest.TestCase):

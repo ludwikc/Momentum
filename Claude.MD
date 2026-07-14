@@ -44,7 +44,7 @@ global) then clears the global set so commands don't show up twice.
 main.py (core)
   ├─ load_dotenv() + logging → bot.log + stderr (logger "momentum_bot")
   ├─ intents: message_content, members, voice_states, guilds
-  ├─ load EXTENSIONS (27 cogs)
+  ├─ load EXTENSIONS (28 cogs)
   ├─ on_ready: per-guild command sync, then clear global
   └─ graceful shutdown on SIGINT/SIGTERM (posts offline notice)
 
@@ -102,7 +102,7 @@ no restart.
 ├── data/now_recording.mp3   # "now recording" intro sound
 ├── recordings/              # transient WAV/MP3 during a recording (gitignored)
 ├── run_bot.sh               # launcher (foreground / --daemon)
-└── cogs/                    # 27 feature extensions (see below)
+└── cogs/                    # 28 feature extensions (see below)
 ```
 
 Stray/unused (see [Known issues](#known-issues--cleanup)): `Momentum/` (nested stale copy),
@@ -141,6 +141,7 @@ All in `config.py`:
 | `TASK_REWARD_COINS` / `TASK_REWARD_LIMIT_24H` | `50` / `10` | Coins per completed todo task; max rewarded tasks per rolling 24h |
 | `DONE_REWARD_COINS` / `GM_REWARD_COINS` | `10` / `10` | Coin bonus for `/done` (1×/activity/Warsaw-day) and the GM check-in |
 | `TODO_MAX_OPEN` / `TODO_MAX_CONTENT` | `100` / `100` | Todo caps (open tasks / chars) |
+| `PROFILE_MAX_TAGS` / `PROFILE_TAG_MAX_LEN` | `5` / `30` | /profil tag caps (StudyLion profile badges) |
 | `REMINDER_MAX_PER_USER` / `REMINDER_MIN_REPEAT_SECONDS` / `REMINDER_MAX_CONTENT` | `25` / `600` / `2000` | Reminder caps |
 | `POMODORO_DEFAULT_FOCUS_MIN` / `_BREAK_MIN` / `_MAX_STAGE_MIN` | `25` / `5` / `1440` | Pomodoro stage defaults/bounds |
 | `UNTRACKED_VOICE_CHANNEL_IDS` / `VOICE_FLUSH_MINUTES` | `[]` / `5` | Voice-tracking exclusions + flush cadence |
@@ -215,10 +216,12 @@ PostgreSQL RPC functions — no client-side SQL/query building. RPCs:
 | `pomodoro_upsert/set_stopped/delete/list_all` | channel_id… | Persisted timers (last_started anchor ⇒ restart-resumable) |
 | `record_rank_award` | discord_id, hours | One-time-per-threshold rank reward guard |
 | `shop_list/add_item/remove_item/buy` | role_id, price… | Colour-role shop; `shop_buy` debits atomically |
+| `profile_set_tags` (`scripts/profile_tags.sql`) | discord_id, tags[] | Replace /profil tags (≤5×30, validated server-side) |
 
 `get_user_activity_stats` and `get_activity_leaderboard` are further extended by
 `studylion_port.sql` (coins/voice/tasks/GM fields; `coins` + `voice` leaderboard categories) —
-it supersedes `unified_progress_stats.sql`/`unified_leaderboard.sql`.
+it supersedes `unified_progress_stats.sql`/`unified_leaderboard.sql`. `profile_tags.sql`
+then redefines `get_user_activity_stats` once more (v4, adds `profile_tags`).
 
 Streak/cap/day logic lives server-side in the RPCs and is Warsaw-day aware.
 
@@ -255,6 +258,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 23 | `pomodoro` | Per-voice-channel focus/break timer (StudyLion `last_started` model): `<t:…:R>` countdowns in the VC chat, best-effort channel status, auto-stop when empty + auto-restart on join, resumes mid-cycle after bot restart | `/pomodoro start|stop|status`; `on_voice_state_update`; per-timer asyncio task |
 | 24 | `voice_tracker` | Tracks time in ALL voice channels (minus `UNTRACKED_VOICE_CHANNEL_IDS`) into Warsaw-day aggregates; mints coins (50/h, ≤16h/day); dispatches `momentum_voice_flushed` | `on_voice_state_update`, tasks.loop 5m flush |
 | 25 | `statystyki` | Personal stats embed: voice today/week/month/total, monety, zadania, activities, Daily Coaching, Deep Work, GM | `/statystyki [uzytkownik]` |
+| 25a | `profil` | Profile card: custom tags (max 5×30, edit via author-locked modal button), rank + next-rank progress, monety, voice, GM momentum; needs `scripts/profile_tags.sql` | `/profil [uzytkownik]` |
 | 26 | `ranks` | Voice-hour rank ladder (`VOICE_RANKS`): award-highest/remove-others roles, one-time coin rewards, public announcement; dormant when unconfigured | `/rangi`; listens to `momentum_voice_flushed` |
 | 27 | `shop` | Colour-role shop (DB-driven items, single-slot swap without refund, atomic debit + refund on role failure) | `/sklep`; `/sklep-admin dodaj|usun|lista` (manage_guild) |
 
@@ -300,7 +304,7 @@ publishing or the bot.
 `/momentum-reboot` (owner) — plus the StudyLion port: `/portfel [user]`, `/przelew <komu> <ile>`,
 `/monety-admin` (owner), `/todo <dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj>`,
 `/przypomnij tekst: [za:|o:] [co:]`, `/przypomnienia [usun:]`,
-`/pomodoro <start|stop|status>`, `/statystyki [user]`, `/rangi`, `/sklep`,
+`/pomodoro <start|stop|status>`, `/statystyki [user]`, `/profil [user]`, `/rangi`, `/sklep`,
 `/sklep-admin <dodaj|usun|lista>` (manage_guild).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
@@ -351,6 +355,13 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-07**
+- **`/profil` — student-profile-card port** (follow-up gap-fill from StudyLion's README:
+  `!stats`/`!setprofile`): custom self-description tags (max 5×30, `;`-separated, edited via an
+  author-locked modal button — StudyLion's "Edit Profile Badges" flow), plus rank + next-rank
+  progress, monety, voice time and GM momentum on one card. New `scripts/profile_tags.sql`
+  (table `user_profiles`, RPC `profile_set_tags`, `get_user_activity_stats` v4 with
+  `profile_tags`) — apply after `studylion_port.sql`; until then the card renders with the
+  tags row empty and saving tags reports the DB error.
 - **Bot-identity guard** — `main.py` now verifies at startup that the logged-in
   Discord ID is Momentum (`1468726880395067412`, `config.MOMENTUM_BOT_ID`) and
   refuses to run under any other token — e.g. SIADLAXITY (`1363266006516105456`),

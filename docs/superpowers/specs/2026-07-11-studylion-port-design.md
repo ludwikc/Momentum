@@ -34,7 +34,9 @@ Momentum's style (no code copied), which is also what the different data layer f
 
 **Wave 1 (this change):** economy core, tasklist, reminders, pomodoro, voice-time
 tracking + `/statystyki`, activity ranks, colour-role shop, and extensions to
-`/leaderboard` + the unified progress card.
+`/leaderboard` + the unified progress card. Follow-up in the same wave: profile
+cards (`/profil`, section 8) — flagged as missing against StudyLion's README
+(`!stats`/`!setprofile`) after the initial cut.
 
 **Wave 2 (spec'd here, not built):** private rented rooms, scheduled accountability
 sessions, role menus, text/message XP, weekly & monthly goals, seasons.
@@ -239,6 +241,26 @@ YAGNI at this community's scale; wave 2 can add `parent_id`).
 - `cogs/done.py` and both GM paths (`gm.py`, `gmlistener.py`) get a 2-line
   best-effort `adjust_coins` award (`+10`) after a successful log — wrapped so
   economy failure never breaks the existing flows.
+
+### 8. Profile cards — `/profil` (cogs/profil.py, follow-up)
+
+Upstream: `/me` profile card with free-text "profile badges" (`member_profile_tags`,
+≤5, edited via modal) rendered as a PNG; old-README `!setprofile`. Momentum port:
+
+- Table `user_profiles(discord_id PK, tags text[])` + RPC `profile_set_tags`
+  (≤`PROFILE_MAX_TAGS`=5 tags × ≤`PROFILE_TAG_MAX_LEN`=30 chars, validated in the
+  cog via the pure `parse_profile_tags` helper AND server-side); delivered as
+  `scripts/profile_tags.sql` (separate incremental script since
+  `studylion_port.sql` may already be applied), which also redefines
+  `get_user_activity_stats` (v4: + `profile_tags`).
+- `/profil [użytkownik]` — identity-focused embed (tags, rank + next-rank
+  progress from `VOICE_RANKS`, monety, lifetime voice, GM momentum) — the
+  numbers-heavy detail stays in `/statystyki`. Self-view attaches an
+  author-locked "Edytuj tagi" button → modal prefilled with current tags
+  (upstream's Edit Profile Badges flow). Public embed, house culture; upstream's
+  "private card" framing dropped like the other PNG-card features.
+- Achievements strip from the upstream card stays unported (display-only
+  upstream; see "Not porting").
 
 ## Wave 2 blueprints (not built; upstream behavior captured for later)
 

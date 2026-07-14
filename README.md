@@ -49,6 +49,8 @@ Single-server, single-purpose, personal project — no setup docs here on purpos
   stats (`/statystyki`) and mints coins.
 - **Coin economy** 🪙 — earned via voice time, tasks, `/done`, GM; `/portfel`, `/przelew`,
   a colour-role **shop** (`/sklep`), and a **rank ladder** for voice hours (`/rangi`).
+- **Profile cards** — `/profil` with custom self-description tags (edited in a modal),
+  rank progress, wallet and voice-time highlights.
 
 ### 💬 Community & engagement
 - **Q&A** — `/pytanie` answers frequently-asked questions.

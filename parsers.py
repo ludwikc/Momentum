@@ -93,6 +93,31 @@ def parse_wallclock_pl(text: str, now: datetime) -> datetime | None:
     return None
 
 
+def parse_profile_tags(text: str, max_tags: int, max_len: int) -> list[str] | None:
+    """Parse the /profil tag input: `;`-separated, trimmed, empties dropped,
+    case-insensitive dedupe keeping the first spelling.
+
+    Empty input means "clear tags" → []. Returns None when a tag exceeds
+    max_len or more than max_tags remain (caller shows the error).
+    """
+    pieces = [p.strip() for p in (text or "").split(";")]
+    tags: list[str] = []
+    seen: set[str] = set()
+    for piece in pieces:
+        if not piece:
+            continue
+        if len(piece) > max_len:
+            return None
+        key = piece.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        tags.append(piece)
+    if len(tags) > max_tags:
+        return None
+    return tags
+
+
 def parse_index_ranges(text: str, max_index: int) -> list[int] | None:
     """Parse "1", "1,3", "2-5", "1, 3-4, 8" or all/-/wszystkie into a sorted,
     de-duplicated list of 1-based indices.

@@ -135,6 +135,10 @@ TASK_REWARD_LIMIT_24H = 10         # max rewarded tasks per rolling 24h (StudyLi
 DONE_REWARD_COINS = 10             # bonus for /done activity log
 GM_REWARD_COINS = 10               # bonus for the GM morning check-in
 
+# --- Profil (/profil) ---
+PROFILE_MAX_TAGS = 5               # StudyLion profile badges cap
+PROFILE_TAG_MAX_LEN = 30
+
 # --- Todo (/todo) ---
 TODO_MAX_OPEN = 100                # max open (unticked) tasks per user
 TODO_MAX_CONTENT = 100             # max task length (StudyLion default)

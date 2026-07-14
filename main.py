@@ -151,6 +151,7 @@ EXTENSIONS = [
     "cogs.pomodoro",  # /pomodoro — wspólny timer na kanale głosowym
     "cogs.voice_tracker",  # czas na głosowych → monety (wszystkie kanały)
     "cogs.statystyki",  # /statystyki — osobista karta statystyk
+    "cogs.profil",  # /profil — karta profilu z tagami (needs scripts/profile_tags.sql)
     "cogs.ranks",  # rangi za godziny na głosowych (VOICE_RANKS)
     "cogs.shop",  # /sklep — kolory nicku za monety
 ]

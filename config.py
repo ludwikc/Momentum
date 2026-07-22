@@ -72,7 +72,13 @@ DIARIZATION_GAP_FRAMES = 25
 # transcribe.py.
 MOMENTUM_MODEL = "gpt-5.2"        # OpenAI model used for in-conversation replies
 MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
-MOMENTUM_MAX_TOKENS = 250         # keep replies short (a few sentences)
+# Sent as max_completion_tokens. CRITICAL: on a reasoning model (gpt-5.2) this
+# budget is shared by hidden reasoning tokens AND the visible reply — so it must
+# cover both. At 250 the low-effort reasoning could consume the whole budget on
+# a message with real conversation context, leaving finish_reason=length and an
+# EMPTY reply that the bot then mistook for silence. Reply brevity is enforced by
+# the system prompt ("zwięźle"), not by this ceiling, so keep generous headroom.
+MOMENTUM_MAX_TOKENS = 1000
 MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
 # gpt-5.2 is a reasoning model: left unset it "thinks" at its default effort
 # before every reply (seconds each), and that stacks across tool-call rounds.
@@ -89,7 +95,8 @@ MOMENTUM_USE_RESPONSES = False
 # Momentum can look up past meeting transcripts (saved by the recorder under
 # transcripts/) via OpenAI tool-calls, so it can answer e.g. "co powiedział Jakub
 # na wczorajszym spotkaniu". These bound that path.
-MOMENTUM_TRANSCRIPT_MAX_TOKENS = 700   # answers grounded in a transcript may run longer
+MOMENTUM_TRANSCRIPT_MAX_TOKENS = 1500  # grounded answers run longer; also shares the
+                                       # budget with reasoning tokens (see MOMENTUM_MAX_TOKENS)
 MOMENTUM_TRANSCRIPT_LIST_DAYS = 30     # default lookback when listing meetings
 MOMENTUM_TRANSCRIPT_MAX_CHARS = 80000  # cap a single transcript fed back to the model
                                        # (~1h ≈ 29k chars; fits a full 120-min call)

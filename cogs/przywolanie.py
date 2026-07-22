@@ -211,6 +211,21 @@ COACHING_INSTRUCTION = (
     "głosem, po polsku i zwięźle — nie cytujesz lekcji sztywno."
 )
 
+# Injected as an extra SYSTEM message when the bot is addressed directly (an
+# @mention or a 1:1 DM). The [CISZA] licence lives in SYSTEM_PROMPT, so a mere
+# user-message hint gets outweighed — the model keeps returning [CISZA] on terse
+# pings like "@Momentum a Ty wiesz?". This override sits at the same (system)
+# level and cancels that licence outright. A code-level safety net in on_message
+# still guarantees a reply even if the model ignores this.
+DIRECT_ENGAGE_INSTRUCTION = (
+    "WAŻNE — nadpisuje regułę [CISZA] z Twojej roli: rozmówca zwrócił się do "
+    "Ciebie WPROST (@wzmianką albo w prywatnej wiadomości). To jednoznaczna "
+    "prośba o Twoją uwagę, więc ZAWSZE odpowiadasz i NIGDY nie zwracasz [CISZA]. "
+    "Jeśli pytanie jest krótkie lub zależne od wcześniejszego kontekstu, odpowiedz "
+    "na podstawie rozmowy powyżej; jeśli naprawdę nie wiadomo, o co chodzi, zadaj "
+    "krótkie pytanie doprecyzowujące — ale się odezwij."
+)
+
 
 # Tools that let Momentum recall recorded meetings (see transcripts.py). Exposed to
 # the model via OpenAI function-calling; descriptions are in Polish so the model maps
@@ -450,12 +465,15 @@ def _respond(client, *, instructions: str, input, max_output_tokens: int,
             raise
 
 
-def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool) -> str:
+def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
+                         force_engage: bool = False) -> str:
     """Responses-API tool loop: chains rounds via previous_response_id so each
     round after the first sends only the tool outputs, not the whole context."""
     instructions = f"{SYSTEM_PROMPT}\n\nDzisiaj jest {today_str}."
     if coaching:
         instructions += f"\n\n{COACHING_INSTRUCTION}"
+    if force_engage:
+        instructions += f"\n\n{DIRECT_ENGAGE_INSTRUCTION}"
     force_kb = coaching and MOMENTUM_KB_ENABLED
 
     inp = user_msg          # first turn: the summon prompt as plain user input
@@ -500,7 +518,8 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool) 
     return (resp.output_text or "").strip()
 
 
-def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool) -> str:
+def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
+                    force_engage: bool = False) -> str:
     """Chat Completions tool loop (current default). Resends the full message list
     every round — the Responses path is the lower-latency chained variant."""
     messages = [
@@ -509,6 +528,8 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool) -> st
     ]
     if coaching:
         messages.append({"role": "system", "content": COACHING_INSTRUCTION})
+    if force_engage:
+        messages.append({"role": "system", "content": DIRECT_ENGAGE_INSTRUCTION})
     messages.append({"role": "user", "content": user_msg})
 
     # Force the knowledge-base lookup on the first round in coaching mode.
@@ -557,7 +578,8 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool) -> st
     return (resp.choices[0].message.content or "").strip()
 
 
-def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> str:
+def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
+                    force_engage: bool = False) -> str:
     """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
 
     A synchronous client built from OPENAI_API_KEY (imported lazily so an unset
@@ -565,13 +587,16 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False) -> st
     the Responses API (chained tool rounds, lower latency) or Chat Completions
     (current default). Both run the same tool loop and honour coaching mode
     (forced szukaj_w_bazie on the first round).
+
+    ``force_engage`` (set for direct @mentions / DMs) injects a system-level
+    override cancelling the [CISZA] licence so the model always replies.
     """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     if MOMENTUM_USE_RESPONSES:
-        return _reply_via_responses(client, user_msg, today_str, coaching)
-    return _reply_via_chat(client, user_msg, today_str, coaching)
+        return _reply_via_responses(client, user_msg, today_str, coaching, force_engage)
+    return _reply_via_chat(client, user_msg, today_str, coaching, force_engage)
 
 
 class Przywolanie(commands.Cog):
@@ -678,7 +703,7 @@ class Przywolanie(commands.Cog):
             started = time.monotonic()
             async with message.channel.typing():
                 reply = await asyncio.to_thread(
-                    _generate_reply, user_msg, _today_key(), coaching
+                    _generate_reply, user_msg, _today_key(), coaching, direct_mention
                 )
             logger.info(
                 "Momentum odpowiedział w %.1fs (coaching=%s)",
@@ -691,7 +716,16 @@ class Przywolanie(commands.Cog):
                 logger.info(
                     "Model zwrócił ciszę (przywołanie: %.200r)", message.clean_content
                 )
-                return
+                # Safety net: a direct @mention/DM must never be met with silence.
+                # If the model ignored the engage override and still returned
+                # [CISZA], reply with a short clarifying nudge instead of nothing.
+                if not direct_mention:
+                    return
+                logger.info("Bezpośrednie przywołanie + cisza — wysyłam dopytanie")
+                reply = (
+                    "Jestem 👋 Doprecyzuj jednym zdaniem, o co pytasz, "
+                    "to się do tego odniosę."
+                )
 
             await message.channel.send(
                 reply,

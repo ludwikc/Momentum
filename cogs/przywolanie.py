@@ -666,7 +666,13 @@ class Przywolanie(commands.Cog):
             history.reverse()  # chronological; includes the summoning message
             window = _window_from_history(history)
 
-            user_msg = build_summon_prompt(window, self.bot.user.id)
+            # A DM or an explicit @mention is addressed straight at the bot, so
+            # drop the [CISZA] option — silence on a direct ping looks broken.
+            # A bare-word "momentum" summon keeps it (may not be aimed at us).
+            direct_mention = is_dm or bot_mentioned
+            user_msg = build_summon_prompt(
+                window, self.bot.user.id, direct_mention=direct_mention
+            )
             # Show "Momentum pisze…" for the whole (possibly multi-round) call so a
             # slow reasoning/tool loop doesn't look like the bot froze.
             started = time.monotonic()
@@ -736,7 +742,9 @@ class Przywolanie(commands.Cog):
             history.reverse()
             window = _window_from_history(history)
 
-            user_msg = build_summon_prompt(window, self.bot.user.id)
+            # Slash /coaching-momentum is an explicit, deliberate invocation —
+            # always engage (coaching mode already forbids [CISZA] too).
+            user_msg = build_summon_prompt(window, self.bot.user.id, direct_mention=True)
             if temat:
                 user_msg += (
                     f"\n\n{interaction.user.display_name} prosi o coaching na temat: {temat}"

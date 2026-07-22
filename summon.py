@@ -25,6 +25,19 @@ _CLOSING_INSTRUCTION = (
     "Zostałeś przywołany w tej rozmowie. Odezwij się zgodnie ze swoją rolą albo, "
     "jeśli to nie była prośba o Twoje zdanie, zwróć dokładnie: [CISZA]"
 )
+# Used when the bot is addressed DIRECTLY (an explicit @mention, or a 1:1 DM):
+# that is an unambiguous request for its attention, so the [CISZA] escape hatch
+# is dropped — staying silent on a direct ping reads as the bot being broken.
+# If the message is terse or leans on earlier context ("a Ty wiesz?"), the model
+# answers from the transcript above or asks a short clarifying question instead
+# of going quiet.
+_CLOSING_INSTRUCTION_DIRECT = (
+    "Zostałeś WPROST przywołany po imieniu (albo ktoś pisze do Ciebie bezpośrednio) "
+    "w tej rozmowie — to jednoznaczna prośba o Twoją uwagę. Odezwij się zgodnie ze "
+    "swoją rolą i NIE zwracaj [CISZA] — zawsze się angażujesz. Jeśli pytanie jest "
+    "krótkie lub zależy od wcześniejszego kontekstu, oprzyj się na powyższej rozmowie; "
+    "a jeśli naprawdę nie wiadomo, o co chodzi, dopytaj zamiast milczeć."
+)
 
 
 def is_summon(content: str, bot_mentioned: bool) -> bool:
@@ -104,7 +117,9 @@ def extract_tool_calls(output) -> list[tuple[str, str, str]]:
     return calls
 
 
-def build_summon_prompt(window: list[dict], bot_user_id: int) -> str:
+def build_summon_prompt(
+    window: list[dict], bot_user_id: int, direct_mention: bool = False
+) -> str:
     """Build the OpenAI ``user`` message: participants map + transcript + closing.
 
     ``window`` is a chronological list of ``{"author_id": int, "display_name":
@@ -112,7 +127,14 @@ def build_summon_prompt(window: list[dict], bot_user_id: int) -> str:
     ``Momentum``. The participants map lists only real (non-bot) speakers,
     de-duplicated in first-appearance order, as ``display name = <@id>`` so the
     model can ping them.
+
+    ``direct_mention`` swaps the closing instruction: when True (an explicit
+    @mention or a 1:1 DM) the [CISZA] escape hatch is dropped so the bot never
+    ignores a message aimed straight at it; when False (summoned by the loose
+    word "momentum") [CISZA] stays available for messages not actually addressed
+    to it.
     """
+    closing = _CLOSING_INSTRUCTION_DIRECT if direct_mention else _CLOSING_INSTRUCTION
     seen: set[int] = set()
     participant_lines: list[str] = []
     for msg in window:
@@ -127,4 +149,4 @@ def build_summon_prompt(window: list[dict], bot_user_id: int) -> str:
         for msg in window
     )
 
-    return f"{participants_block}\n\n{transcript}\n\n{_CLOSING_INSTRUCTION}"
+    return f"{participants_block}\n\n{transcript}\n\n{closing}"

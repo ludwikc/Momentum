@@ -43,6 +43,13 @@ _CLOSING = (
     "Zostałeś przywołany w tej rozmowie. Odezwij się zgodnie ze swoją rolą albo, "
     "jeśli to nie była prośba o Twoje zdanie, zwróć dokładnie: [CISZA]"
 )
+_CLOSING_DIRECT = (
+    "Zostałeś WPROST przywołany po imieniu (albo ktoś pisze do Ciebie bezpośrednio) "
+    "w tej rozmowie — to jednoznaczna prośba o Twoją uwagę. Odezwij się zgodnie ze "
+    "swoją rolą i NIE zwracaj [CISZA] — zawsze się angażujesz. Jeśli pytanie jest "
+    "krótkie lub zależy od wcześniejszego kontekstu, oprzyj się na powyższej rozmowie; "
+    "a jeśli naprawdę nie wiadomo, o co chodzi, dopytaj zamiast milczeć."
+)
 
 
 def test_compose_single_human_message():
@@ -80,6 +87,27 @@ def test_compose_dedupes_participants_and_labels_bot_as_momentum():
         "\n"
         f"{_CLOSING}"
     )
+
+
+def test_compose_default_uses_cisza_closing():
+    window = [
+        {"author_id": 1, "display_name": "Tomek", "is_bot": False, "content": "momentum się buduje"},
+    ]
+    result = build_summon_prompt(window, bot_user_id=999)
+    assert result.endswith(_CLOSING)
+    assert "[CISZA]" in result
+
+
+def test_compose_direct_mention_drops_cisza_and_forces_engagement():
+    window = [
+        {"author_id": 1, "display_name": "Tomek", "is_bot": False,
+         "content": "@Momentum a Ty wiesz?"},
+    ]
+    result = build_summon_prompt(window, bot_user_id=999, direct_mention=True)
+    assert result.endswith(_CLOSING_DIRECT)
+    assert "NIE zwracaj [CISZA]" in result
+    # The plain "return exactly [CISZA]" escape hatch must be gone.
+    assert "zwróć dokładnie: [CISZA]" not in result
 
 
 def test_compose_excludes_other_bots_from_participants_but_keeps_in_transcript():

@@ -19,6 +19,11 @@ MORNING_GREETING_END_MINUTE = 55
 
 # Voice recording (cogs.voicerecord) settings
 RECORDING_NOTIFY_CHANNEL_ID = 1015575570760880168  # channel where Drive links are posted
+
+# Admin-only channel where scripts/momentum_usage_summary.py posts the daily
+# (admin-formatted) and weekly (Ludwik's-voice) bot-usage reports. Same private
+# admin channel as the recording notifications above.
+MOMENTUM_USAGE_CHANNEL_ID = 1015575570760880168
 RECORDING_MAX_MINUTES = 120         # safety cap before a recording auto-stops
 
 # Auto-record: start when a watched voice channel has >= AUTO_RECORD_MIN_MEMBERS

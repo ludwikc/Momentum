@@ -1,0 +1,28 @@
+# logrotate policy for Momentum's bot.log
+#
+# bot.log is written by Python's logging.FileHandler in main.py (see the systemd
+# unit: StandardOutput=journal, so systemd does NOT write this file). The bot
+# process holds the file descriptor open for its whole lifetime and never
+# reopens it, so a plain rename would leave the bot writing to the rotated inode.
+# `copytruncate` copies the file then truncates it in place, keeping the running
+# bot's open handle valid — no restart, no SIGHUP handling needed.
+#
+# Install:
+#   sudo cp momentum-bot.logrotate /etc/logrotate.d/momentum-bot
+#   sudo logrotate --debug /etc/logrotate.d/momentum-bot   # dry-run check
+#
+# scripts/momentum_usage_summary.py reads the whole rotated set (bot.log +
+# bot.log-* / .gz), so summaries keep working across rotations. The usage-summary
+# cron jobs run at night (23:55 / 23:57) — before the next morning's logrotate —
+# so each period is summarised before it is rotated away.
+/home/ludwikc/Momentum/bot.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    su ludwikc ludwikc
+}

@@ -57,6 +57,7 @@ from summon import (
     is_coaching_request,
     is_param_compat_error,
     is_summon,
+    repair_mentions,
 )
 
 logger = logging.getLogger("momentum_bot.przywolanie")
@@ -727,6 +728,8 @@ class Przywolanie(commands.Cog):
                     "to się do tego odniosę."
                 )
 
+            # Repair any '<Display Name>' pseudo-mention → real '<@id>' so pings work.
+            reply = repair_mentions(reply, window, self.bot.user.id)
             await message.channel.send(
                 reply,
                 allowed_mentions=discord.AllowedMentions(
@@ -787,6 +790,7 @@ class Przywolanie(commands.Cog):
             if not reply or reply == "[CISZA]":
                 reply = "Jestem. O czym chcesz pogadać w ramach coachingu?"
 
+            reply = repair_mentions(reply, window, self.bot.user.id)
             await interaction.followup.send(
                 reply,
                 allowed_mentions=discord.AllowedMentions(

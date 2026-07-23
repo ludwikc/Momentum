@@ -19,7 +19,9 @@ _SUMMON_RE = re.compile(r"\bmomentum\b", re.IGNORECASE)
 _COACHING_RE = re.compile(r"\bcoach", re.IGNORECASE)
 
 _PARTICIPANTS_HEADER = (
-    "Uczestnicy rozmowy (użyj dokładnie tych tokenów, gdy zwracasz się do kogoś):"
+    "Uczestnicy rozmowy. Gdy zwracasz się do kogoś, wklej DOKŁADNIE jego token w "
+    "formacie <@liczba> z tej listy (np. <@123>). NIGDY nie wpisuj imienia w "
+    "nawiasach ostrokątnych typu <Imię> — to nie zadziała jako oznaczenie:"
 )
 _CLOSING_INSTRUCTION = (
     "Zostałeś przywołany w tej rozmowie. Odezwij się zgodnie ze swoją rolą albo, "
@@ -150,3 +152,27 @@ def build_summon_prompt(
     )
 
     return f"{participants_block}\n\n{transcript}\n\n{closing}"
+
+
+def repair_mentions(text: str, window: list[dict], bot_user_id: int) -> str:
+    """Fix the model's occasional pseudo-mention of a participant.
+
+    The model is told to ping with ``<@id>`` tokens but sometimes wraps the
+    display name in angle brackets instead — e.g. ``<Ludwik C. Siadlak 💎>`` or
+    ``<@Ludwik C. Siadlak 💎>`` — which Discord renders as inert plain text, so
+    the user never gets tagged. Using the same participant map as
+    ``build_summon_prompt``, rewrite those exact bracketed name forms back to the
+    real ``<@id>`` token. Only the bracketed forms are touched (never a bare name
+    in prose), so this can't mangle legitimate text.
+    """
+    if not text:
+        return text
+    names: dict[str, int] = {}
+    for msg in window:
+        if msg["is_bot"] or msg["author_id"] == bot_user_id:
+            continue
+        names.setdefault(msg["display_name"], msg["author_id"])
+    for name, uid in names.items():
+        token = f"<@{uid}>"
+        text = text.replace(f"<@{name}>", token).replace(f"<{name}>", token)
+    return text

@@ -7,6 +7,7 @@ from summon import (
     extract_tool_calls,
     is_param_compat_error,
     is_summon,
+    repair_mentions,
 )
 
 
@@ -38,7 +39,11 @@ def test_is_summon_false_for_ordinary_message():
 
 # --- build_summon_prompt ----------------------------------------------------
 
-_HEADER = "Uczestnicy rozmowy (użyj dokładnie tych tokenów, gdy zwracasz się do kogoś):"
+_HEADER = (
+    "Uczestnicy rozmowy. Gdy zwracasz się do kogoś, wklej DOKŁADNIE jego token w "
+    "formacie <@liczba> z tej listy (np. <@123>). NIGDY nie wpisuj imienia w "
+    "nawiasach ostrokątnych typu <Imię> — to nie zadziała jako oznaczenie:"
+)
 _CLOSING = (
     "Zostałeś przywołany w tej rozmowie. Odezwij się zgodnie ze swoją rolą albo, "
     "jeśli to nie była prośba o Twoje zdanie, zwróć dokładnie: [CISZA]"
@@ -119,6 +124,36 @@ def test_compose_excludes_other_bots_from_participants_but_keeps_in_transcript()
     assert "InnyBot = " not in result          # other bots never become pingable participants
     assert "InnyBot: reklama" in result        # but their messages stay in the window
     assert result.split("\n\n")[0] == f"{_HEADER}\nTomek = <@1>"
+
+
+# --- repair_mentions ----------------------------------------------------------
+
+_RM_WINDOW = [
+    {"author_id": 404, "display_name": "Ludwik C. Siadlak 💎", "is_bot": False, "content": "x"},
+    {"author_id": 935, "display_name": "JakubP", "is_bot": False, "content": "y"},
+    {"author_id": 999, "display_name": "Momentum", "is_bot": True, "content": "z"},
+]
+
+
+def test_repair_mentions_fixes_bracketed_display_name():
+    out = repair_mentions("<Ludwik C. Siadlak 💎>, tak: ...", _RM_WINDOW, bot_user_id=999)
+    assert out == "<@404>, tak: ..."
+
+
+def test_repair_mentions_fixes_at_prefixed_name_form():
+    out = repair_mentions("hej <@JakubP> zobacz", _RM_WINDOW, bot_user_id=999)
+    assert out == "hej <@935> zobacz"
+
+
+def test_repair_mentions_leaves_correct_tokens_and_prose_untouched():
+    # A already-correct token and a bare name in prose must not be rewritten.
+    text = "Zgadzam się z <@404>. Ludwik ma rację, JakubP też."
+    assert repair_mentions(text, _RM_WINDOW, bot_user_id=999) == text
+
+
+def test_repair_mentions_ignores_bot_and_empty():
+    assert repair_mentions("<Momentum> mówi", _RM_WINDOW, bot_user_id=999) == "<Momentum> mówi"
+    assert repair_mentions("", _RM_WINDOW, bot_user_id=999) == ""
 
 
 # --- DailyRateLimiter ---------------------------------------------------------

@@ -102,6 +102,15 @@ MOMENTUM_TRANSCRIPT_MAX_CHARS = 80000  # cap a single transcript fed back to the
                                        # (~1h ≈ 29k chars; fits a full 120-min call)
 MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summon
 
+# Powitania na kanale Deep Work (cogs.queue_cog). Bot wita wchodzących raz dziennie
+# powitaniem generowanym przez LLM (z fallbackiem na listę statyczną). Gdy ktoś
+# MOMENTUM_GREETING_MAX_UNANSWERED razy z rzędu nie odpowie, bot proponuje opt-out
+# (potem tylko krótkie "Cześć @user 👋"). Patrz greetings.py + scripts/greeting_prefs.sql.
+MOMENTUM_GREETING_LLM_ENABLED = True   # generuj powitania LLM (False → tylko lista statyczna)
+MOMENTUM_GREETING_TIMEOUT_S = 8        # twardy timeout generowania; potem fallback
+MOMENTUM_GREETING_MAX_UNANSWERED = 5   # po tylu powitaniach bez odpowiedzi pytamy o opt-out
+MOMENTUM_GREETING_MODEL = None         # None → MOMENTUM_MODEL
+
 # Safety / abuse limits (cogs.przywolanie):
 # - Only the owner may DM the bot; everyone else's DMs are ignored outright.
 # - Each non-owner may trigger at most MOMENTUM_DAILY_LIMIT summons per day

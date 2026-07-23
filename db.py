@@ -130,6 +130,59 @@ def log_capped_month(discord_id: str, activity: str, max_per_month: int) -> dict
     return result.data
 
 
+# === Deep Work greeting preferences (scripts/greeting_prefs.sql) ===
+
+def greeting_pref_get(discord_id: str) -> tuple[str, int]:
+    """Read a user's Deep Work greeting preference.
+
+    Returns ``(mode, unanswered_streak)``; a missing row defaults to
+    ``('full', 0)``. Plain table read (no RPC).
+    """
+    supabase = get_supabase()
+    result = (
+        supabase.table("deepwork_greeting_prefs")
+        .select("mode, unanswered_streak")
+        .eq("discord_id", discord_id)
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        return ("full", 0)
+    row = rows[0]
+    return (row.get("mode") or "full", row.get("unanswered_streak") or 0)
+
+
+def greeting_pref_set_mode(discord_id: str, mode: str, streak: int) -> None:
+    """Upsert a user's greeting ``mode`` and ``unanswered_streak`` together."""
+    from datetime import datetime, timezone
+
+    supabase = get_supabase()
+    supabase.table("deepwork_greeting_prefs").upsert(
+        {
+            "discord_id": discord_id,
+            "mode": mode,
+            "unanswered_streak": streak,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).execute()
+
+
+def greeting_streak_set(discord_id: str, streak: int) -> None:
+    """Upsert just a user's ``unanswered_streak`` (mode keeps its stored value,
+    or defaults to 'full' on a first insert)."""
+    from datetime import datetime, timezone
+
+    supabase = get_supabase()
+    supabase.table("deepwork_greeting_prefs").upsert(
+        {
+            "discord_id": discord_id,
+            "unanswered_streak": streak,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).execute()
+
+
 def add_deep_work_time(discord_id: str, seconds: int) -> dict:
     """Add to a user's lifetime Deep Work connection time. Returns {total_seconds}."""
     supabase = get_supabase()

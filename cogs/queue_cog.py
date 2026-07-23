@@ -23,6 +23,7 @@ from greetings import (
     WEEKDAYS_PL,
     build_greeting_prompt,
     decide_greeting_action,
+    strip_leading_greeting,
     today_key_warsaw,
 )
 
@@ -166,7 +167,8 @@ class QueueCog(commands.Cog):
         except Exception as e:
             logger.warning("Powitanie LLM nie powiodło się (%s) — fallback statyczny", e)
             return None
-        return text or None
+        # We already prepend "Cześć @imię!" — drop any greeting the model added anyway.
+        return strip_leading_greeting(text) or None
 
     async def _greet_deepwork(self, member, channel, today: str):
         """Send the right greeting for a Deep Work join, per the user's stored pref."""

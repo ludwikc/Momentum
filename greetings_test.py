@@ -5,6 +5,7 @@ from greetings import (
     DEEPWORK_HELLOS_FALLBACK,
     build_greeting_prompt,
     decide_greeting_action,
+    strip_leading_greeting,
     today_key_warsaw,
 )
 
@@ -71,6 +72,51 @@ def test_fallback_pool_keeps_original_six():
         "Czas zjeść jakąś 'żabę'? ;)",
     ):
         assert original in DEEPWORK_HELLOS_FALLBACK
+
+
+# --- strip_leading_greeting ---------------------------------------------------
+
+def test_strip_greeting_word_plus_name_and_bang():
+    assert strip_leading_greeting("Cześć Tomek! Nad czym dziś pracujesz?") == (
+        "Nad czym dziś pracujesz?"
+    )
+
+
+def test_strip_greeting_word_only_with_bang():
+    assert strip_leading_greeting("Cześć! Gotowy do pracy? Co bierzesz?") == (
+        "Gotowy do pracy? Co bierzesz?"
+    )
+
+
+def test_strip_recapitalises_remainder():
+    # "Hej Tomek, co..." → drop opener → "co..." → re-capitalise → "Co..."
+    assert strip_leading_greeting("Hej Tomek, co dziś dowozisz?") == "Co dziś dowozisz?"
+
+
+def test_strip_handles_multiword_greeting_and_name():
+    assert strip_leading_greeting("Dzień dobry Aniu! Co dziś robisz?") == "Co dziś robisz?"
+
+
+def test_strip_leaves_text_without_greeting_untouched():
+    text = "Nad czym dziś pracujesz?"
+    assert strip_leading_greeting(text) == text
+
+
+def test_strip_does_not_eat_lowercase_content_after_greeting():
+    # "Witaj w skupieniu — ..." has no name/separator right after the word, so the
+    # content ("w skupieniu ...") must NOT be swallowed.
+    text = "Witaj w skupieniu — co bierzesz na warsztat?"
+    assert strip_leading_greeting(text) == text
+
+
+def test_strip_greeting_with_emoji_separator():
+    assert strip_leading_greeting("Cześć Aniu 👋 Gotowa na głęboką pracę?") == (
+        "Gotowa na głęboką pracę?"
+    )
+
+
+def test_strip_empty_string():
+    assert strip_leading_greeting("") == ""
 
 
 # --- today_key_warsaw ---------------------------------------------------------

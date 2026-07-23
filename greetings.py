@@ -6,6 +6,7 @@ imports these and handles all Discord/OpenAI I/O.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -69,9 +70,54 @@ GREETING_SYSTEM_PROMPT = (
     "NIENACHALNIE. Bez coachingowego nacisku, bez patosu, bez wymuszonej "
     "kreatywności, bez wykrzyknikowej przesady. Zwracasz się do rozmówcy formami "
     "pisanymi wielką literą (Ty, Twój, Cię…). Maksymalnie jedno emoji — i tylko "
-    "jeśli pasuje. Nie przedstawiaj się, nie tłumacz, czym jest Deep Work. "
-    "Zwróć wyłącznie samą treść powitania, bez cudzysłowów i bez podpisu."
+    "jeśli pasuje. Nie przedstawiaj się, nie tłumacz, czym jest Deep Work.\n\n"
+    "WAŻNE: system dokleja przed Twoją treścią osobne powitanie „Cześć @imię!”, "
+    "więc TY NIE zaczynasz od żadnego powitania ani od imienia — żadnego „Cześć”, "
+    "„Hej”, „Witaj” itp. Zacznij od razu od zdania otwierającego pracę albo wprost "
+    "od pytania. Zwróć wyłącznie samą treść, bez cudzysłowów i bez podpisu."
 )
+
+
+# Greeting openers the model might still prepend despite the instruction above
+# (we already send "Cześć @imię!"). Used by strip_leading_greeting.
+_GREETING_WORDS = (
+    r"cześć|czesc|hej|hejka|hejko|witaj|witam|siema|siemano|elo|yo|hello|hi"
+    r"|dzień\ dobry|dobry\ wieczór"
+)
+# Leading redundant greeting: a greeting word, optional Capitalised name tokens
+# (so lowercase content like "Witaj w skupieniu" is NOT eaten), then a REQUIRED
+# separator (,/!/./…/—/–/-). Requiring the separator keeps the match tight —
+# a greeting word that flows straight into content (no punctuation) is left alone.
+_LEADING_GREETING_RE = re.compile(
+    r"^\s*(?i:" + _GREETING_WORDS + r")"
+    # Name tokens must be Capitalised — (?-i:) keeps this case-sensitive so
+    # lowercase content ("Witaj w skupieniu") is NOT mistaken for a name.
+    r"(?:[ \t]+(?-i:[A-ZŁŚŻŹĆĄĘÓŃ])[^\s,!.?…—–-]*){0,3}"
+    # Terminator: either punctuation, or a stand-alone emoji/symbol run bounded
+    # by spaces (e.g. " 👋 "). Requiring the boundary keeps content like
+    # " (ważne)" from being swallowed.
+    r"(?:[ \t]*[,!.…—–-]+|[ \t]+[^\w\s]{1,3}(?=[ \t]))[ \t]*",
+)
+
+
+def strip_leading_greeting(text: str) -> str:
+    """Drop a redundant leading greeting the model prepended anyway.
+
+    The channel message is built as ``"Cześć {mention}! {text}"``; the model
+    sometimes still opens ``text`` with "Cześć Tomek!" / "Hej, ...", producing a
+    double greeting. Remove that opener and re-capitalise the remainder. Text
+    that doesn't start with a greeting (or whose greeting isn't clearly
+    terminated) is returned unchanged.
+    """
+    if not text:
+        return text
+    m = _LEADING_GREETING_RE.match(text)
+    if not m:
+        return text
+    rest = text[m.end():].lstrip()
+    if not rest:
+        return ""
+    return rest[0].upper() + rest[1:]
 
 
 def today_key_warsaw() -> str:

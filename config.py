@@ -133,6 +133,13 @@ MOMENTUM_KB_MATCH_COUNT = 3                          # ile tematów zwracać (~2
 # jest zwolniony. Reset następuje na początku kolejnego miesiąca (czas warszawski).
 MOMENTUM_COACHING_MONTHLY_LIMIT = 5
 
+# Oferta trybu coachingowego: gdy model uzna, że pytanie zadane naturalnie ma
+# potencjał na coś więcej niż szybką odpowiedź (patrz COACHING_OFFER_INSTRUCTION
+# w cogs/przywolanie.py), proponuje przejście w coaching przyciskami. Timeout to
+# czas (sekundy) na wybór, zanim oferta zamieni się w zwykłą odpowiedź.
+MOMENTUM_COACHING_OFFER_ENABLED = True
+MOMENTUM_COACHING_OFFER_TIMEOUT = 120
+
 # =============================================================================
 # StudyLion port (spec: docs/superpowers/specs/2026-07-11-studylion-port-design.md)
 # Requires scripts/studylion_port.sql applied in Supabase.

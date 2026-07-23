@@ -18,6 +18,15 @@ _SUMMON_RE = re.compile(r"\bmomentum\b", re.IGNORECASE)
 # Momentum is forced to consult the knowledge base before replying.
 _COACHING_RE = re.compile(r"\bcoach", re.IGNORECASE)
 
+# Sentinel the model prepends to a reply when it judges the question has
+# coaching potential (see COACHING_OFFER_INSTRUCTION in cogs/przywolanie.py).
+# Same strict contract as [CISZA]: only recognised at the very start of the
+# reply, so a stray mention mid-text never triggers the offer.
+COACHING_OFFER_SENTINEL = "[COACHING?]"
+_COACHING_OFFER_RE = re.compile(
+    r"\A[ \t]*" + re.escape(COACHING_OFFER_SENTINEL) + r"[ \t]*\n?(.*)", re.DOTALL
+)
+
 _PARTICIPANTS_HEADER = (
     "Uczestnicy rozmowy. Gdy zwracasz się do kogoś, wklej DOKŁADNIE jego token w "
     "formacie <@liczba> z tej listy (np. <@123>). NIGDY nie wpisuj imienia w "
@@ -54,6 +63,24 @@ def is_coaching_request(content: str) -> bool:
     forces a knowledge-base lookup before it replies.
     """
     return bool(_COACHING_RE.search(content or ""))
+
+
+def split_coaching_offer(text: str) -> tuple[bool, str]:
+    """Split off a leading ``[COACHING?]`` sentinel from a model reply.
+
+    Returns ``(True, rest)`` when the sentinel opens the reply (leading
+    whitespace tolerated, same-line or own-line body both accepted) — ``rest``
+    is the reply with the sentinel and its trailing newline/space stripped off
+    (empty string for a bare sentinel). Returns ``(False, text)`` unchanged
+    otherwise, including when the sentinel appears anywhere but the very start
+    — same strict, start-of-string-only contract as ``[CISZA]``.
+    """
+    if not text:
+        return False, text
+    m = _COACHING_OFFER_RE.match(text)
+    if not m:
+        return False, text
+    return True, m.group(1)
 
 
 class DailyRateLimiter:

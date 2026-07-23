@@ -33,6 +33,8 @@ import db
 import transcripts
 from config import (
     MOMENTUM_COACHING_MONTHLY_LIMIT,
+    MOMENTUM_COACHING_OFFER_ENABLED,
+    MOMENTUM_COACHING_OFFER_TIMEOUT,
     MOMENTUM_CONTEXT_MESSAGES,
     MOMENTUM_DAILY_LIMIT,
     MOMENTUM_KB_ENABLED,
@@ -58,6 +60,7 @@ from summon import (
     is_param_compat_error,
     is_summon,
     repair_mentions,
+    split_coaching_offer,
 )
 
 logger = logging.getLogger("momentum_bot.przywolanie")
@@ -225,6 +228,23 @@ DIRECT_ENGAGE_INSTRUCTION = (
     "Jeśli pytanie jest krótkie lub zależne od wcześniejszego kontekstu, odpowiedz "
     "na podstawie rozmowy powyżej; jeśli naprawdę nie wiadomo, o co chodzi, zadaj "
     "krótkie pytanie doprecyzowujące — ale się odezwij."
+)
+
+# Injected as an extra SYSTEM message on an ordinary (non-coaching) summon when
+# MOMENTUM_COACHING_OFFER_ENABLED is on. Lets the model flag, at zero extra
+# cost/latency, that a naturally-asked question would benefit from a full
+# coaching session — the code then offers the choice via CoachingOfferView.
+# The regular answer is always produced alongside the flag so it's ready
+# immediately if the user picks "zwykła odpowiedź" or lets the offer time out.
+COACHING_OFFER_INSTRUCTION = (
+    "OFERTA COACHINGU: jeśli pytanie rozmówcy dotyka rozwoju osobistego (nawyki, "
+    "cele, blokady, prokrastynacja, tożsamość, emocje, ważne decyzje) i pogłębiona "
+    "sesja coachingowa dałaby mu więcej niż szybka odpowiedź — zacznij swoją "
+    "odpowiedź od tokenu [COACHING?] w PIERWSZEJ linii, a od nowej linii napisz "
+    "swoją normalną odpowiedź (tak jakbyś odpowiadał bez tej instrukcji). Token "
+    "dodajesz TYLKO przy realnym potencjale coachingowym — nigdy przy pogawędce, "
+    "powitaniach, pytaniach o fakty/spotkania/sprawy techniczne. Nigdy nie "
+    "wspominaj o tym tokenie w treści odpowiedzi."
 )
 
 
@@ -467,7 +487,7 @@ def _respond(client, *, instructions: str, input, max_output_tokens: int,
 
 
 def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
-                         force_engage: bool = False) -> str:
+                         force_engage: bool = False, offer_coaching: bool = False) -> str:
     """Responses-API tool loop: chains rounds via previous_response_id so each
     round after the first sends only the tool outputs, not the whole context."""
     instructions = f"{SYSTEM_PROMPT}\n\nDzisiaj jest {today_str}."
@@ -475,6 +495,8 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
         instructions += f"\n\n{COACHING_INSTRUCTION}"
     if force_engage:
         instructions += f"\n\n{DIRECT_ENGAGE_INSTRUCTION}"
+    if offer_coaching:
+        instructions += f"\n\n{COACHING_OFFER_INSTRUCTION}"
     force_kb = coaching and MOMENTUM_KB_ENABLED
 
     inp = user_msg          # first turn: the summon prompt as plain user input
@@ -520,7 +542,7 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
 
 
 def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
-                    force_engage: bool = False) -> str:
+                    force_engage: bool = False, offer_coaching: bool = False) -> str:
     """Chat Completions tool loop (current default). Resends the full message list
     every round — the Responses path is the lower-latency chained variant."""
     messages = [
@@ -531,6 +553,8 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
         messages.append({"role": "system", "content": COACHING_INSTRUCTION})
     if force_engage:
         messages.append({"role": "system", "content": DIRECT_ENGAGE_INSTRUCTION})
+    if offer_coaching:
+        messages.append({"role": "system", "content": COACHING_OFFER_INSTRUCTION})
     messages.append({"role": "user", "content": user_msg})
 
     # Force the knowledge-base lookup on the first round in coaching mode.
@@ -580,7 +604,7 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
 
 
 def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
-                    force_engage: bool = False) -> str:
+                    force_engage: bool = False, offer_coaching: bool = False) -> str:
     """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
 
     A synchronous client built from OPENAI_API_KEY (imported lazily so an unset
@@ -591,13 +615,184 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
 
     ``force_engage`` (set for direct @mentions / DMs) injects a system-level
     override cancelling the [CISZA] licence so the model always replies.
+
+    ``offer_coaching`` (set on ordinary, non-coaching summons) lets the model
+    prepend a ``[COACHING?]`` sentinel to its reply when the question has real
+    coaching potential — see ``COACHING_OFFER_INSTRUCTION``. Never combined
+    with ``coaching=True`` (that path is already an explicit coaching request).
     """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     if MOMENTUM_USE_RESPONSES:
-        return _reply_via_responses(client, user_msg, today_str, coaching, force_engage)
-    return _reply_via_chat(client, user_msg, today_str, coaching, force_engage)
+        return _reply_via_responses(
+            client, user_msg, today_str, coaching, force_engage, offer_coaching
+        )
+    return _reply_via_chat(client, user_msg, today_str, coaching, force_engage, offer_coaching)
+
+
+async def _build_direct_user_msg(channel, bot_user_id: int) -> tuple[str, list[dict]]:
+    """Fresh channel history → (prompt user-message, window), direct_mention=True.
+
+    Shared by the coaching offer's two live regenerations (coaching pick, and
+    the bare-sentinel edge case on "zwykła odpowiedź") so both read the
+    channel's current state rather than the possibly-stale window from the
+    original summon.
+    """
+    history = [m async for m in channel.history(limit=MOMENTUM_CONTEXT_MESSAGES)]
+    history.reverse()
+    window = _window_from_history(history)
+    user_msg = build_summon_prompt(window, bot_user_id, direct_mention=True)
+    return user_msg, window
+
+
+class CoachingOfferView(discord.ui.View):
+    """Offer shown under a summon reply flagged ``[COACHING?]`` by the model.
+
+    All state lives on the instance (no cog-level dict, no DB) — an offer is
+    lost on a bot restart, which is an acceptable trade-off for a UI nicety.
+    ``regular_answer`` is the answer the model already produced alongside the
+    flag, so picking "Zwykła odpowiedź" (or letting the offer time out) never
+    needs a fresh LLM call.
+    """
+
+    def __init__(self, cog: "Przywolanie", *, asker_id: int, is_owner: bool,
+                 regular_answer: str, question: str):
+        super().__init__(timeout=MOMENTUM_COACHING_OFFER_TIMEOUT)
+        self.cog = cog
+        self.asker_id = asker_id
+        self.is_owner = is_owner
+        self.regular_answer = regular_answer
+        self.question = question
+        self.message: discord.Message | None = None
+        self._resolved = False  # guards the click-vs-timeout race
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id == self.asker_id:
+            return True
+        await interaction.response.send_message(
+            f"Ta propozycja jest dla <@{self.asker_id}> — to jego pytanie 🙂",
+            ephemeral=True,
+        )
+        return False
+
+    @discord.ui.button(label="Zwykła odpowiedź", style=discord.ButtonStyle.secondary)
+    async def regular(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self._resolved = True
+        self.stop()
+        if self.regular_answer:
+            await interaction.response.edit_message(
+                content=self.regular_answer,
+                view=None,
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            )
+            return
+        # Edge case: the model returned a bare sentinel with no answer body.
+        # Regenerate a guaranteed plain answer instead of leaving the user empty-handed.
+        await interaction.response.defer(thinking=True)
+        try:
+            user_msg, window = await _build_direct_user_msg(
+                interaction.channel, self.cog.bot.user.id
+            )
+            reply = await asyncio.to_thread(
+                _generate_reply, user_msg, _today_key(), False, True, False
+            )
+            if not reply or reply == "[CISZA]":
+                reply = (
+                    "Jestem 👋 Doprecyzuj jednym zdaniem, o co pytasz, "
+                    "to się do tego odniosę."
+                )
+            reply = repair_mentions(reply, window, self.cog.bot.user.id)
+            await interaction.followup.send(
+                reply,
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            )
+        except Exception as e:
+            logger.error("Błąd przy regeneracji zwykłej odpowiedzi (oferta coachingu): %s", e)
+            import traceback
+
+            traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    "Coś poszło nie tak — spróbuj przywołać mnie jeszcze raz."
+                )
+            except Exception:
+                pass
+
+    @discord.ui.button(label="Tryb coachingowy", style=discord.ButtonStyle.primary, emoji="🧭")
+    async def coaching(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self.cog._coaching_quota_ok(self.asker_id, self.is_owner):
+            self._resolved = True
+            self.stop()
+            logger.info("Miesięczny limit coachingu wyczerpany przez %s (oferta)", self.asker_id)
+            await interaction.response.send_message(
+                _coaching_limit_text(self.asker_id), ephemeral=True
+            )
+            await interaction.message.edit(
+                content=self.regular_answer or "Oferta wygasła — zawołaj mnie jeszcze raz 🙂",
+                view=None,
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            )
+            return
+
+        self._resolved = True
+        self.stop()
+        # Edit within Discord's 3s interaction window, BEFORE the slow LLM call.
+        await interaction.response.edit_message(
+            content="Przechodzę w tryb coachingowy — daj mi chwilę… 🧭", view=None
+        )
+        try:
+            logger.info(
+                "Tryb coachingowy (oferta) na kanale %s przez %s",
+                interaction.channel_id,
+                self.asker_id,
+            )
+            user_msg, window = await _build_direct_user_msg(
+                interaction.channel, self.cog.bot.user.id
+            )
+            user_msg += (
+                f"\n\n{interaction.user.display_name} wybrał tryb coachingowy dla swojego "
+                f"pytania: {self.question}"
+            )
+            reply = await asyncio.to_thread(_generate_reply, user_msg, _today_key(), True)
+            if not reply or reply == "[CISZA]":
+                reply = "Jestem. O czym chcesz pogadać w ramach coachingu?"
+
+            reply = repair_mentions(reply, window, self.cog.bot.user.id)
+            await interaction.followup.send(
+                reply,
+                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            )
+        except Exception as e:
+            logger.error("Błąd w trybie coachingowym (oferta): %s", e)
+            import traceback
+
+            traceback.print_exc()
+            try:
+                await interaction.followup.send(
+                    "Coś poszło nie tak przy coachingu — spróbuj ponownie za chwilę."
+                )
+            except Exception:
+                pass
+
+    async def on_timeout(self):
+        if self._resolved:
+            return
+        note = (
+            "Nie odpowiadasz, więc pewnie masz inne tematy na głowie — tutaj "
+            '"zwykła" odpowiedź ;)\n\n' + self.regular_answer
+            if self.regular_answer
+            else "Oferta wygasła — zawołaj mnie jeszcze raz 🙂"
+        )
+        try:
+            if self.message is not None:
+                await self.message.edit(
+                    content=note,
+                    view=None,
+                    allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+                )
+        except discord.NotFound:
+            pass
 
 
 class Przywolanie(commands.Cog):
@@ -652,6 +847,9 @@ class Przywolanie(commands.Cog):
                 return
 
             coaching = is_coaching_request(message.content)
+            # Only offer coaching on an ordinary summon — an explicit coaching
+            # request is already the real thing, no need to ask twice.
+            offer_eligible = MOMENTUM_COACHING_OFFER_ENABLED and not coaching
 
             # Limity chroniące budżet (właściciel zwolniony z obu):
             # - coaching → własny MIESIĘCZNY cap (trwały, w Supabase),
@@ -704,7 +902,8 @@ class Przywolanie(commands.Cog):
             started = time.monotonic()
             async with message.channel.typing():
                 reply = await asyncio.to_thread(
-                    _generate_reply, user_msg, _today_key(), coaching, direct_mention
+                    _generate_reply, user_msg, _today_key(), coaching, direct_mention,
+                    offer_eligible,
                 )
             logger.info(
                 "Momentum odpowiedział w %.1fs (coaching=%s)",
@@ -727,6 +926,28 @@ class Przywolanie(commands.Cog):
                     "Jestem 👋 Doprecyzuj jednym zdaniem, o co pytasz, "
                     "to się do tego odniosę."
                 )
+
+            offered, body = split_coaching_offer(reply)
+            if offered and offer_eligible:
+                answer = repair_mentions(body, window, self.bot.user.id)
+                view = CoachingOfferView(
+                    self, asker_id=message.author.id, is_owner=is_owner,
+                    regular_answer=answer, question=message.clean_content,
+                )
+                view.message = await message.channel.send(
+                    f"<@{message.author.id}>, to pytanie ma potencjał na coś więcej niż "
+                    "szybka odpowiedź. Chcesz zwykłej odpowiedzi, czy przechodzimy w tryb "
+                    "coachingowy? 🧭",
+                    view=view,
+                    allowed_mentions=discord.AllowedMentions(
+                        everyone=False, roles=False, users=True
+                    ),
+                )
+                logger.info(
+                    "Oferta coachingu dla %s na kanale %s", message.author.id, message.channel.id
+                )
+                return
+            reply = body  # defensywnie usuwa zabłąkany sentinel nawet przy wyłączonej ofercie
 
             # Repair any '<Display Name>' pseudo-mention → real '<@id>' so pings work.
             reply = repair_mentions(reply, window, self.bot.user.id)

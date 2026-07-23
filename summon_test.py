@@ -8,6 +8,7 @@ from summon import (
     is_param_compat_error,
     is_summon,
     repair_mentions,
+    split_coaching_offer,
 )
 
 
@@ -154,6 +155,40 @@ def test_repair_mentions_leaves_correct_tokens_and_prose_untouched():
 def test_repair_mentions_ignores_bot_and_empty():
     assert repair_mentions("<Momentum> mówi", _RM_WINDOW, bot_user_id=999) == "<Momentum> mówi"
     assert repair_mentions("", _RM_WINDOW, bot_user_id=999) == ""
+
+
+# --- split_coaching_offer ------------------------------------------------------
+
+def test_split_coaching_offer_answer_on_next_line():
+    assert split_coaching_offer("[COACHING?]\nOdpowiedź tutaj") == (True, "Odpowiedź tutaj")
+
+
+def test_split_coaching_offer_answer_on_same_line():
+    assert split_coaching_offer("[COACHING?] Odpowiedź tutaj") == (True, "Odpowiedź tutaj")
+
+
+def test_split_coaching_offer_bare_sentinel():
+    assert split_coaching_offer("[COACHING?]") == (True, "")
+
+
+def test_split_coaching_offer_tolerates_leading_whitespace():
+    assert split_coaching_offer("  [COACHING?]\nOdpowiedź") == (True, "Odpowiedź")
+
+
+def test_split_coaching_offer_passthrough_when_absent():
+    assert split_coaching_offer("Zwykła odpowiedź bez sentinela") == (
+        False,
+        "Zwykła odpowiedź bez sentinela",
+    )
+
+
+def test_split_coaching_offer_ignores_sentinel_mid_text():
+    text = "Odpowiedź, w środku której ktoś wkleił [COACHING?] przypadkiem."
+    assert split_coaching_offer(text) == (False, text)
+
+
+def test_split_coaching_offer_empty_string():
+    assert split_coaching_offer("") == (False, "")
 
 
 # --- DailyRateLimiter ---------------------------------------------------------

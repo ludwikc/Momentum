@@ -62,6 +62,7 @@ from summon import (
     is_summon,
     repair_mentions,
     split_coaching_offer,
+    split_for_discord,
 )
 
 logger = logging.getLogger("momentum_bot.przywolanie")
@@ -100,6 +101,43 @@ def _window_from_history(history: list) -> list[dict]:
         }
         for m in history
     ]
+
+
+# Every LLM reply goes out through these mention rules: people can be pinged,
+# @everyone/roles never. Shared by all send sites below.
+_REPLY_MENTIONS = discord.AllowedMentions(everyone=False, roles=False, users=True)
+
+
+async def _send_reply(send, reply: str, **kwargs):
+    """Send a model reply via ``send`` (channel.send / followup.send), splitting
+    it into Discord-sized messages when it exceeds the per-message cap.
+
+    A single oversized send raises 50035 Invalid Form Body and the user gets
+    nothing at all — exactly what happened when a retry-rescued long answer
+    (see MOMENTUM_MAX_TOKENS_RETRY) finally arrived, only to be rejected by
+    Discord. Chunks go out sequentially to keep their order stable.
+    """
+    for chunk in split_for_discord(reply):
+        await send(chunk, allowed_mentions=_REPLY_MENTIONS, **kwargs)
+
+
+async def _edit_then_send_rest(message: discord.Message, reply: str, *, edit=None):
+    """Replace ``message``'s content with ``reply``, overflowing into follow-up
+    channel messages when the reply exceeds the per-message cap.
+
+    Message edits enforce the same content limit as sends, so the coaching-offer
+    paths that resolve by editing the offer message (button click, timeout) need
+    the same protection. ``edit`` overrides the edit callable (e.g. an
+    interaction response's ``edit_message``, which must be used within the 3s
+    interaction window instead of ``message.edit``).
+    """
+    chunks = split_for_discord(reply)
+    if not chunks:
+        return
+    do_edit = edit if edit is not None else message.edit
+    await do_edit(content=chunks[0], view=None, allowed_mentions=_REPLY_MENTIONS)
+    for chunk in chunks[1:]:
+        await message.channel.send(chunk, allowed_mentions=_REPLY_MENTIONS)
 
 
 def _coaching_limit_text(user_id: int) -> str:
@@ -719,10 +757,9 @@ class CoachingOfferView(discord.ui.View):
         self._resolved = True
         self.stop()
         if self.regular_answer:
-            await interaction.response.edit_message(
-                content=self.regular_answer,
-                view=None,
-                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            await _edit_then_send_rest(
+                interaction.message, self.regular_answer,
+                edit=interaction.response.edit_message,
             )
             return
         # Edge case: the model returned a bare sentinel with no answer body.
@@ -741,10 +778,7 @@ class CoachingOfferView(discord.ui.View):
                     "to się do tego odniosę."
                 )
             reply = repair_mentions(reply, window, self.cog.bot.user.id)
-            await interaction.followup.send(
-                reply,
-                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
-            )
+            await _send_reply(interaction.followup.send, reply)
         except Exception as e:
             logger.error("Błąd przy regeneracji zwykłej odpowiedzi (oferta coachingu): %s", e)
             import traceback
@@ -766,10 +800,9 @@ class CoachingOfferView(discord.ui.View):
             await interaction.response.send_message(
                 _coaching_limit_text(self.asker_id), ephemeral=True
             )
-            await interaction.message.edit(
-                content=self.regular_answer or "Oferta wygasła — zawołaj mnie jeszcze raz 🙂",
-                view=None,
-                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            await _edit_then_send_rest(
+                interaction.message,
+                self.regular_answer or "Oferta wygasła — zawołaj mnie jeszcze raz 🙂",
             )
             return
 
@@ -797,10 +830,7 @@ class CoachingOfferView(discord.ui.View):
                 reply = "Jestem. O czym chcesz pogadać w ramach coachingu?"
 
             reply = repair_mentions(reply, window, self.cog.bot.user.id)
-            await interaction.followup.send(
-                reply,
-                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
-            )
+            await _send_reply(interaction.followup.send, reply)
         except Exception as e:
             logger.error("Błąd w trybie coachingowym (oferta): %s", e)
             import traceback
@@ -824,11 +854,7 @@ class CoachingOfferView(discord.ui.View):
         )
         try:
             if self.message is not None:
-                await self.message.edit(
-                    content=note,
-                    view=None,
-                    allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
-                )
+                await _edit_then_send_rest(self.message, note)
         except discord.NotFound:
             pass
 
@@ -989,12 +1015,7 @@ class Przywolanie(commands.Cog):
 
             # Repair any '<Display Name>' pseudo-mention → real '<@id>' so pings work.
             reply = repair_mentions(reply, window, self.bot.user.id)
-            await message.channel.send(
-                reply,
-                allowed_mentions=discord.AllowedMentions(
-                    everyone=False, roles=False, users=True
-                ),
-            )
+            await _send_reply(message.channel.send, reply)
 
         except Exception as e:
             logger.error("Błąd w przywolanie.on_message: %s", e)
@@ -1050,12 +1071,7 @@ class Przywolanie(commands.Cog):
                 reply = "Jestem. O czym chcesz pogadać w ramach coachingu?"
 
             reply = repair_mentions(reply, window, self.bot.user.id)
-            await interaction.followup.send(
-                reply,
-                allowed_mentions=discord.AllowedMentions(
-                    everyone=False, roles=False, users=True
-                ),
-            )
+            await _send_reply(interaction.followup.send, reply)
         except Exception as e:
             logger.error("Błąd w /coaching-momentum: %s", e)
             import traceback

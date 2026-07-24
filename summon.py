@@ -181,6 +181,45 @@ def build_summon_prompt(
     return f"{participants_block}\n\n{transcript}\n\n{closing}"
 
 
+# Discord's hard cap on a single message's content. Kept conservative (the API
+# rejects anything longer with 50035 Invalid Form Body) — one long model reply
+# must become several messages, never one failed send.
+DISCORD_MESSAGE_LIMIT = 2000
+
+
+def split_for_discord(text: str, limit: int = DISCORD_MESSAGE_LIMIT) -> list[str]:
+    """Split a model reply into Discord-sendable chunks of at most ``limit`` chars.
+
+    Long replies are legitimate (e.g. "napisz gotową instrukcję do wklejenia"),
+    but Discord rejects the whole message when content exceeds its cap — the
+    user then gets NOTHING. Splitting preference: paragraph break, then line
+    break (each only in the second half of the window, so an early boundary
+    doesn't produce a needlessly tiny message), then any space, then a hard
+    mid-word cut as the last resort. Chunks are stripped of edge whitespace;
+    empty input yields an empty list.
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    chunks: list[str] = []
+    while len(text) > limit:
+        window = text[:limit]
+        cut = window.rfind("\n\n")
+        if cut < limit // 2:
+            cut = window.rfind("\n")
+        if cut < limit // 2:
+            cut = window.rfind(" ")
+        if cut <= 0:
+            cut = limit
+        chunk = text[:cut].rstrip()
+        if chunk:
+            chunks.append(chunk)
+        text = text[cut:].strip()
+    if text:
+        chunks.append(text)
+    return chunks
+
+
 def repair_mentions(text: str, window: list[dict], bot_user_id: int) -> str:
     """Fix the model's occasional pseudo-mention of a participant.
 

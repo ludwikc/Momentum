@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 
 from summon import (
+    DISCORD_MESSAGE_LIMIT,
     DailyRateLimiter,
     build_summon_prompt,
     extract_tool_calls,
@@ -9,6 +10,7 @@ from summon import (
     is_summon,
     repair_mentions,
     split_coaching_offer,
+    split_for_discord,
 )
 
 
@@ -265,3 +267,52 @@ def test_extract_tool_calls_returns_function_calls_in_order():
 def test_extract_tool_calls_empty_when_no_function_calls():
     output = [SimpleNamespace(type="message", content="hej"), SimpleNamespace(type="reasoning")]
     assert extract_tool_calls(output) == []
+
+
+# --- split_for_discord ---------------------------------------------------------
+
+def test_split_short_reply_is_single_chunk():
+    assert split_for_discord("Krótka odpowiedź.") == ["Krótka odpowiedź."]
+
+
+def test_split_empty_and_whitespace_yield_no_chunks():
+    assert split_for_discord("") == []
+    assert split_for_discord("   \n\n  ") == []
+    assert split_for_discord(None) == []
+
+
+def test_split_long_reply_respects_limit_and_loses_nothing():
+    paragraphs = [f"Sekcja {i}: " + "treść instrukcji dla społeczności. " * 20 for i in range(12)]
+    text = "\n\n".join(paragraphs)
+    chunks = split_for_discord(text)
+    assert len(chunks) > 1
+    assert all(len(c) <= DISCORD_MESSAGE_LIMIT for c in chunks)
+    # No content is lost — only whitespace at the split points may differ.
+    assert "".join(c.replace("\n", "").replace(" ", "") for c in chunks) == \
+        text.replace("\n", "").replace(" ", "")
+
+
+def test_split_prefers_paragraph_boundaries():
+    para = "a" * 1500
+    text = f"{para}\n\n{para}"
+    assert split_for_discord(text) == [para, para]
+
+
+def test_split_hard_cuts_unbroken_text():
+    text = "x" * 4100
+    chunks = split_for_discord(text)
+    assert chunks == ["x" * 2000, "x" * 2000, "x" * 100]
+
+
+def test_split_ignores_boundary_in_first_half_of_window():
+    # A lone newline early in the text must not produce a tiny first chunk.
+    text = "nagłówek\n" + "y" * 2500
+    chunks = split_for_discord(text)
+    assert len(chunks[0]) > DISCORD_MESSAGE_LIMIT // 2
+    assert all(len(c) <= DISCORD_MESSAGE_LIMIT for c in chunks)
+
+
+def test_split_custom_limit():
+    chunks = split_for_discord("jeden dwa trzy cztery pięć", limit=10)
+    assert all(len(c) <= 10 for c in chunks)
+    assert " ".join(chunks) == "jeden dwa trzy cztery pięć"

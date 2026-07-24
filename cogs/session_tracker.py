@@ -39,7 +39,7 @@ class SessionTracker(commands.Cog):
     def cog_unload(self):
         self.flush_deep_work.cancel()
 
-    async def _post(self, member, headline: str):
+    async def _post(self, member, headline: str, hero_key: str | None = None):
         channel = self.bot.get_channel(PROGRESS_CHANNEL_ID)
         if not channel:
             return
@@ -48,7 +48,7 @@ class SessionTracker(commands.Cog):
         except Exception as e:
             logger.error(f"Failed to fetch activity stats for {member.id}: {e}")
             stats = None
-        embed = build_progress_embed(member, headline, stats)
+        embed = build_progress_embed(member, headline, stats, hero_key=hero_key)
         await channel.send(content=member.mention, embed=embed)
 
     @commands.Cog.listener()
@@ -70,7 +70,8 @@ class SessionTracker(commands.Cog):
                 if result and result.get("logged"):
                     n = result.get("monthly_count", 1)
                     await self._post(
-                        member, f"To {n} Daily Coaching w tym miesiącu."
+                        member, f"To {n} Daily Coaching w tym miesiącu.",
+                        hero_key="daily_coaching",
                     )
             except Exception as e:
                 logger.error(f"Daily Coaching tracking error for {member.id}: {e}")
@@ -86,7 +87,8 @@ class SessionTracker(commands.Cog):
                 if result and result.get("logged"):
                     n = result.get("monthly_count", 1)
                     await self._post(
-                        member, f"To {n} sesja Deep Work w tym miesiącu."
+                        member, f"To {n} sesja Deep Work w tym miesiącu.",
+                        hero_key="deep_work",
                     )
             except Exception as e:
                 logger.error(f"Deep Work tracking error for {member.id}: {e}")

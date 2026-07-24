@@ -79,6 +79,16 @@ MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
 # EMPTY reply that the bot then mistook for silence. Reply brevity is enforced by
 # the system prompt ("zwięźle"), not by this ceiling, so keep generous headroom.
 MOMENTUM_MAX_TOKENS = 1000
+# Fallback budget used ONLY when the first attempt came back EMPTY with
+# finish_reason=length — i.e. hidden reasoning (and/or a genuinely long requested
+# answer, e.g. "napisz gotową instrukcję") consumed the whole MOMENTUM_MAX_TOKENS
+# budget before any visible text. That empty reply is otherwise indistinguishable
+# from silence and used to trigger the "Doprecyzuj jednym zdaniem" nudge even on a
+# perfectly clear, demanding prompt. We retry once with this larger ceiling so
+# big legitimate requests get answered, while normal replies keep the low cap
+# (and its lower latency/cost). A real [CISZA] returns finish_reason=stop and is
+# left untouched.
+MOMENTUM_MAX_TOKENS_RETRY = 4000
 MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
 # gpt-5.2 is a reasoning model: left unset it "thinks" at its default effort
 # before every reply (seconds each), and that stacks across tool-call rounds.

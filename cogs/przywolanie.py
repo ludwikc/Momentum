@@ -42,6 +42,7 @@ from config import (
     MOMENTUM_KB_EMBED_MODEL,
     MOMENTUM_KB_MATCH_COUNT,
     MOMENTUM_MAX_TOKENS,
+    MOMENTUM_MAX_TOKENS_RETRY,
     MOMENTUM_MODEL,
     MOMENTUM_OWNER_ID,
     MOMENTUM_REASONING_EFFORT,
@@ -513,7 +514,26 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
         )
         calls = extract_tool_calls(resp.output)
         if not calls:
-            return (resp.output_text or "").strip()
+            content = (resp.output_text or "").strip()
+            incomplete = getattr(resp, "incomplete_details", None)
+            budget_exhausted = getattr(incomplete, "reason", None) == "max_output_tokens"
+            if content or not budget_exhausted:
+                return content
+            # Empty reply because the shared reasoning+reply budget ran out — retry
+            # once with a much larger ceiling instead of mistaking it for silence.
+            logger.info(
+                "Pusta odpowiedź (max_output_tokens) — ponawiam z budżetem %d",
+                MOMENTUM_MAX_TOKENS_RETRY,
+            )
+            resp = _respond(
+                client, instructions=instructions, input=inp,
+                max_output_tokens=MOMENTUM_MAX_TOKENS_RETRY,
+                tool_choice=tool_choice, previous_id=previous_id,
+            )
+            calls = extract_tool_calls(resp.output)
+            if not calls:
+                return (resp.output_text or "").strip()
+            # Retry pulled in a tool call — fall through to normal tool handling.
         tools_used = True
         logger.info(
             "Momentum tool-loop runda %d/%d: %s",
@@ -570,7 +590,25 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
         resp = _chat(client, messages, max_tokens=cap, with_tools=True, tool_choice=tool_choice)
         msg = resp.choices[0].message
         if not msg.tool_calls:
-            return (msg.content or "").strip()
+            content = (msg.content or "").strip()
+            if content or resp.choices[0].finish_reason != "length":
+                return content
+            # Empty reply + finish_reason=length: the shared reasoning+reply budget
+            # ran out before any visible text (gpt-5.2 reasoning tokens, or a long
+            # requested answer, can eat the whole cap). This is NOT silence — retry
+            # once with a much larger budget before giving up.
+            logger.info(
+                "Pusta odpowiedź przy finish_reason=length — ponawiam z budżetem %d",
+                MOMENTUM_MAX_TOKENS_RETRY,
+            )
+            resp = _chat(
+                client, messages, max_tokens=MOMENTUM_MAX_TOKENS_RETRY,
+                with_tools=True, tool_choice=tool_choice,
+            )
+            msg = resp.choices[0].message
+            if not msg.tool_calls:
+                return (msg.content or "").strip()
+            # Retry pulled in a tool call — fall through to normal tool handling.
         tools_used = True
         logger.info(
             "Momentum tool-loop runda %d/%d: %s",

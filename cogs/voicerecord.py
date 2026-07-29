@@ -14,6 +14,7 @@ from discord.ext import commands, tasks
 from discord.ext import voice_recv
 
 import dave_patch
+import ssrc_patch
 import gdrive
 import transcribe
 import transcripts
@@ -35,6 +36,9 @@ from config import (
 # Add DAVE (E2EE) decryption support to voice_recv — without this, Discord's
 # mandatory end-to-end encryption makes every recording silent ("corrupted stream").
 dave_patch.apply()
+# Fix a voice_recv crash that leaves a dead voice client stuck in "recording"
+# state forever, silently blocking all future auto-record joins.
+ssrc_patch.apply()
 
 logger = logging.getLogger("momentum_bot.voicerecord")
 
@@ -558,6 +562,18 @@ class VoiceRecord(commands.Cog):
     async def _evaluate_auto(self):
         """Start auto-recording the first eligible channel, or stop if ours emptied."""
         async with self._lock:
+            # Defense in depth: if the voice client died without us noticing (a
+            # crash in the discord.py/voice_recv internals, a dropped connection,
+            # etc.), self.recording would stay stuck True forever and silently
+            # block every future auto-record join. Detect and clear it.
+            if self.vc is not None and not self.vc.is_connected():
+                logger.warning(
+                    "Voice client for #%s found disconnected while marked as "
+                    "recording — clearing stuck state",
+                    self.channel.name if self.channel else "?",
+                )
+                await self._teardown()
+
             # Stop: an auto recording whose channel dropped below the threshold.
             if self.recording and self.is_auto and self.channel is not None:
                 if self._humans(self.channel) < AUTO_RECORD_MIN_MEMBERS:

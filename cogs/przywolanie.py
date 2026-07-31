@@ -292,7 +292,7 @@ DIRECT_ENGAGE_INSTRUCTION = (
 # cost/latency, that a naturally-asked question would benefit from a full
 # coaching session — the code then offers the choice via CoachingOfferView.
 # The regular answer is always produced alongside the flag so it's ready
-# immediately if the user picks "zwykła odpowiedź" or lets the offer time out.
+# immediately if the user picks "zwykła odpowiedź".
 COACHING_OFFER_INSTRUCTION = (
     "OFERTA COACHINGU: jeśli pytanie rozmówcy dotyka rozwoju osobistego (nawyki, "
     "cele, blokady, prokrastynacja, tożsamość, emocje, ważne decyzje) i pogłębiona "

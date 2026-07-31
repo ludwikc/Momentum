@@ -155,7 +155,7 @@ MOMENTUM_COACHING_MONTHLY_LIMIT = 5
 # Oferta trybu coachingowego: gdy model uzna, że pytanie zadane naturalnie ma
 # potencjał na coś więcej niż szybką odpowiedź (patrz COACHING_OFFER_INSTRUCTION
 # w cogs/przywolanie.py), proponuje przejście w coaching przyciskami. Timeout to
-# czas (sekundy) na wybór, zanim oferta zamieni się w zwykłą odpowiedź.
+# czas (sekundy) na wybór, zanim oferta wygaśnie.
 MOMENTUM_COACHING_OFFER_ENABLED = True
 MOMENTUM_COACHING_OFFER_TIMEOUT = 120
 # Po pokazaniu oferty nie ponawiaj jej temu samemu userowi w tym samym kanale

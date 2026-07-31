@@ -299,21 +299,6 @@ def test_split_prefers_paragraph_boundaries():
     assert split_for_discord(text) == [para, para]
 
 
-# --- offer_allowed ---------------------------------------------------------------
-
-def test_offer_allowed_when_never_offered():
-    assert offer_allowed(None, 100.0, 1800.0) is True
-
-
-def test_offer_blocked_within_cooldown():
-    assert offer_allowed(100.0, 1000.0, 1800.0) is False
-
-
-def test_offer_allowed_at_and_after_cooldown():
-    assert offer_allowed(100.0, 1900.0, 1800.0) is True
-    assert offer_allowed(100.0, 5000.0, 1800.0) is True
-
-
 def test_split_hard_cuts_unbroken_text():
     text = "x" * 4100
     chunks = split_for_discord(text)
@@ -332,3 +317,18 @@ def test_split_custom_limit():
     chunks = split_for_discord("jeden dwa trzy cztery pięć", limit=10)
     assert all(len(c) <= 10 for c in chunks)
     assert " ".join(chunks) == "jeden dwa trzy cztery pięć"
+
+
+# --- offer_allowed ---------------------------------------------------------------
+
+def test_offer_allowed_when_never_offered():
+    assert offer_allowed(None, 100.0, 1800.0) is True
+
+
+def test_offer_blocked_within_cooldown():
+    assert offer_allowed(100.0, 1000.0, 1800.0) is False
+
+
+def test_offer_allowed_at_and_after_cooldown():
+    assert offer_allowed(100.0, 1900.0, 1800.0) is True
+    assert offer_allowed(100.0, 5000.0, 1800.0) is True

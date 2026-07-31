@@ -447,6 +447,12 @@ def _run_tool(name: str, args: dict) -> str:
 # Derived from _TOOLS so the definitions live in one place.
 _TOOLS_RESPONSES = [{"type": "function", **t["function"]} for t in _TOOLS]
 
+# Tools whose output justifies a longer reply (full meeting transcripts).
+# szukaj_w_bazie is deliberately NOT here: KB-grounded coaching answers must
+# stay on the short budget — brevity is part of the persona, and the transcript
+# cap applied to coaching was how replies ballooned into essays.
+_TRANSCRIPT_TOOLS = {"lista_spotkan", "czytaj_spotkanie"}
+
 
 # Param-compat decisions for MOMENTUM_MODEL, learned from the first rejecting call
 # and cached module-wide so every later call (and every round of a tool loop) skips
@@ -559,8 +565,9 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
     inp = user_msg          # first turn: the summon prompt as plain user input
     previous_id = None
     tools_used = False
+    transcript_used = False
     for round_idx in range(1, MOMENTUM_TOOL_ROUNDS + 1):
-        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
+        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if transcript_used else MOMENTUM_MAX_TOKENS
         tool_choice = None
         if force_kb and not tools_used:
             tool_choice = {"type": "function", "name": "szukaj_w_bazie"}
@@ -591,6 +598,9 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
                 return (resp.output_text or "").strip()
             # Retry pulled in a tool call — fall through to normal tool handling.
         tools_used = True
+        transcript_used = transcript_used or any(
+            name in _TRANSCRIPT_TOOLS for _, name, _ in calls
+        )
         logger.info(
             "Momentum tool-loop runda %d/%d: %s",
             round_idx, MOMENTUM_TOOL_ROUNDS, [name for _, name, _ in calls],
@@ -609,9 +619,10 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
             })
 
     # Tool budget exhausted — force a final answer from what we've gathered.
+    cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if transcript_used else MOMENTUM_MAX_TOKENS
     resp = _respond(
         client, instructions=instructions, input=inp,
-        max_output_tokens=MOMENTUM_TRANSCRIPT_MAX_TOKENS, with_tools=False,
+        max_output_tokens=cap, with_tools=False,
         previous_id=previous_id,
     )
     return (resp.output_text or "").strip()
@@ -637,9 +648,10 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
     force_kb = coaching and MOMENTUM_KB_ENABLED
 
     tools_used = False
+    transcript_used = False
     for round_idx in range(1, MOMENTUM_TOOL_ROUNDS + 1):
-        # Once a tool has been pulled in, allow a longer answer.
-        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if tools_used else MOMENTUM_MAX_TOKENS
+        # Only a transcript read justifies a longer answer (see _TRANSCRIPT_TOOLS).
+        cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if transcript_used else MOMENTUM_MAX_TOKENS
         tool_choice = None
         if force_kb and not tools_used:
             tool_choice = {"type": "function", "function": {"name": "szukaj_w_bazie"}}
@@ -666,6 +678,9 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
                 return (msg.content or "").strip()
             # Retry pulled in a tool call — fall through to normal tool handling.
         tools_used = True
+        transcript_used = transcript_used or any(
+            tc.function.name in _TRANSCRIPT_TOOLS for tc in msg.tool_calls
+        )
         logger.info(
             "Momentum tool-loop runda %d/%d: %s",
             round_idx,
@@ -693,7 +708,8 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 
     # Tool budget exhausted — force a final answer from what we've gathered.
-    resp = _chat(client, messages, max_tokens=MOMENTUM_TRANSCRIPT_MAX_TOKENS, with_tools=False)
+    cap = MOMENTUM_TRANSCRIPT_MAX_TOKENS if transcript_used else MOMENTUM_MAX_TOKENS
+    resp = _chat(client, messages, max_tokens=cap, with_tools=False)
     return (resp.choices[0].message.content or "").strip()
 
 

@@ -355,6 +355,15 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-07**
+- **Coaching: krótkie strzały + autonomia rozmówcy** (feedback z porannej rozmowy
+  na Deep Work; spec: `docs/superpowers/specs/2026-07-31-coaching-brevity-autonomy-design.md`):
+  odpowiedzi coachingowe max 4 zdania + jeden ruch (twardy limit w promptcie;
+  cap 1500 tokenów podbijają już tylko narzędzia transkrypcji, nie
+  `szukaj_w_bazie`); nowa sekcja SYSTEM_PROMPT „AUTONOMIA ROZMÓWCY I KONIEC
+  ROZMOWY" (challenge raz, potem wspieraj plan usera; „znikam/idę działać" =
+  jedno zdanie pożegnania, zero pytań); oferta coachingu wygasa cicho (koniec
+  „Nie odpowiadasz…" + dumpa odpowiedzi) i ma 30-min cooldown per (kanał, user)
+  (`MOMENTUM_COACHING_OFFER_COOLDOWN_S`, `offer_allowed` w `summon.py`).
 - **`/profil` — student-profile-card port** (follow-up gap-fill from StudyLion's README:
   `!stats`/`!setprofile`): custom self-description tags (max 5×30, `;`-separated, edited via an
   author-locked modal button — StudyLion's "Edit Profile Badges" flow), plus rank + next-rank

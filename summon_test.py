@@ -8,6 +8,7 @@ from summon import (
     extract_tool_calls,
     is_param_compat_error,
     is_summon,
+    offer_allowed,
     repair_mentions,
     split_coaching_offer,
     split_for_discord,
@@ -296,6 +297,21 @@ def test_split_prefers_paragraph_boundaries():
     para = "a" * 1500
     text = f"{para}\n\n{para}"
     assert split_for_discord(text) == [para, para]
+
+
+# --- offer_allowed ---------------------------------------------------------------
+
+def test_offer_allowed_when_never_offered():
+    assert offer_allowed(None, 100.0, 1800.0) is True
+
+
+def test_offer_blocked_within_cooldown():
+    assert offer_allowed(100.0, 1000.0, 1800.0) is False
+
+
+def test_offer_allowed_at_and_after_cooldown():
+    assert offer_allowed(100.0, 1900.0, 1800.0) is True
+    assert offer_allowed(100.0, 5000.0, 1800.0) is True
 
 
 def test_split_hard_cuts_unbroken_text():

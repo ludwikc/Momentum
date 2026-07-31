@@ -83,6 +83,16 @@ def split_coaching_offer(text: str) -> tuple[bool, str]:
     return True, m.group(1)
 
 
+def offer_allowed(last_offer_ts: float | None, now: float, cooldown_s: float) -> bool:
+    """True when enough time passed since the last coaching offer to show a new one.
+
+    ``last_offer_ts is None`` means no offer was ever shown to this
+    (channel, user). Timestamps are monotonic-clock seconds
+    (``time.monotonic()``), matching the cog's bookkeeping.
+    """
+    return last_offer_ts is None or (now - last_offer_ts) >= cooldown_s
+
+
 class DailyRateLimiter:
     """In-memory per-user daily call counter.
 

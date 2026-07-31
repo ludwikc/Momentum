@@ -762,8 +762,8 @@ class CoachingOfferView(discord.ui.View):
     All state lives on the instance (no cog-level dict, no DB) — an offer is
     lost on a bot restart, which is an acceptable trade-off for a UI nicety.
     ``regular_answer`` is the answer the model already produced alongside the
-    flag, so picking "Zwykła odpowiedź" (or letting the offer time out) never
-    needs a fresh LLM call.
+    flag, so picking "Zwykła odpowiedź" never needs a fresh LLM call. An
+    ignored offer expires quietly (no answer dump — the asker walked away).
     """
 
     def __init__(self, cog: "Przywolanie", *, asker_id: int, is_owner: bool,
@@ -880,15 +880,12 @@ class CoachingOfferView(discord.ui.View):
     async def on_timeout(self):
         if self._resolved:
             return
-        note = (
-            "Nie odpowiadasz, więc pewnie masz inne tematy na głowie — tutaj "
-            '"zwykła" odpowiedź ;)\n\n' + self.regular_answer
-            if self.regular_answer
-            else "Oferta wygasła — zawołaj mnie jeszcze raz 🙂"
-        )
         try:
             if self.message is not None:
-                await _edit_then_send_rest(self.message, note)
+                await self.message.edit(
+                    content="Oferta wygasła — zawołaj mnie, jak wrócisz 🙂",
+                    view=None,
+                )
         except discord.NotFound:
             pass
 

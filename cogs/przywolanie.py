@@ -32,6 +32,7 @@ from discord.ext import commands
 import db
 import transcripts
 from config import (
+    MOMENTUM_COACHING_COOLDOWN_S,
     MOMENTUM_COACHING_MONTHLY_LIMIT,
     MOMENTUM_COACHING_OFFER_ENABLED,
     MOMENTUM_COACHING_OFFER_TIMEOUT,
@@ -60,6 +61,7 @@ from summon import (
     is_coaching_request,
     is_param_compat_error,
     is_summon,
+    offer_allowed,
     repair_mentions,
     split_coaching_offer,
     split_for_discord,
@@ -894,6 +896,9 @@ class Przywolanie(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.rate_limiter = DailyRateLimiter(MOMENTUM_DAILY_LIMIT)
+        # (channel_id, user_id) -> time.monotonic() of the last coaching offer,
+        # so an ongoing conversation isn't re-offered coaching every summon.
+        self._offer_last: dict[tuple[int, int], float] = {}
         logger.info("Przywolanie cog initialized")
 
     async def _coaching_quota_ok(self, user_id: int, is_owner: bool) -> bool:
@@ -943,8 +948,18 @@ class Przywolanie(commands.Cog):
 
             coaching = is_coaching_request(message.content)
             # Only offer coaching on an ordinary summon — an explicit coaching
-            # request is already the real thing, no need to ask twice.
-            offer_eligible = MOMENTUM_COACHING_OFFER_ENABLED and not coaching
+            # request is already the real thing, no need to ask twice. A fresh
+            # offer is also suppressed while a recent one for this (channel,
+            # user) is still within the cooldown window.
+            offer_eligible = (
+                MOMENTUM_COACHING_OFFER_ENABLED
+                and not coaching
+                and offer_allowed(
+                    self._offer_last.get((message.channel.id, message.author.id)),
+                    time.monotonic(),
+                    MOMENTUM_COACHING_OFFER_COOLDOWN_S,
+                )
+            )
 
             # Limity chroniące budżet (właściciel zwolniony z obu):
             # - coaching → własny MIESIĘCZNY cap (trwały, w Supabase),
@@ -1037,6 +1052,9 @@ class Przywolanie(commands.Cog):
                     allowed_mentions=discord.AllowedMentions(
                         everyone=False, roles=False, users=True
                     ),
+                )
+                self._offer_last[(message.channel.id, message.author.id)] = (
+                    time.monotonic()
                 )
                 logger.info(
                     "Oferta coachingu dla %s na kanale %s", message.author.id, message.channel.id

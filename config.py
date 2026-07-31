@@ -158,6 +158,10 @@ MOMENTUM_COACHING_MONTHLY_LIMIT = 5
 # czas (sekundy) na wybór, zanim oferta zamieni się w zwykłą odpowiedź.
 MOMENTUM_COACHING_OFFER_ENABLED = True
 MOMENTUM_COACHING_OFFER_TIMEOUT = 120
+# Po pokazaniu oferty nie ponawiaj jej temu samemu userowi w tym samym kanale
+# przez tyle sekund — druga oferta w trwającej rozmowie to szum (in-memory,
+# zeruje się przy restarcie, jak DailyRateLimiter).
+MOMENTUM_COACHING_OFFER_COOLDOWN_S = 1800
 
 # =============================================================================
 # StudyLion port (spec: docs/superpowers/specs/2026-07-11-studylion-port-design.md)

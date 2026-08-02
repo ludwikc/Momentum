@@ -265,6 +265,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 25a | `profil` | Profile card: custom tags (max 5×30, edit via author-locked modal button), rank + next-rank progress, monety, voice, GM momentum; needs `scripts/profile_tags.sql` | `/profil [uzytkownik]` |
 | 26 | `ranks` | Voice-hour rank ladder (`VOICE_RANKS`): award-highest/remove-others roles, one-time coin rewards, public announcement; dormant when unconfigured | `/rangi`; listens to `momentum_voice_flushed` |
 | 27 | `shop` | Colour-role shop (DB-driven items, single-slot swap without refund, atomic debit + refund on role failure) | `/sklep`; `/sklep-admin dodaj|usun|lista` (manage_guild) |
+| 28 | `admin_task` | Owner-only tryb wykonawczy: agent (czytaj_link/czytaj_kanal/wyslij) czyta wskazane treści i szykuje szkice wiadomości głosem Momentum; okno bieżącego kanału doklejane zawsze (cichy summon "odpowiedz tutaj"); publikacja tylko po [Wyślij] w ephemeralnym podglądzie | `/admin-task <zadanie>` (owner) |
 
 ---
 
@@ -309,7 +310,7 @@ publishing or the bot.
 `/monety-admin` (owner), `/todo <dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj>`,
 `/przypomnij tekst: [za:|o:] [co:]`, `/przypomnienia [usun:]`,
 `/pomodoro <start|stop|status>`, `/statystyki [user]`, `/profil [user]`, `/rangi`, `/sklep`,
-`/sklep-admin <dodaj|usun|lista>` (manage_guild).
+`/sklep-admin <dodaj|usun|lista>` (manage_guild), `/admin-task <zadanie>` (owner).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
 **Listeners:** `on_message` (gmlistener, photo_reply, przywolanie), `on_member_join`/`on_member_remove`
@@ -357,6 +358,19 @@ Loose, not commitments (mirrors README):
 ---
 
 ## Changelog
+
+**2026-08**
+- **`/admin-task` — owner-only tryb wykonawczy** (spec:
+  `docs/superpowers/specs/2026-08-02-admin-task-design.md`): Ludwik zleca
+  Momentum realne zadania ("zobacz <link> i odpowiedz", "napisz o X na
+  <#kanał>", "odpowiedz tutaj" = cichy summon — okno bieżącego kanału
+  doklejane do każdego zadania). Agent z narzędziami `czytaj_link` /
+  `czytaj_kanal` / `wyslij` (nowe: `parse_message_link` w `parsers.py`,
+  `format_channel_window` w `summon.py`, `_chat(tools=)` w przywołaniach);
+  tryb ignoruje person-owe odmowy, ale NIC nie wychodzi na serwer bez
+  kliknięcia [Wyślij] w ephemeralnym podglądzie (timeout 10 min, wysyłka
+  bez @everyone/ról, `repair_mentions` + split na długich treściach).
+  Config: `ADMIN_TASK_*` w `config.py`.
 
 **2026-07**
 - **Coaching: krótkie strzały + autonomia rozmówcy** (feedback z porannej rozmowy

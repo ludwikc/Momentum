@@ -154,6 +154,7 @@ EXTENSIONS = [
     "cogs.profil",  # /profil — karta profilu z tagami (needs scripts/profile_tags.sql)
     "cogs.ranks",  # rangi za godziny na głosowych (VOICE_RANKS)
     "cogs.shop",  # /sklep — kolory nicku za monety
+    "cogs.admin_task",  # /admin-task — owner-only tryb wykonawczy (podgląd + [Wyślij])
 ]
 
 # Function to load extensions

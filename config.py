@@ -163,6 +163,14 @@ MOMENTUM_COACHING_OFFER_TIMEOUT = 120
 # zeruje się przy restarcie, jak DailyRateLimiter).
 MOMENTUM_COACHING_OFFER_COOLDOWN_S = 1800
 
+# /admin-task (cogs.admin_task) — owner-only tryb wykonawczy Momentum.
+# Szkice trafiają na serwer dopiero po kliknięciu [Wyślij] w ephemeralnym
+# podglądzie; samo wywołanie nic nie publikuje.
+ADMIN_TASK_TOOL_ROUNDS = 6        # max rund narzędziowych (czytaj_link/czytaj_kanal/wyslij)
+ADMIN_TASK_MAX_TOKENS = 1500      # budżet odpowiedzi; dzielony z reasoning (patrz MOMENTUM_MAX_TOKENS)
+ADMIN_TASK_CONTEXT_MESSAGES = 10  # ile wiadomości bieżącego kanału dokleić do zadania
+ADMIN_TASK_PREVIEW_TIMEOUT = 600  # s; podgląd szkicu wygasa bez wysyłki (< 15 min ważności webhooka)
+
 # =============================================================================
 # StudyLion port (spec: docs/superpowers/specs/2026-07-11-studylion-port-design.md)
 # Requires scripts/studylion_port.sql applied in Supabase.

@@ -138,7 +138,7 @@ class Pomodoro(commands.GroupCog, group_name="pomodoro", description="Wspólny t
                         await self._stop(channel_id, auto_restart=True)
                         return
                     state.last_stage = stage
-                    await self._announce_stage(channel, state, stage, stage_end, members)
+                    await self._announce_stage(channel, state, stage, stage_end)
 
                 remaining = (stage_end - datetime.now(timezone.utc)).total_seconds()
                 await asyncio.sleep(max(1.0, min(MAX_SLEEP, remaining + 0.5)))
@@ -147,15 +147,16 @@ class Pomodoro(commands.GroupCog, group_name="pomodoro", description="Wspólny t
         except Exception as e:
             logger.error(f"Pomodoro loop error for channel {channel_id}: {e}")
 
-    async def _announce_stage(self, channel, state, stage, stage_end, members):
+    async def _announce_stage(self, channel, state, stage, stage_end):
         ts = int(stage_end.timestamp())
         if stage == "focus":
             line = f"🍅 **Fokus!** ({state.pattern}) Przerwa <t:{ts}:R>."
         else:
             line = f"☕ **Przerwa!** Kolejny fokus <t:{ts}:R>."
-        mentions = " ".join(m.mention for m in members)
+        # Ping only the person who started the session — not everyone in the VC.
+        body = f"{line} ||<@{state.started_by}>||" if state.started_by else line
         try:
-            await channel.send(f"{line} ||{mentions}||")
+            await channel.send(body)
         except Exception as e:
             logger.warning(f"Pomodoro announce failed in {channel.id}: {e}")
         # Best-effort voice-channel status (nice-to-have; API/permission

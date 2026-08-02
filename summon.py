@@ -156,6 +156,34 @@ def extract_tool_calls(output) -> list[tuple[str, str, str]]:
     return calls
 
 
+def format_channel_window(window: list[dict], bot_user_id: int) -> str:
+    """Nagłówek uczestników (tokeny <@id>) + transkrypt okna rozmowy — BEZ
+    żadnej closing instruction.
+
+    Dla kontekstów spoza przywołania (np. snapshot kanału w /admin-task),
+    gdzie doklejka "odezwij się albo [CISZA]" byłaby błędna. To samo
+    ``window`` co w build_summon_prompt (który buduje na tej funkcji);
+    wiadomości bota podpisane "Momentum", uczestnicy tylko nie-botowi,
+    deduplikowani w kolejności pierwszego wystąpienia. Puste okno → "".
+    """
+    if not window:
+        return ""
+    seen: set[int] = set()
+    participant_lines: list[str] = []
+    for msg in window:
+        if msg["is_bot"] or msg["author_id"] in seen:
+            continue
+        seen.add(msg["author_id"])
+        participant_lines.append(f"{msg['display_name']} = <@{msg['author_id']}>")
+    participants_block = "\n".join([_PARTICIPANTS_HEADER, *participant_lines])
+
+    transcript = "\n".join(
+        f"{'Momentum' if msg['author_id'] == bot_user_id else msg['display_name']}: {msg['content']}"
+        for msg in window
+    )
+    return f"{participants_block}\n\n{transcript}"
+
+
 def build_summon_prompt(
     window: list[dict], bot_user_id: int, direct_mention: bool = False
 ) -> str:
@@ -174,21 +202,8 @@ def build_summon_prompt(
     to it.
     """
     closing = _CLOSING_INSTRUCTION_DIRECT if direct_mention else _CLOSING_INSTRUCTION
-    seen: set[int] = set()
-    participant_lines: list[str] = []
-    for msg in window:
-        if msg["is_bot"] or msg["author_id"] in seen:
-            continue
-        seen.add(msg["author_id"])
-        participant_lines.append(f"{msg['display_name']} = <@{msg['author_id']}>")
-    participants_block = "\n".join([_PARTICIPANTS_HEADER, *participant_lines])
-
-    transcript = "\n".join(
-        f"{'Momentum' if msg['author_id'] == bot_user_id else msg['display_name']}: {msg['content']}"
-        for msg in window
-    )
-
-    return f"{participants_block}\n\n{transcript}\n\n{closing}"
+    body = format_channel_window(window, bot_user_id)
+    return f"{body}\n\n{closing}" if body else closing
 
 
 # Discord's hard cap on a single message's content. Kept conservative (the API

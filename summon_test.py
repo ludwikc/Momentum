@@ -6,6 +6,7 @@ from summon import (
     DailyRateLimiter,
     build_summon_prompt,
     extract_tool_calls,
+    format_channel_window,
     is_param_compat_error,
     is_summon,
     offer_allowed,
@@ -332,3 +333,30 @@ def test_offer_blocked_within_cooldown():
 def test_offer_allowed_at_and_after_cooldown():
     assert offer_allowed(100.0, 1900.0, 1800.0) is True
     assert offer_allowed(100.0, 5000.0, 1800.0) is True
+
+
+# --- format_channel_window ----------------------------------------------------
+
+def test_format_window_participants_and_transcript_without_closing():
+    window = [
+        {"author_id": 1, "display_name": "Ala", "is_bot": False, "content": "hej"},
+        {"author_id": 99, "display_name": "Momentum", "is_bot": True, "content": "cześć"},
+    ]
+    out = format_channel_window(window, 99)
+    assert "Ala = <@1>" in out
+    assert "Momentum: cześć" in out
+    assert "[CISZA]" not in out
+    assert "Zostałeś" not in out
+
+
+def test_format_window_empty_returns_empty_string():
+    assert format_channel_window([], 99) == ""
+
+
+def test_build_summon_prompt_starts_with_formatted_window():
+    window = [
+        {"author_id": 1, "display_name": "Ala", "is_bot": False, "content": "Momentum?"}
+    ]
+    out = build_summon_prompt(window, 99)
+    assert out.startswith(format_channel_window(window, 99))
+    assert "[CISZA]" in out

@@ -147,3 +147,20 @@ def parse_index_ranges(text: str, max_index: int) -> list[int] | None:
             return None
         indices.update(range(start, end + 1))
     return sorted(indices)
+
+
+# Link do wiadomości Discord: /channels/<guild>/<channel>/<message>. Warianty
+# subdomen (ptb., canary.) i stara domena discordapp.com też przechodzą.
+# Linki DM (/channels/@me/...) celowo NIE matchują — guild musi być liczbą.
+_MESSAGE_LINK_RE = re.compile(
+    r"https?://(?:\w+\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)"
+)
+
+
+def parse_message_link(text: str) -> tuple[int, int, int] | None:
+    """Pierwszy link do wiadomości Discord w ``text`` → (guild_id, channel_id,
+    message_id), albo None gdy linku brak."""
+    m = _MESSAGE_LINK_RE.search(text or "")
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))

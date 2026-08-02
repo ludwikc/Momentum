@@ -5,6 +5,7 @@ from parsers import (
     parse_db_timestamp,
     parse_duration_pl,
     parse_index_ranges,
+    parse_message_link,
     parse_profile_tags,
     parse_wallclock_pl,
 )
@@ -190,6 +191,36 @@ class TestParseIndexRanges(unittest.TestCase):
         self.assertIsNone(parse_index_ranges("", 5))
         self.assertIsNone(parse_index_ranges("a,2", 5))
         self.assertIsNone(parse_index_ranges("1..3", 5))
+
+
+class TestParseMessageLink(unittest.TestCase):
+    def test_plain_link(self):
+        url = "https://discord.com/channels/428530875085619200/1533494053977456820/1533494103222784060"
+        self.assertEqual(
+            parse_message_link(url),
+            (428530875085619200, 1533494053977456820, 1533494103222784060),
+        )
+
+    def test_link_embedded_in_task_text(self):
+        text = "zobacz wiadomość https://discord.com/channels/1/2/3 i odpowiedz"
+        self.assertEqual(parse_message_link(text), (1, 2, 3))
+
+    def test_subdomain_and_discordapp_variants(self):
+        self.assertEqual(
+            parse_message_link("https://ptb.discord.com/channels/1/2/3"), (1, 2, 3)
+        )
+        self.assertEqual(
+            parse_message_link("https://discordapp.com/channels/1/2/3"), (1, 2, 3)
+        )
+
+    def test_dm_link_returns_none(self):
+        self.assertIsNone(
+            parse_message_link("https://discord.com/channels/@me/123/456")
+        )
+
+    def test_no_link_returns_none(self):
+        self.assertIsNone(parse_message_link("napisz coś miłego na kanale"))
+        self.assertIsNone(parse_message_link(""))
 
 
 if __name__ == "__main__":

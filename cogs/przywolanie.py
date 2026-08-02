@@ -476,7 +476,8 @@ def _create_completion(client, base_kwargs: dict, max_tokens: int):
     return client.chat.completions.create(**kwargs)
 
 
-def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_choice=None):
+def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_choice=None,
+          tools: list | None = None):
     """One chat completion, adapting once to what MOMENTUM_MODEL accepts.
 
     gpt-5-class models reason at ``reasoning_effort`` (kept low for latency) and
@@ -491,7 +492,9 @@ def _chat(client, messages: list, *, max_tokens: int, with_tools: bool, tool_cho
     global _needs_conservative_params, _reasoning_effort_supported
     base = {"model": MOMENTUM_MODEL, "messages": messages}
     if with_tools:
-        base["tools"] = _TOOLS
+        # tools=None → person-owe _TOOLS; /admin-task podaje własny zestaw,
+        # dzieląc przy tym cache param-compat tego modułu.
+        base["tools"] = _TOOLS if tools is None else tools
         if tool_choice is not None:
             base["tool_choice"] = tool_choice
     while True:

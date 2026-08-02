@@ -65,26 +65,30 @@ Key facts:
 
 ## Running & restarting
 
-The bot runs as a backgrounded `venv/bin/python main.py` (daemon style per `run_bot.sh --daemon`),
-PID in `bot.pid`, stdout/stderr appended to `bot.log`. It **must** use the project venv
-(`/root/Momentum/venv`) — system `python3` lacks `discord.ext.voice_recv` and `davey`.
+Production runs on the mikrus VPS (`ssh mikrus`, login as root; host `ula285`) as the systemd
+service **`momentum-bot.service`** — `User=ludwikc`, `WorkingDirectory=/home/ludwikc/Momentum`,
+`ExecStart=/home/ludwikc/Momentum/venv/bin/python3 main.py`, `Restart=on-failure`. The repo is
+owned by user `ludwikc`, so when logged in as root run git via `sudo -u ludwikc git …` (plain
+`git` fails with "dubious ownership"). The bot **must** use the project venv
+(`/home/ludwikc/Momentum/venv`) — system `python3` lacks `discord.ext.voice_recv` and `davey`.
 
-Restart after a code change:
+Deploy after a code change:
 ```bash
-kill $(cat bot.pid)                         # wait for exit; SIGKILL only if it lingers
-nohup venv/bin/python main.py >> bot.log 2>&1 &
-echo $! > bot.pid
-# then confirm in bot.log: "cog is ready", "Synced N commands", no traceback
+cd /home/ludwikc/Momentum
+sudo -u ludwikc git pull
+venv/bin/python -m py_compile <changed files>
+systemctl restart momentum-bot
+systemctl is-active momentum-bot
+journalctl -u momentum-bot --since "1 minute ago"   # expect "cog initialized", "Synced N commands", no traceback
 ```
-Byte-compile changed files first: `venv/bin/python -m py_compile <files>`. Doc-only changes need
-no restart.
+Doc-only changes need no restart. (The old `run_bot.sh` / `bot.pid` / `nohup` flow is retired.)
 
 ---
 
 ## Project structure
 
 ```
-/root/Momentum/
+/home/ludwikc/Momentum/
 ├── main.py                  # entry point: intents, logging, per-guild sync, EXTENSIONS
 ├── config.py                # all constants (channels, windows, recording/OpenAI)
 ├── db.py                    # Supabase client + RPC wrappers

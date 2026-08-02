@@ -200,6 +200,9 @@ def build_summon_prompt(
     ignores a message aimed straight at it; when False (summoned by the loose
     word "momentum") [CISZA] stays available for messages not actually addressed
     to it.
+
+    An empty ``window`` (never seen in practice — history always includes the
+    summoning message) collapses to just the closing instruction.
     """
     closing = _CLOSING_INSTRUCTION_DIRECT if direct_mention else _CLOSING_INSTRUCTION
     body = format_channel_window(window, bot_user_id)

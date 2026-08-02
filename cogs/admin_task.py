@@ -28,6 +28,7 @@ from config import (
     ADMIN_TASK_MAX_TOKENS,
     ADMIN_TASK_PREVIEW_TIMEOUT,
     ADMIN_TASK_TOOL_ROUNDS,
+    MOMENTUM_MAX_TOKENS_RETRY,
     MOMENTUM_OWNER_ID,
 )
 from cogs.przywolanie import _chat, _today_key, _window_from_history
@@ -164,6 +165,11 @@ class AdminSendView(discord.ui.View):
         await interaction.response.edit_message(content="Wysyłam…", view=None)
         try:
             channel = await self.cog._resolve_channel(self.draft["channel_id"])
+            if getattr(channel, "guild", None) is None:
+                await interaction.edit_original_response(
+                    content="⚠️ Cel nie jest kanałem serwera — szkic odrzucony."
+                )
+                return
             sent = None
             for idx, chunk in enumerate(split_for_discord(self.draft["content"])):
                 if idx == 0 and self.draft.get("reply_to"):
@@ -293,7 +299,23 @@ class AdminTask(commands.Cog):
             )
             msg = resp.choices[0].message
             if not msg.tool_calls:
-                return (msg.content or "").strip(), drafts
+                content = (msg.content or "").strip()
+                if content or resp.choices[0].finish_reason != "length":
+                    return content, drafts
+                # Pusta odpowiedź, bo wspólny budżet reasoning+treść się skończył —
+                # jednorazowy retry z większym sufitem (wzorzec z cogs.przywolanie).
+                logger.info(
+                    "admin-task: pusta odpowiedź (finish_reason=length) — retry z budżetem %d",
+                    MOMENTUM_MAX_TOKENS_RETRY,
+                )
+                resp = await asyncio.to_thread(
+                    _chat, client, messages,
+                    max_tokens=MOMENTUM_MAX_TOKENS_RETRY, with_tools=True, tools=_ADMIN_TOOLS,
+                )
+                msg = resp.choices[0].message
+                if not msg.tool_calls:
+                    return (msg.content or "").strip(), drafts
+                # Retry przyniósł tool-calle — normalna obsługa poniżej.
             logger.info(
                 "admin-task runda %d/%d: %s",
                 round_idx, ADMIN_TASK_TOOL_ROUNDS,
@@ -327,7 +349,18 @@ class AdminTask(commands.Cog):
             _chat, client, messages,
             max_tokens=ADMIN_TASK_MAX_TOKENS, with_tools=False,
         )
-        return (resp.choices[0].message.content or "").strip(), drafts
+        content = (resp.choices[0].message.content or "").strip()
+        if not content and resp.choices[0].finish_reason == "length":
+            logger.info(
+                "admin-task: puste domknięcie (finish_reason=length) — retry z budżetem %d",
+                MOMENTUM_MAX_TOKENS_RETRY,
+            )
+            resp = await asyncio.to_thread(
+                _chat, client, messages,
+                max_tokens=MOMENTUM_MAX_TOKENS_RETRY, with_tools=False,
+            )
+            content = (resp.choices[0].message.content or "").strip()
+        return content, drafts
 
     @app_commands.command(
         name="admin-task",
@@ -397,7 +430,13 @@ class AdminTask(commands.Cog):
             )
             header = f"**Szkic {i}/{len(drafts)}** → <#{draft['channel_id']}>"
             if draft.get("reply_to"):
-                header += f" (odpowiedź na wiadomość {draft['reply_to']})"
+                if interaction.guild_id:
+                    header += (
+                        " (odpowiedź na https://discord.com/channels/"
+                        f"{interaction.guild_id}/{draft['channel_id']}/{draft['reply_to']})"
+                    )
+                else:
+                    header += f" (odpowiedź na wiadomość {draft['reply_to']})"
             body = draft["content"]
             if len(header) + len(body) > 1800:
                 body = body[: 1800 - len(header)] + (

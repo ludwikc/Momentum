@@ -171,8 +171,8 @@ class AdminSendView(discord.ui.View):
                         ref = channel.get_partial_message(self.draft["reply_to"])
                         sent = await ref.reply(chunk, allowed_mentions=_SEND_MENTIONS)
                         continue
-                    except discord.NotFound:
-                        pass  # wiadomość-cel zniknęła — leć zwykłym send
+                    except discord.HTTPException:
+                        pass  # wiadomość-cel zniknęła (reply odrzucone) — leć zwykłym send
                 sent = await channel.send(chunk, allowed_mentions=_SEND_MENTIONS)
             logger.info(
                 "admin-task: wysłano szkic na kanał %s (%s)",

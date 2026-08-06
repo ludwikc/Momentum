@@ -397,6 +397,30 @@ class VoiceRecord(commands.Cog):
         await self._notify(msg)
 
     async def _finish_and_publish(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
+        """Guarded wrapper around the publish pipeline.
+
+        The pipeline runs from fire-and-forget tasks (safety stop, voice-state
+        handlers) whose exceptions vanish — the July 2026 self-cancel silently
+        ate three weeks of warsztaty. Log every death loudly and tell the mod
+        channel; the WAV stays on disk and startup recovery picks it up.
+        """
+        rec_id = self.rec_id
+        try:
+            return await self._publish_pipeline(reason, suppress_auto=suppress_auto)
+        except asyncio.CancelledError:
+            logger.error("Publish pipeline CANCELLED mid-flight (rec_id=%s)", rec_id)
+            raise
+        except Exception:
+            logger.exception("Publish pipeline failed (rec_id=%s)", rec_id)
+            msg = (f"⚠️ Publikacja nagrania `{rec_id}` nie powiodła się — audio "
+                   "zostało w recordings/, odzyskam je przy następnym starcie.")
+            try:
+                await self._notify(msg)
+            except Exception:
+                pass
+            return msg
+
+    async def _publish_pipeline(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
         """Stop the recording, transcode, upload (or keep local), notify. Returns a status message."""
         # Snapshot panel/participant data before teardown clears the recording state.
         channel, started, rec_id = self.channel, self.start_time, self.rec_id

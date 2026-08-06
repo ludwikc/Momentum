@@ -126,7 +126,7 @@ All in `config.py`:
 | `ACTIVITIES` | `{trening 💪, medytacja 🧘, sukces 💎, dziennik 📝}` | Activity types → emoji |
 | `MORNING_GREETING_START_HOUR` / `_END_HOUR` / `_END_MINUTE` | `4` / `6` / `55` | GM early-bird window (04:00–06:55) |
 | `RECORDING_NOTIFY_CHANNEL_ID` | `1015575570760880168` | Mod-only channel for the Drive link |
-| `RECORDING_MAX_MINUTES` | `120` | Safety cap; auto-stops a forgotten recording |
+| `RECORDING_MAX_MINUTES` | `180` | Safety cap; auto-stops a forgotten recording (cap-stop publishes normally) |
 | `AUTO_RECORD_ENABLED` | `True` | Master switch for presence-based auto-record |
 | `AUTO_RECORD_CHANNEL_IDS` | `[1120658406160732160]` | Voice channels watched for auto-record |
 | `AUTO_RECORD_MIN_MEMBERS` | `2` | Non-bot members needed to start/keep auto-record |
@@ -283,7 +283,7 @@ decodes. Optional intro sound plays on `START_SOUND_CHANNEL_IDS`.
 **Capture** — `voice_recv.VoiceRecvClient` with a `SilenceGeneratorSink(WaveSink)` keeps the
 timeline intact during silence → WAV in `recordings/`, named
 `Lifehackerzy_<ts>_<channel-slug>_<rec_id>.wav`. Participants are accumulated from voice-state
-updates. `RECORDING_MAX_MINUTES` is a hard safety stop.
+updates. `RECORDING_MAX_MINUTES` is a hard safety stop. On startup the cog also recovers orphaned WAVs (recordings without a transcript, e.g. after a crash mid-recording) — transcode → transcribe → save → upload, best-effort.
 
 **On stop** (`_finish_and_publish`):
 1. Teardown, transcode WAV → MP3 (ffmpeg libmp3lame `-qscale:a 4`), delete WAV.
@@ -360,6 +360,18 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-08**
+- **Nagrania ≥cap już nie giną + odzyskiwanie sierot** — `_safety_stop` po
+  osiągnięciu limitu anulował własny task w `_teardown` (self-cancel), przez co
+  transkod/Whisper/transkrypt/Drive/notify nigdy nie ruszały: przepadły
+  warsztaty 14/21/28.07, a zawieszony stan blokował auto-record (stąd brak
+  daily 28–29.07). Fix: `taskutil.cancel_unless_current` + czyszczenie handle
+  przed pipeline'em; recovery przy starcie dokańcza pipeline dla WAV-ów bez
+  transkryptu (`transcripts.find_orphans` + `parsers.parse_recording_filename`,
+  unit-testy); `_finish_and_publish` w twardym wrapperze (log + alert na kanał
+  mod-only zamiast cichej śmierci); `RECORDING_MAX_MINUTES` 120→180;
+  `list_transcripts` sortuje po pełnym datetime (remis tego samego dnia był
+  losowy).
+
 - **`/admin-task` — owner-only tryb wykonawczy** (spec:
   `docs/superpowers/specs/2026-08-02-admin-task-design.md`): Ludwik zleca
   Momentum realne zadania ("zobacz <link> i odpowiedz", "napisz o X na

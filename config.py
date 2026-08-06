@@ -24,7 +24,7 @@ RECORDING_NOTIFY_CHANNEL_ID = 1015575570760880168  # channel where Drive links a
 # (admin-formatted) and weekly (Ludwik's-voice) bot-usage reports. Same private
 # admin channel as the recording notifications above.
 MOMENTUM_USAGE_CHANNEL_ID = 1015575570760880168
-RECORDING_MAX_MINUTES = 120         # safety cap before a recording auto-stops
+RECORDING_MAX_MINUTES = 180  # warsztaty run >2h; the cap-stop now publishes correctly, but don't truncate them
 
 # Auto-record: start when a watched voice channel has >= AUTO_RECORD_MIN_MEMBERS
 # non-bot members, stop when it drops below. Manual /nagraj works independently.

@@ -18,6 +18,7 @@ import ssrc_patch
 import gdrive
 import transcribe
 import transcripts
+from parsers import parse_recording_filename
 from mixsink import MixingWaveSink
 from taskutil import cancel_unless_current
 from config import (
@@ -123,6 +124,8 @@ class VoiceRecord(commands.Cog):
         self._suppressed: set[int] = set()
         # Serializes start/stop so rapid voice-state events can't double-trigger.
         self._lock = asyncio.Lock()
+        # One orphan-recovery pass per process (on_ready re-fires on reconnects).
+        self._recovery_ran = False
 
         os.makedirs(RECORDINGS_DIR, exist_ok=True)
         logger.info("VoiceRecord cog initialized")
@@ -132,6 +135,9 @@ class VoiceRecord(commands.Cog):
     async def on_ready(self):
         if not self.auto_sweep.is_running():
             self.auto_sweep.start()
+        if not self._recovery_ran:
+            self._recovery_ran = True
+            asyncio.create_task(self._recover_orphans())
         logger.info("VoiceRecord cog is ready (auto-record: %s, channels: %s)",
                     AUTO_RECORD_ENABLED, AUTO_RECORD_CHANNEL_IDS)
 
@@ -255,6 +261,108 @@ class VoiceRecord(commands.Cog):
                          stderr.decode("utf-8", "replace")[-1000:])
             return None
         return mp3_path
+
+    async def _recover_orphans(self):
+        """Finish the publish pipeline for recordings that never got one.
+
+        A crash/restart mid-recording (or the pre-fix safety-cap self-cancel)
+        leaves a closed WAV with no transcript — the meeting silently vanishes
+        from Momentum's memory. Run the missing transcode → transcribe → save →
+        upload steps for each orphan, oldest first. Best-effort per file: one
+        failure never blocks the next, and a failed WAV stays on disk for the
+        next startup's retry.
+        """
+        try:
+            rec_names = os.listdir(RECORDINGS_DIR)
+        except OSError:
+            return
+        try:
+            tr_names = os.listdir(transcripts.TRANSCRIPTS_DIR)
+        except OSError:
+            tr_names = []
+        orphans = sorted(transcripts.find_orphans(rec_names, tr_names))
+        if not orphans:
+            return
+        logger.info("Orphaned recordings to recover: %s", orphans)
+        for fname in orphans:
+            wav_path = os.path.join(RECORDINGS_DIR, fname)
+            if wav_path == self.wav_path:
+                continue  # an active recording is not an orphan
+            parsed = parse_recording_filename(fname)
+            if parsed is None:
+                continue
+            started, slug, rec_id = parsed
+            try:
+                await self._publish_recovered(wav_path, started, slug, rec_id)
+            except Exception:
+                logger.exception("Recovery failed for %s", fname)
+
+    async def _publish_recovered(self, wav_path: str, started: datetime,
+                                 channel_slug: str, rec_id: str):
+        """Transcode/transcribe/save/upload one orphaned WAV (see _recover_orphans).
+
+        Mirrors the live pipeline minus the parts that need live state: no
+        thank-you, no summary post (participants unknown, meeting long past) —
+        the goal is the transcript back in Momentum's memory and the audio on
+        Drive. The WAV is deleted only once its content is safe (transcript
+        saved, or transcription unconfigured), so a transient failure retries
+        on the next startup.
+        """
+        mp3_path = await self._transcode_to_mp3(wav_path)
+        if mp3_path is None:
+            await self._notify(
+                f"⚠️ Odzyskiwanie nagrania `{rec_id}` nie powiodło się "
+                f"(transkodowanie) — plik zostaje: `{wav_path}`"
+            )
+            return
+        transcript = None
+        saved = False
+        if transcribe.is_configured():
+            try:
+                text, words = await asyncio.to_thread(transcribe.transcribe_words, mp3_path)
+                transcript = self._build_transcript(text, words, wav_path)
+                if transcript:
+                    saved = bool(await asyncio.to_thread(
+                        transcripts.save_transcript, transcript,
+                        started=started, channel_name=channel_slug, rec_id=rec_id,
+                    ))
+            except Exception as e:
+                logger.error("Recovery transcription failed for %s: %s", rec_id, e)
+        if saved or not transcribe.is_configured():
+            try:
+                os.remove(wav_path)
+            except OSError:
+                pass
+        msg = (f"♻️ Odzyskane nagranie z **#{channel_slug}** "
+               f"({started.strftime('%Y-%m-%d %H:%M')})")
+        if gdrive.is_configured():
+            try:
+                info = await asyncio.to_thread(
+                    gdrive.upload_file, mp3_path, os.path.basename(mp3_path)
+                )
+                msg += f": {info.get('webViewLink')}"
+                if transcript:
+                    await self._upload_transcript(mp3_path, transcript)
+                remote_md5 = info.get("md5Checksum")
+                local_md5 = await asyncio.to_thread(gdrive.local_md5, mp3_path)
+                if remote_md5 and remote_md5 == local_md5:
+                    try:
+                        os.remove(mp3_path)
+                    except OSError:
+                        pass
+                else:
+                    msg += (f"\n⚠️ Nie udało się zweryfikować kopii na Drive — "
+                            f"lokalna kopia: `{mp3_path}`")
+            except Exception as e:
+                logger.error("Recovery Drive upload failed for %s: %s", rec_id, e)
+                msg += f" — upload na Drive nie powiódł się, plik lokalnie: `{mp3_path}`"
+        else:
+            msg += f" — zapisane lokalnie: `{mp3_path}`"
+        if saved:
+            msg += "\n📝 Transkrypcja odzyskana — Momentum znów pamięta to spotkanie."
+        elif transcribe.is_configured():
+            msg += "\n⚠️ Transkrypcja się nie udała — WAV zostaje do ponownej próby przy następnym starcie."
+        await self._notify(msg)
 
     async def _finish_and_publish(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
         """Stop the recording, transcode, upload (or keep local), notify. Returns a status message."""

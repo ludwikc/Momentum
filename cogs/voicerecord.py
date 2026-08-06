@@ -405,6 +405,10 @@ class VoiceRecord(commands.Cog):
         channel; the WAV stays on disk and startup recovery picks it up.
         """
         rec_id = self.rec_id
+        # Snapshot panel + embed inputs now — the pipeline clears them at its top,
+        # so the failure path below could no longer reach the Stop panel otherwise.
+        panel = self._panel_msg
+        channel, started = self.channel, self.start_time
         try:
             return await self._publish_pipeline(reason, suppress_auto=suppress_auto)
         except asyncio.CancelledError:
@@ -418,6 +422,13 @@ class VoiceRecord(commands.Cog):
                 await self._notify(msg)
             except Exception:
                 pass
+            if panel is not None:
+                try:
+                    ended = self._panel_embed(channel, started, rec_id,
+                                              state="ended", status=msg)
+                    await panel.edit(embed=ended, view=None)
+                except Exception:
+                    pass
             return msg
 
     async def _publish_pipeline(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:

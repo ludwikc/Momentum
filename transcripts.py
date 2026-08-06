@@ -26,6 +26,8 @@ import re
 from datetime import date, datetime
 from typing import Optional
 
+from parsers import parse_recording_filename
+
 logger = logging.getLogger("momentum_bot.transcripts")
 
 TRANSCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "transcripts")
@@ -184,3 +186,27 @@ def filter_by_speaker(body: str, name: str) -> str:
         if needle in who or who in needle:
             kept.append(block.strip())
     return "\n\n".join(kept)
+
+
+def find_orphans(recording_names: list[str], transcript_names: list[str]) -> list[str]:
+    """WAV recordings that never got a transcript.
+
+    A crash/restart mid-recording (or, historically, the safety-cap self-cancel
+    bug) leaves a closed WAV in recordings/ with no .md in transcripts/ — the
+    meeting silently drops out of Momentum's memory. The shared rec_id filename
+    suffix is the join key; non-recorder names (legacy files, sidecars) are
+    ignored. Pure: filename lists in, orphaned .wav names out.
+    """
+    have = {
+        t[:-3].rsplit("_", 1)[-1]
+        for t in transcript_names
+        if t.endswith(".md")
+    }
+    out = []
+    for r in recording_names:
+        if not r.endswith(".wav"):
+            continue
+        parsed = parse_recording_filename(r)
+        if parsed is not None and parsed[2] not in have:
+            out.append(r)
+    return out

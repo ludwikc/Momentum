@@ -126,6 +126,7 @@ class VoiceRecord(commands.Cog):
         self._lock = asyncio.Lock()
         # One orphan-recovery pass per process (on_ready re-fires on reconnects).
         self._recovery_ran = False
+        self._recovery_task: asyncio.Task | None = None
 
         os.makedirs(RECORDINGS_DIR, exist_ok=True)
         logger.info("VoiceRecord cog initialized")
@@ -137,7 +138,7 @@ class VoiceRecord(commands.Cog):
             self.auto_sweep.start()
         if not self._recovery_ran:
             self._recovery_ran = True
-            asyncio.create_task(self._recover_orphans())
+            self._recovery_task = asyncio.create_task(self._recover_orphans())
         logger.info("VoiceRecord cog is ready (auto-record: %s, channels: %s)",
                     AUTO_RECORD_ENABLED, AUTO_RECORD_CHANNEL_IDS)
 
@@ -292,6 +293,8 @@ class VoiceRecord(commands.Cog):
             if parsed is None:
                 continue
             started, slug, rec_id = parsed
+            if not os.path.exists(wav_path):
+                continue  # finished/deleted between the startup snapshot and now
             try:
                 await self._publish_recovered(wav_path, started, slug, rec_id)
             except Exception:
@@ -304,10 +307,22 @@ class VoiceRecord(commands.Cog):
         Mirrors the live pipeline minus the parts that need live state: no
         thank-you, no summary post (participants unknown, meeting long past) —
         the goal is the transcript back in Momentum's memory and the audio on
-        Drive. The WAV is deleted only once its content is safe (transcript
-        saved, or transcription unconfigured), so a transient failure retries
-        on the next startup.
+        Drive. The WAV is deleted once its content is safe: transcript saved,
+        transcription unconfigured, or (see `attempts_path` below) 3 failed
+        transcription attempts in a row. A transient failure retries on the
+        next startup, but a persistent one (quota outage, empty Whisper
+        output, …) gives up on the transcript and ships the audio to Drive
+        anyway instead of re-transcoding and re-failing forever.
         """
+        # Counts transcription retries across restarts (missing/unparseable -> 0).
+        attempts_path = wav_path + ".recovery-attempts"
+        try:
+            with open(attempts_path, "r", encoding="utf-8") as f:
+                attempts = int(f.read().strip())
+        except (OSError, ValueError):
+            attempts = 0
+        give_up = attempts + 1 >= 3
+
         mp3_path = await self._transcode_to_mp3(wav_path)
         if mp3_path is None:
             await self._notify(
@@ -337,7 +352,9 @@ class VoiceRecord(commands.Cog):
                         transcripts.save_transcript, transcript,
                         started=started, channel_name=channel_slug, rec_id=rec_id,
                     ))
-                if transcript and not saved and diar_content is not None:
+                # Skip the restore when giving up below — there's no next retry
+                # left to use it.
+                if transcript and not saved and diar_content is not None and not give_up:
                     try:
                         with open(diar_path, "w", encoding="utf-8") as f:
                             f.write(diar_content)
@@ -347,13 +364,8 @@ class VoiceRecord(commands.Cog):
                         )
             except Exception as e:
                 logger.error("Recovery transcription failed for %s: %s", rec_id, e)
-        terminal = saved or not transcribe.is_configured()
-        if terminal:
-            try:
-                os.remove(wav_path)
-            except OSError:
-                pass
-        else:
+        terminal = saved or not transcribe.is_configured() or give_up
+        if not terminal:
             # Transcription is configured but failed this time — the WAV stays
             # for the next startup's retry. Don't ship a Drive copy yet: every
             # retry would otherwise upload another duplicate (Drive doesn't
@@ -362,11 +374,27 @@ class VoiceRecord(commands.Cog):
                 os.remove(mp3_path)
             except OSError:
                 pass
+            next_attempts = attempts + 1
+            try:
+                with open(attempts_path, "w", encoding="utf-8") as f:
+                    f.write(str(next_attempts))
+            except OSError as e:
+                logger.warning("Failed to write recovery-attempts sidecar for %s: %s", rec_id, e)
             await self._notify(
                 f"⚠️ Odzyskiwanie nagrania `{rec_id}` — transkrypcja się nie udała, "
-                f"spróbuję ponownie przy następnym starcie (WAV zostaje)."
+                f"spróbuję ponownie przy następnym starcie (WAV zostaje, próba {next_attempts}/3)."
             )
             return
+        # Terminal (saved, transcription unconfigured, or attempts exhausted) —
+        # the WAV's fate is decided now, so the retry counter is no longer needed.
+        try:
+            os.remove(wav_path)
+        except OSError:
+            pass
+        try:
+            os.remove(attempts_path)
+        except OSError:
+            pass
         msg = (f"♻️ Odzyskane nagranie z **#{channel_slug}** "
                f"({started.strftime('%Y-%m-%d %H:%M')})")
         if gdrive.is_configured():
@@ -394,6 +422,9 @@ class VoiceRecord(commands.Cog):
             msg += f" — zapisane lokalnie: `{mp3_path}`"
         if saved:
             msg += "\n📝 Transkrypcja odzyskana — Momentum znów pamięta to spotkanie."
+        elif give_up and transcribe.is_configured():
+            msg += ("\n⚠️ Transkrypcja nie powiodła się po 3 próbach — audio "
+                    "zabezpieczone, bez transkryptu.")
         await self._notify(msg)
 
     async def _finish_and_publish(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
@@ -416,8 +447,8 @@ class VoiceRecord(commands.Cog):
             raise
         except Exception:
             logger.exception("Publish pipeline failed (rec_id=%s)", rec_id)
-            msg = (f"⚠️ Publikacja nagrania `{rec_id}` nie powiodła się — audio "
-                   "zostało w recordings/, odzyskam je przy następnym starcie.")
+            msg = (f"⚠️ Publikacja nagrania `{rec_id}` nie powiodła się — szczegóły w logach; "
+                   "jeśli WAV został w recordings/, odzyskam go przy następnym starcie.")
             try:
                 await self._notify(msg)
             except Exception:

@@ -5,6 +5,7 @@ system Python (tests/test_parsers.py). Timezone handling stays in the cogs.
 """
 import re
 from datetime import datetime, timedelta
+from typing import Optional
 
 # One duration token: an amount + a unit. Longer unit words must precede their
 # prefixes (e.g. "dni" before "d") because regex alternation is first-match.
@@ -164,3 +165,27 @@ def parse_message_link(text: str) -> tuple[int, int, int] | None:
     if not m:
         return None
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+_RECORDING_FILENAME_RE = re.compile(
+    r"^Lifehackerzy_(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})_(.+)_([0-9a-f]{6})\.(wav|mp3)$"
+)
+
+
+def parse_recording_filename(name: str) -> Optional[tuple[datetime, str, str]]:
+    """Split a recorder filename into (started, channel_slug, rec_id).
+
+    The voice recorder names files
+    ``Lifehackerzy_<YYYY-MM-DD-HH-MM-SS>_<slug>_<rec_id>.wav`` (Warsaw-local
+    clock). Anything else — legacy files, diarization sidecars — returns None.
+    Slugs never contain underscores (see voicerecord.slug_channel_name), so the
+    greedy middle group cannot swallow the rec_id.
+    """
+    m = _RECORDING_FILENAME_RE.match(name or "")
+    if not m:
+        return None
+    try:
+        started = datetime.strptime(m.group(1), "%Y-%m-%d-%H-%M-%S")
+    except ValueError:
+        return None
+    return started, m.group(2), m.group(3)

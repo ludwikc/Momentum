@@ -7,6 +7,7 @@ from parsers import (
     parse_index_ranges,
     parse_message_link,
     parse_profile_tags,
+    parse_recording_filename,
     parse_wallclock_pl,
 )
 
@@ -221,6 +222,36 @@ class TestParseMessageLink(unittest.TestCase):
     def test_no_link_returns_none(self):
         self.assertIsNone(parse_message_link("napisz coś miłego na kanale"))
         self.assertIsNone(parse_message_link(""))
+
+
+class TestParseRecordingFilename(unittest.TestCase):
+    def test_wav_filename_parses(self):
+        got = parse_recording_filename(
+            "Lifehackerzy_2026-07-28-06-30-40_warsztaty-lifehackerow_961c1e.wav"
+        )
+        self.assertEqual(
+            got,
+            (datetime(2026, 7, 28, 6, 30, 40), "warsztaty-lifehackerow", "961c1e"),
+        )
+
+    def test_mp3_filename_parses(self):
+        got = parse_recording_filename(
+            "Lifehackerzy_2026-07-23-12-34-46_1234-daily-coaching_497188.mp3"
+        )
+        self.assertEqual(
+            got,
+            (datetime(2026, 7, 23, 12, 34, 46), "1234-daily-coaching", "497188"),
+        )
+
+    def test_legacy_and_sidecar_names_return_none(self):
+        for name in (
+            "recording_2026-06-22_21-50-06.wav",
+            "Lifehackerzy_2026-07-28-06-30-40_warsztaty-lifehackerow_961c1e.wav.diarization.json",
+            "notes.txt",
+            "",
+            None,
+        ):
+            self.assertIsNone(parse_recording_filename(name), name)
 
 
 if __name__ == "__main__":

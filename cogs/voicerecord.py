@@ -318,6 +318,17 @@ class VoiceRecord(commands.Cog):
         transcript = None
         saved = False
         if transcribe.is_configured():
+            # _build_transcript unconditionally consumes (deletes) the diarization
+            # sidecar. Keep a copy so a failed save_transcript below can restore it
+            # for the next startup's retry instead of losing speaker attribution.
+            diar_path = wav_path + ".diarization.json"
+            diar_content = None
+            if os.path.exists(diar_path):
+                try:
+                    with open(diar_path, "r", encoding="utf-8") as f:
+                        diar_content = f.read()
+                except OSError:
+                    diar_content = None
             try:
                 text, words = await asyncio.to_thread(transcribe.transcribe_words, mp3_path)
                 transcript = self._build_transcript(text, words, wav_path)
@@ -326,13 +337,36 @@ class VoiceRecord(commands.Cog):
                         transcripts.save_transcript, transcript,
                         started=started, channel_name=channel_slug, rec_id=rec_id,
                     ))
+                if transcript and not saved and diar_content is not None:
+                    try:
+                        with open(diar_path, "w", encoding="utf-8") as f:
+                            f.write(diar_content)
+                    except OSError as e:
+                        logger.warning(
+                            "Failed to restore diarization sidecar for %s: %s", rec_id, e
+                        )
             except Exception as e:
                 logger.error("Recovery transcription failed for %s: %s", rec_id, e)
-        if saved or not transcribe.is_configured():
+        terminal = saved or not transcribe.is_configured()
+        if terminal:
             try:
                 os.remove(wav_path)
             except OSError:
                 pass
+        else:
+            # Transcription is configured but failed this time — the WAV stays
+            # for the next startup's retry. Don't ship a Drive copy yet: every
+            # retry would otherwise upload another duplicate (Drive doesn't
+            # dedupe by name), so drop the intermediate mp3 and try again later.
+            try:
+                os.remove(mp3_path)
+            except OSError:
+                pass
+            await self._notify(
+                f"⚠️ Odzyskiwanie nagrania `{rec_id}` — transkrypcja się nie udała, "
+                f"spróbuję ponownie przy następnym starcie (WAV zostaje)."
+            )
+            return
         msg = (f"♻️ Odzyskane nagranie z **#{channel_slug}** "
                f"({started.strftime('%Y-%m-%d %H:%M')})")
         if gdrive.is_configured():
@@ -360,8 +394,6 @@ class VoiceRecord(commands.Cog):
             msg += f" — zapisane lokalnie: `{mp3_path}`"
         if saved:
             msg += "\n📝 Transkrypcja odzyskana — Momentum znów pamięta to spotkanie."
-        elif transcribe.is_configured():
-            msg += "\n⚠️ Transkrypcja się nie udała — WAV zostaje do ponownej próby przy następnym starcie."
         await self._notify(msg)
 
     async def _finish_and_publish(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:

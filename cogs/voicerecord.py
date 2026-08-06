@@ -19,6 +19,7 @@ import gdrive
 import transcribe
 import transcripts
 from mixsink import MixingWaveSink
+from taskutil import cancel_unless_current
 from config import (
     RECORDING_NOTIFY_CHANNEL_ID,
     RECORDING_MAX_MINUTES,
@@ -203,6 +204,11 @@ class VoiceRecord(commands.Cog):
             return
         if self.recording:
             logger.info("Safety cap reached (%s min) — stopping recording", RECORDING_MAX_MINUTES)
+            # This task now runs the publish pipeline itself. Clear the handle
+            # first so _teardown can't cancel the very task executing it —
+            # that self-cancel silently killed every ≥cap recording's
+            # transcript/upload before this guard existed.
+            self._safety_task = None
             await self._finish_and_publish(reason="limit czasu")
 
     async def _teardown(self) -> str | None:
@@ -210,7 +216,7 @@ class VoiceRecord(commands.Cog):
         wav_path = self.wav_path
         vc = self.vc
         if self._safety_task:
-            self._safety_task.cancel()
+            cancel_unless_current(self._safety_task)
             self._safety_task = None
         if vc:
             try:

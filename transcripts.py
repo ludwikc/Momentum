@@ -115,7 +115,8 @@ def list_transcripts(within_days: Optional[int] = None, *, today: Optional[date]
             logger.warning("Skipping unreadable transcript %s: %s", fname, e)
             continue
         data_str = meta.get("data", "")
-        d = _date_of(data_str) or _date_of(fname[:10])
+        dt = _datetime_of(data_str) or _datetime_of(fname)
+        d = dt.date() if dt else None
         if within_days is not None and d is not None and (today - d).days > within_days:
             continue
         out.append({
@@ -123,9 +124,11 @@ def list_transcripts(within_days: Optional[int] = None, *, today: Optional[date]
             "data": data_str or fname[:10],
             "kanal": meta.get("kanal", "?"),
             "uczestnicy": [p.strip() for p in meta.get("uczestnicy", "").split(",") if p.strip()],
-            "_sort": d or date.min,
+            "_sort": dt or datetime.min,
         })
-    out.sort(key=lambda m: m["_sort"], reverse=True)
+    # Full datetime (minute precision), id as deterministic tiebreak — two
+    # same-day meetings previously tied on the date and fell to listdir order.
+    out.sort(key=lambda m: (m["_sort"], m["id"]), reverse=True)
     for m in out:
         m.pop("_sort", None)
     return out
@@ -136,6 +139,18 @@ def _date_of(s: str) -> Optional[date]:
         return datetime.strptime(s[:10], "%Y-%m-%d").date()
     except (ValueError, TypeError):
         return None
+
+
+def _datetime_of(s: str) -> Optional[datetime]:
+    """Parse 'YYYY-MM-DD HH:MM' (frontmatter) or 'YYYY-MM-DD_HH-MM' (filename
+    stem); date-only strings fall back to midnight via _date_of."""
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d_%H-%M"):
+        try:
+            return datetime.strptime((s or "")[:16], fmt)
+        except (ValueError, TypeError):
+            continue
+    d = _date_of(s)
+    return datetime(d.year, d.month, d.day) if d else None
 
 
 def read_transcript(transcript_id: str) -> Optional[str]:

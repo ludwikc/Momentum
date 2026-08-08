@@ -44,7 +44,7 @@ global) then clears the global set so commands don't show up twice.
 main.py (core)
   ├─ load_dotenv() + logging → bot.log + stderr (logger "momentum_bot")
   ├─ intents: message_content, members, voice_states, guilds
-  ├─ load EXTENSIONS (29 cogs)
+  ├─ load EXTENSIONS (30 cogs)
   ├─ on_ready: per-guild command sync, then clear global
   └─ graceful shutdown on SIGINT/SIGTERM (posts offline notice)
 
@@ -106,7 +106,7 @@ Doc-only changes need no restart. (The old `run_bot.sh` / `bot.pid` / `nohup` fl
 ├── data/now_recording.mp3   # "now recording" intro sound
 ├── recordings/              # transient WAV/MP3 during a recording (gitignored)
 ├── run_bot.sh               # launcher (foreground / --daemon)
-└── cogs/                    # 29 feature extensions (see below)
+└── cogs/                    # 30 feature extensions (see below)
 ```
 
 Stray/unused (see [Known issues](#known-issues--cleanup)): `Momentum/` (nested stale copy),
@@ -151,7 +151,7 @@ All in `config.py`:
 | `UNTRACKED_VOICE_CHANNEL_IDS` / `VOICE_FLUSH_MINUTES` | `[]` / `5` | Voice-tracking exclusions + flush cadence |
 | `VOICE_RANKS` / `RANKS_ANNOUNCE_CHANNEL_ID` | `[]` / progress channel | Rank ladder `(hours, role_id, reward)`; empty ⇒ ranks dormant |
 | `WEEKLY_DIGEST_ENABLED` / `_WEEKDAY` / `_TIME` | `True` / `4` / `"14:00"` | Piątkowy digest DM (Warsaw) |
-| `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `7` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
+| `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `6` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`

@@ -171,6 +171,7 @@ class WeeklyDigest(commands.Cog):
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             status = await self._send_digest()
+            self._last_sent_date = datetime.datetime.now(self.warsaw).date()
             await interaction.followup.send(f"Gotowe — {status}. Sprawdź DM 📬")
         except Exception as e:
             logger.exception("Digest via slash failed")

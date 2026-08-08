@@ -220,7 +220,7 @@ RANKS_ANNOUNCE_CHANNEL_ID = PROGRESS_CHANNEL_ID
 WEEKLY_DIGEST_ENABLED = True
 WEEKLY_DIGEST_WEEKDAY = 4        # Monday=0 … Friday=4 (Warsaw)
 WEEKLY_DIGEST_TIME = "14:00"     # Warsaw wall-clock, checked once a minute
-WEEKLY_DIGEST_LOOKBACK_DAYS = 7  # meetings window fed into the digest
+WEEKLY_DIGEST_LOOKBACK_DAYS = 6  # inclusive <= filter: today-6 … today = a 7-day week, matches the DM's week label
 WEEKLY_DIGEST_CHANNEL_KEY = "1234-daily-coaching"  # kanal substring filter
 WEEKLY_DIGEST_PER_MEETING_CHARS = 8000  # per-transcript cap fed to the model
 WEEKLY_DIGEST_MAX_TOKENS = 2000  # completion budget for the announcement

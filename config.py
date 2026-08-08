@@ -215,3 +215,12 @@ VOICE_FLUSH_MINUTES = 5            # periodic flush; bounds restart loss to <5 m
 #  (32, <id>, 5000), (64, <id>, 6000), (80, <id>, 7000)]
 VOICE_RANKS: list[tuple[int, int, int]] = []
 RANKS_ANNOUNCE_CHANNEL_ID = PROGRESS_CHANNEL_ID
+
+# --- Weekly Daily-Coaching digest DM (cogs/weekly_digest.py) ---
+WEEKLY_DIGEST_ENABLED = True
+WEEKLY_DIGEST_WEEKDAY = 4        # Monday=0 … Friday=4 (Warsaw)
+WEEKLY_DIGEST_TIME = "14:00"     # Warsaw wall-clock, checked once a minute
+WEEKLY_DIGEST_LOOKBACK_DAYS = 7  # meetings window fed into the digest
+WEEKLY_DIGEST_CHANNEL_KEY = "1234-daily-coaching"  # kanal substring filter
+WEEKLY_DIGEST_PER_MEETING_CHARS = 8000  # per-transcript cap fed to the model
+WEEKLY_DIGEST_MAX_TOKENS = 2000  # completion budget for the announcement

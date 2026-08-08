@@ -150,6 +150,8 @@ All in `config.py`:
 | `POMODORO_DEFAULT_FOCUS_MIN` / `_BREAK_MIN` / `_MAX_STAGE_MIN` | `25` / `5` / `1440` | Pomodoro stage defaults/bounds |
 | `UNTRACKED_VOICE_CHANNEL_IDS` / `VOICE_FLUSH_MINUTES` | `[]` / `5` | Voice-tracking exclusions + flush cadence |
 | `VOICE_RANKS` / `RANKS_ANNOUNCE_CHANNEL_ID` | `[]` / progress channel | Rank ladder `(hours, role_id, reward)`; empty ⇒ ranks dormant |
+| `WEEKLY_DIGEST_ENABLED` / `_WEEKDAY` / `_TIME` | `True` / `4` / `"14:00"` | Piątkowy digest DM (Warsaw) |
+| `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `7` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`
@@ -266,6 +268,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 26 | `ranks` | Voice-hour rank ladder (`VOICE_RANKS`): award-highest/remove-others roles, one-time coin rewards, public announcement; dormant when unconfigured | `/rangi`; listens to `momentum_voice_flushed` |
 | 27 | `shop` | Colour-role shop (DB-driven items, single-slot swap without refund, atomic debit + refund on role failure) | `/sklep`; `/sklep-admin dodaj|usun|lista` (manage_guild) |
 | 28 | `admin_task` | Owner-only tryb wykonawczy: agent (czytaj_link/czytaj_kanal/wyslij) czyta wskazane treści i szykuje szkice wiadomości głosem Momentum; okno bieżącego kanału doklejane zawsze (cichy summon "odpowiedz tutaj"); publikacja tylko po [Wyślij] w ephemeralnym podglądzie | `/admin-task <zadanie>` (owner) |
+| 29 | `weekly_digest` | Piątek 14:00: DM do ownera z gotowym wzorem ogłoszenia-podsumowania tygodnia Daily Coaching (głos Ludwika wg rewriter-discord, tag @LIFEHACKERZY, transkrypty z 7 dni przez gpt) | `/podsumowanie-tygodnia` (owner); tasks.loop 1m |
 
 ---
 
@@ -310,7 +313,8 @@ publishing or the bot.
 `/monety-admin` (owner), `/todo <dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj>`,
 `/przypomnij tekst: [za:|o:] [co:]`, `/przypomnienia [usun:]`,
 `/pomodoro <start|stop|status>`, `/statystyki [user]`, `/profil [user]`, `/rangi`, `/sklep`,
-`/sklep-admin <dodaj|usun|lista>` (manage_guild), `/admin-task <zadanie>` (owner).
+`/sklep-admin <dodaj|usun|lista>` (manage_guild), `/admin-task <zadanie>` (owner),
+`/podsumowanie-tygodnia` (owner).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
 **Listeners:** `on_message` (gmlistener, photo_reply, przywolanie), `on_member_join`/`on_member_remove`
@@ -319,7 +323,8 @@ voicerecord, voice_tracker, pomodoro), custom `momentum_voice_flushed` (ranks �
 
 **Background tasks:** daily_invite 1m · dailyreminder 1m · auto_assign_role invite cache 1m ·
 meditation_voice straggler sweep 1m · voicerecord auto_sweep 60s · session_tracker deep-work flush 10m ·
-reminders due-poll 1m · voice_tracker flush 5m · pomodoro: one asyncio task per running timer.
+reminders due-poll 1m · voice_tracker flush 5m · pomodoro: one asyncio task per running timer ·
+weekly_digest 1m.
 
 ---
 
@@ -360,6 +365,14 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-08**
+- **Piątkowy digest Daily Coaching** — nowy cog `weekly_digest`: w każdy piątek
+  o 14:00 (Warsaw) owner dostaje DM z gotowym do wklejenia wzorem ogłoszenia
+  na #ogłoszenia (tag @LIFEHACKERZY, głos Ludwika wg skilla rewriter-discord —
+  reguły stylu wbudowane w `digest.DIGEST_SYSTEM_PROMPT`), złożonym przez
+  gpt z transkryptów 12:34 z ostatnich 7 dni (`digest.py` — czyste helpery
+  z testami; ścieżki awaryjne zawsze wysyłają DM z diagnozą). Test na żądanie:
+  `/podsumowanie-tygodnia` (owner-only). Config: `WEEKLY_DIGEST_*`.
+
 - **Nagrania ≥cap już nie giną + odzyskiwanie sierot** — `_safety_stop` po
   osiągnięciu limitu anulował własny task w `_teardown` (self-cancel), przez co
   transkod/Whisper/transkrypt/Drive/notify nigdy nie ruszały: przepadły

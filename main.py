@@ -155,6 +155,7 @@ EXTENSIONS = [
     "cogs.ranks",  # rangi za godziny na głosowych (VOICE_RANKS)
     "cogs.shop",  # /sklep — kolory nicku za monety
     "cogs.admin_task",  # /admin-task — owner-only tryb wykonawczy (podgląd + [Wyślij])
+    "cogs.weekly_digest",  # piątkowy DM z wzorem ogłoszenia-podsumowania Daily Coaching
 ]
 
 # Function to load extensions

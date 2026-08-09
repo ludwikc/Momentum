@@ -22,6 +22,7 @@ import transcripts
 from config import (
     MOMENTUM_MODEL,
     MOMENTUM_OWNER_ID,
+    RECORDING_NOTIFY_CHANNEL_ID,
     WEEKLY_DIGEST_CHANNEL_KEY,
     WEEKLY_DIGEST_ENABLED,
     WEEKLY_DIGEST_LOOKBACK_DAYS,
@@ -43,7 +44,7 @@ def _generate_post(system_prompt: str, user_prompt: str) -> str:
     """
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=120)
     resp = client.chat.completions.create(
         model=MOMENTUM_MODEL,
         messages=[
@@ -87,6 +88,15 @@ class WeeklyDigest(commands.Cog):
             await self._send_digest()
         except Exception:
             logger.exception("Weekly digest failed")
+            channel = self.bot.get_channel(RECORDING_NOTIFY_CHANNEL_ID)
+            if channel:
+                try:
+                    await channel.send(
+                        "⚠️ Piątkowy digest Daily Coaching nie wyszedł (szczegóły w logach) "
+                        "— odpal /podsumowanie-tygodnia, jak ogarniesz przyczynę."
+                    )
+                except Exception:
+                    pass
 
     @schedule_digest.before_loop
     async def before_schedule_digest(self):
@@ -103,7 +113,9 @@ class WeeklyDigest(commands.Cog):
         week_label = f"{(now - datetime.timedelta(days=6)):%d.%m}–{now:%d.%m}"
 
         items = await asyncio.to_thread(
-            transcripts.list_transcripts, WEEKLY_DIGEST_LOOKBACK_DAYS
+            lambda: transcripts.list_transcripts(
+                WEEKLY_DIGEST_LOOKBACK_DAYS, today=now.date()
+            )
         )
         meetings = digest.select_daily_meetings(
             items, channel_key=WEEKLY_DIGEST_CHANNEL_KEY
@@ -172,7 +184,10 @@ class WeeklyDigest(commands.Cog):
         try:
             status = await self._send_digest()
             self._last_sent_date = datetime.datetime.now(self.warsaw).date()
-            await interaction.followup.send(f"Gotowe — {status}. Sprawdź DM 📬")
+            note = ""
+            if datetime.datetime.now(self.warsaw).weekday() == WEEKLY_DIGEST_WEEKDAY:
+                note = " Dzisiejszy automat o " + WEEKLY_DIGEST_TIME + " już nie wyjdzie (guard ustawiony)."
+            await interaction.followup.send(f"Gotowe — {status}. Sprawdź DM 📬{note}")
         except Exception as e:
             logger.exception("Digest via slash failed")
             await interaction.followup.send(f"Nie wyszło: {e}")

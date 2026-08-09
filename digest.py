@@ -59,6 +59,7 @@ KOTWICA — prawdziwy post Ludwika tego typu (podsumowanie po spotkaniu):
 https://platform.siadlak.com/products/...
 
 Dzięki raz jeszcze!
+(Z kotwicy bierz rytm i ton — nie treść, nie daty, nie link. U Ciebie ostatnia linia postu to dosłownie [LINK].)
 
 ZWRÓĆ WYŁĄCZNIE gotowy post — bez komentarzy, bez omawiania, bez bloków kodu."""
 

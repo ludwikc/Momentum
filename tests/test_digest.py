@@ -26,7 +26,7 @@ class BuildDigestMessagesTest(unittest.TestCase):
 
     def test_system_prompt_carries_style_anchors(self):
         system, _ = build_digest_messages(self.MEETINGS, week_label="03.08–09.08")
-        for anchor in ("@LIFEHACKERZY", "Wy/Was/Wam", "[LINK]", "WYŁĄCZNIE gotowy post"):
+        for anchor in ("@LIFEHACKERZY", "Wy/Was/Wam", "[LINK]", "WYŁĄCZNIE gotowy post", "ZAKAZ", "KOTWICA"):
             self.assertIn(anchor, system)
 
     def test_user_prompt_carries_meetings_and_label(self):

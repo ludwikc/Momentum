@@ -353,7 +353,7 @@ Loose, not commitments (mirrors README):
 - [ ] **Auto-publish summaries to the Platform** — the 12:34 message already promises it.
 - [ ] **Searchable summary archive** — index past summaries by date/topic.
 - [ ] **Speaking-time analytics** — per-participant talk time from per-user recording tracks.
-- [ ] **Weekly digest** — roll up calls, streaks, leaderboard movers.
+- [x] **Weekly digest** — piątkowy DM z podsumowaniem spotkań (cogs/weekly_digest.py); streaks/leaderboard movers wciąż do zrobienia.
 - [ ] **Action-item extraction** — opt-in per-person follow-ups (was trimmed from the summary).
 - [ ] **Multi-channel auto-record**, **streak freezes** (~~personal stats dashboard~~ → `/statystyki`).
 - [ ] **StudyLion port, wave 2** — private rented rooms, scheduled accountability sessions,

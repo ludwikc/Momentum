@@ -256,7 +256,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 15 | `session_tracker` | Daily-coaching joins (cap 1/day) and deep-work joins (cap 3/day) via `log_capped_join`; posts the shared unified progress card (`build_progress_embed`); banks deep-work time on leave and periodically | `on_voice_state_update`, tasks.loop 10m flush |
 | 16 | `voicerecord` | The recording pipeline (see below) | `/nagraj`, `/stop_nagrywania` (mod-only), auto-record |
 | 17 | `daily_invite` | Posts the 12:34 `@here` invite to the coaching channel (once/day guard) | tasks.loop 1m |
-| 18 | `przywolanie` | Momentum replies when summoned by name/@mention (OpenAI, transcripts lookup, knowledge base, coaching CTA + limits) | `on_message` |
+| 18 | `przywolanie` | Momentum replies when summoned by name/@mention (OpenAI, transcripts lookup, knowledge base, coaching CTA + limits); wizja: obrazki z przywołania (max 4) idą do modelu — tylko admin/owner, reszta dostaje odmowę bez wołania modelu | `on_message` |
 | 19 | `reboot` | Owner restarts the bot from Discord | `/momentum-reboot` |
 | 20 | `economy` | Monety: wallet, transfers, owner grants (StudyLion port) | `/portfel`, `/przelew`, `/monety-admin` (owner) |
 | 21 | `todo` | Per-user tasklist with coin rewards (50/task, ≤10/24h), range ops (`1,3-5`, `all`), toggle select menu | `/todo dodaj|lista|zrobione|cofnij|usun|wyczysc|edytuj` |
@@ -365,6 +365,16 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-08**
+- **Wizja w przywołaniach (admin-only)** — model nigdy nie widział załączników
+  (okno budowane z samego `clean_content`), więc "zrób OCR z obrazka" kończyło
+  się "nie widzę obrazka". Teraz obrazki (`image/*`, max 4) z wiadomości
+  przywołującej idą do gpt-5.2 jako multimodalne parts (Chat Completions
+  `image_url`; ścieżka Responses: `input_image`), a wiadomości w oknie z
+  załącznikami dostają znacznik `[załączył obrazek]`. Funkcja tylko dla
+  administratorów/ownera — pozostali dostają "Ta funkcja jest na razie dostępna
+  tylko dla Ludwika." bez wołania modelu. Czyste helpery
+  `extract_image_urls`/`build_multimodal_content` w `summon.py`
+  (+ `tests/test_summon_vision.py`).
 - **Piątkowy digest Daily Coaching** — nowy cog `weekly_digest`: w każdy piątek
   o 14:00 (Warsaw) owner dostaje DM z gotowym do wklejenia wzorem ogłoszenia
   na #ogłoszenia (tag @LIFEHACKERZY, głos Ludwika wg skilla rewriter-discord —

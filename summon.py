@@ -93,6 +93,47 @@ def offer_allowed(last_offer_ts: float | None, now: float, cooldown_s: float) ->
     return last_offer_ts is None or (now - last_offer_ts) >= cooldown_s
 
 
+# Hard cap on how many images from the summoning message are sent to the model.
+# More attachments are silently ignored — cost control, and the model rarely
+# needs more than a few screenshots to answer.
+MAX_SUMMON_IMAGES = 4
+
+
+def extract_image_urls(attachments, limit: int = MAX_SUMMON_IMAGES) -> list[str]:
+    """URLs of image attachments, in order, capped at ``limit``.
+
+    Accepts any attachment-like objects exposing ``content_type`` and ``url``
+    (``discord.Attachment`` in production, plain stand-ins in tests) — both
+    read via ``getattr`` because Discord leaves ``content_type`` unset (None)
+    when the CDN didn't sniff a type. Only ``image/*`` attachments with a
+    non-empty URL qualify; everything else is skipped.
+    """
+    urls: list[str] = []
+    for att in attachments or []:
+        ctype = getattr(att, "content_type", None) or ""
+        url = getattr(att, "url", None)
+        if ctype.startswith("image/") and url:
+            urls.append(url)
+            if len(urls) >= limit:
+                break
+    return urls
+
+
+def build_multimodal_content(text: str, image_urls: list[str] | None):
+    """Chat-Completions ``content`` for the final user message.
+
+    No images → the plain string, unchanged (the existing text-only behavior).
+    With images → the multimodal parts list: the text part first, then one
+    ``image_url`` part per URL, preserving order.
+    """
+    if not image_urls:
+        return text
+    return [
+        {"type": "text", "text": text},
+        *({"type": "image_url", "image_url": {"url": url}} for url in image_urls),
+    ]
+
+
 class DailyRateLimiter:
     """In-memory per-user daily call counter.
 

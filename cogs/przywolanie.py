@@ -56,7 +56,9 @@ from config import (
 )
 from summon import (
     DailyRateLimiter,
+    build_multimodal_content,
     build_summon_prompt,
+    extract_image_urls,
     extract_tool_calls,
     is_coaching_request,
     is_param_compat_error,
@@ -93,13 +95,23 @@ def _window_from_history(history: list) -> list[dict]:
     ``clean_content`` resolves that ping to "@Momentum" (and human pings to their
     names), so the model sees who is actually being asked. The participants map is
     built from author ids, so the model can still ping people back with raw tokens.
+
+    Messages carrying image attachments get a plain-text marker appended, so the
+    model knows an image appeared earlier in the window. History images are NOT
+    sent to the model — only the summoning message's images ever are (see
+    ``on_message``), and only for administrators.
     """
     return [
         {
             "author_id": m.author.id,
             "display_name": m.author.display_name,
             "is_bot": m.author.bot,
-            "content": m.clean_content,
+            "content": m.clean_content
+            + (
+                " [załączył obrazek]"
+                if extract_image_urls(getattr(m, "attachments", None), limit=1)
+                else ""
+            ),
         }
         for m in history
     ]
@@ -555,9 +567,14 @@ def _respond(client, *, instructions: str, input, max_output_tokens: int,
 
 
 def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
-                         force_engage: bool = False, offer_coaching: bool = False) -> str:
+                         force_engage: bool = False, offer_coaching: bool = False,
+                         image_urls: list[str] | None = None) -> str:
     """Responses-API tool loop: chains rounds via previous_response_id so each
-    round after the first sends only the tool outputs, not the whole context."""
+    round after the first sends only the tool outputs, not the whole context.
+
+    ``image_urls`` (admin-only summons with attached images) turns the first
+    turn's input into a multimodal user item — the Responses API's
+    ``input_text``/``input_image`` shape, not Chat Completions' ``image_url``."""
     instructions = f"{SYSTEM_PROMPT}\n\nDzisiaj jest {today_str}."
     if coaching:
         instructions += f"\n\n{COACHING_INSTRUCTION}"
@@ -568,6 +585,14 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
     force_kb = coaching and MOMENTUM_KB_ENABLED
 
     inp = user_msg          # first turn: the summon prompt as plain user input
+    if image_urls:
+        inp = [{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": user_msg},
+                *({"type": "input_image", "image_url": url} for url in image_urls),
+            ],
+        }]
     previous_id = None
     tools_used = False
     transcript_used = False
@@ -634,9 +659,14 @@ def _reply_via_responses(client, user_msg: str, today_str: str, coaching: bool,
 
 
 def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
-                    force_engage: bool = False, offer_coaching: bool = False) -> str:
+                    force_engage: bool = False, offer_coaching: bool = False,
+                    image_urls: list[str] | None = None) -> str:
     """Chat Completions tool loop (current default). Resends the full message list
-    every round — the Responses path is the lower-latency chained variant."""
+    every round — the Responses path is the lower-latency chained variant.
+
+    ``image_urls`` (admin-only summons with attached images) turns the final user
+    message into multimodal parts (text + image_url items). The parts list is
+    never stringified, so it survives the tool-call rounds untouched."""
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": f"Dzisiaj jest {today_str}."},
@@ -647,7 +677,7 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
         messages.append({"role": "system", "content": DIRECT_ENGAGE_INSTRUCTION})
     if offer_coaching:
         messages.append({"role": "system", "content": COACHING_OFFER_INSTRUCTION})
-    messages.append({"role": "user", "content": user_msg})
+    messages.append({"role": "user", "content": build_multimodal_content(user_msg, image_urls)})
 
     # Force the knowledge-base lookup on the first round in coaching mode.
     force_kb = coaching and MOMENTUM_KB_ENABLED
@@ -719,7 +749,8 @@ def _reply_via_chat(client, user_msg: str, today_str: str, coaching: bool,
 
 
 def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
-                    force_engage: bool = False, offer_coaching: bool = False) -> str:
+                    force_engage: bool = False, offer_coaching: bool = False,
+                    image_urls: list[str] | None = None) -> str:
     """Call OpenAI for the summon reply. Blocking — run via asyncio.to_thread.
 
     A synchronous client built from OPENAI_API_KEY (imported lazily so an unset
@@ -735,15 +766,23 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
     prepend a ``[COACHING?]`` sentinel to its reply when the question has real
     coaching potential — see ``COACHING_OFFER_INSTRUCTION``. Never combined
     with ``coaching=True`` (that path is already an explicit coaching request).
+
+    ``image_urls`` (only set for administrator summons carrying image
+    attachments) makes the summon user-message multimodal so the vision-capable
+    model actually sees the images. Default None keeps the plain-text path
+    byte-for-byte unchanged.
     """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     if MOMENTUM_USE_RESPONSES:
         return _reply_via_responses(
-            client, user_msg, today_str, coaching, force_engage, offer_coaching
+            client, user_msg, today_str, coaching, force_engage, offer_coaching,
+            image_urls,
         )
-    return _reply_via_chat(client, user_msg, today_str, coaching, force_engage, offer_coaching)
+    return _reply_via_chat(
+        client, user_msg, today_str, coaching, force_engage, offer_coaching, image_urls
+    )
 
 
 async def _build_direct_user_msg(channel, bot_user_id: int) -> tuple[str, list[dict]]:
@@ -990,6 +1029,37 @@ class Przywolanie(commands.Cog):
                 )
                 return
 
+            # Obrazki w przywołaniu: funkcja tylko dla administratorów (w DM —
+            # właściciel, bo User nie ma guild_permissions). Sprawdzane PO
+            # limitach i tylko na realnym przywołaniu, więc gate nigdy nie
+            # odpowiada na wiadomość, która i tak nie dostałaby odpowiedzi.
+            image_urls: list[str] | None = None
+            attached_images = extract_image_urls(getattr(message, "attachments", None))
+            if attached_images:
+                is_admin = is_owner or bool(
+                    getattr(
+                        getattr(message.author, "guild_permissions", None),
+                        "administrator",
+                        False,
+                    )
+                )
+                if not is_admin:
+                    logger.info(
+                        "Obrazek w przywołaniu od nie-admina %s — odmawiam bez modelu",
+                        message.author.id,
+                    )
+                    await _send_reply(
+                        message.channel.send,
+                        "Ta funkcja jest na razie dostępna tylko dla Ludwika.",
+                    )
+                    return
+                image_urls = attached_images
+                logger.info(
+                    "Przywołanie z %d obrazkiem/obrazkami od admina %s",
+                    len(image_urls),
+                    message.author.id,
+                )
+
             logger.info(
                 "Momentum przywołany na kanale %s przez %s%s",
                 message.channel.id,
@@ -1016,7 +1086,7 @@ class Przywolanie(commands.Cog):
             async with message.channel.typing():
                 reply = await asyncio.to_thread(
                     _generate_reply, user_msg, _today_key(), coaching, direct_mention,
-                    offer_eligible,
+                    offer_eligible, image_urls,
                 )
             logger.info(
                 "Momentum odpowiedział w %.1fs (coaching=%s)",

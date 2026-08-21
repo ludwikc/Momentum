@@ -261,16 +261,32 @@ class QueueCog(commands.Cog):
             text_channel = voice_channel.guild.system_channel or voice_channel
             await text_channel.send(f"Cześć {member.mention}")
 
-        # Greet user joining the deepwork voice channel (once per Warsaw day)
+        # Greet user joining the deepwork voice channel (once per Warsaw day).
+        # The once-per-day gate is persisted in Supabase (claim_daily_greeting)
+        # so it survives bot restarts — the in-memory dict is only a same-session
+        # fast-path that avoids a DB round-trip on repeat joins.
         joined_deepwork = (before.channel is None or before.channel.id != DEEPWORK_CHANNEL_ID) and \
                           after.channel is not None and after.channel.id == DEEPWORK_CHANNEL_ID
         if joined_deepwork and not member.bot:
             today = today_key_warsaw()
             if self.deepwork_greeted.get(member.id) != today:
+                # Fail-open (like greeting_pref_get): a Supabase hiccup should
+                # never suppress a legitimate first greeting of the day.
+                claimed = True
+                try:
+                    res = await asyncio.to_thread(
+                        db.claim_daily_greeting, str(member.id), "deep_work"
+                    )
+                    claimed = bool(res and res.get("claimed"))
+                except Exception as e:
+                    logger.warning(
+                        "claim_daily_greeting nie powiodło się (%s) — witam mimo to", e
+                    )
                 self.deepwork_greeted[member.id] = today
-                target = self._greeting_target_channel()
-                if target:
-                    await self._greet_deepwork(member, target, today)
+                if claimed:
+                    target = self._greeting_target_channel()
+                    if target:
+                        await self._greet_deepwork(member, target, today)
 
         # Czyszczenie kolejki gdy kanał jest pusty
         if len(voice_channel.members) == 0:

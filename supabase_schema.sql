@@ -1684,5 +1684,41 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================================================
+-- TABLE + FUNCTION: daily greetings (once-per-day welcome, persistent)
+-- Survives bot restarts so a welcome message fires at most once per Warsaw day
+-- per user per greeting key (e.g. the Deep Work channel welcome). The
+-- deepwork_greeting_prefs table tracks HOW to greet (mode/streak); this table
+-- tracks WHETHER we already greeted today, which was previously in-memory only.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS daily_greetings (
+    discord_id TEXT NOT NULL,
+    greeting_key TEXT NOT NULL,
+    greet_date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (discord_id, greeting_key, greet_date)
+);
+
+-- Atomically claim today's greeting. Returns {claimed: true} only for the
+-- first call per (user, key) on a given Warsaw day; later calls return false.
+CREATE OR REPLACE FUNCTION claim_daily_greeting(
+    p_discord_id TEXT,
+    p_key TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+    v_today DATE := (NOW() AT TIME ZONE 'Europe/Warsaw')::date;
+    v_rows INTEGER;
+BEGIN
+    INSERT INTO daily_greetings (discord_id, greeting_key, greet_date)
+    VALUES (p_discord_id, p_key, v_today)
+    ON CONFLICT (discord_id, greeting_key, greet_date) DO NOTHING;
+
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    RETURN json_build_object('claimed', v_rows > 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
 -- DONE — apply after studylion_port.sql, then pull + restart the bot.
 -- =============================================================================

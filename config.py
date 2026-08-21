@@ -4,28 +4,223 @@ DAILY_CALL_CHANNEL_ID = 1120658406160732160  # Channel for daily calls
 PROGRESS_CHANNEL_ID = 1225131519404675124    # Channel for progress tracking
 SEKRET_CHANNEL_ID = 1196136652737892463      # Channel for anonymous messages
 
-# Activity types and emojis (the /done choices)
+# Activity types and emojis
 ACTIVITIES = {
-    "trening": "💪",
-    "medytacja": "🧘",
-    "sukces": "💎",
+    "trening": "💪", 
+    "medytacja": "🧘", 
+    "sukces": "💎", 
     "dziennik": "📝"
-}
-
-# Lifetime counters shown at the bottom of the shared "Aktywność" embed, in
-# display order: (emoji, label). Includes the session-tracker activities
-# (Daily Coaching, Deep Work) which are not /done choices. Deep Work is shown
-# as accumulated connection time rather than a count.
-COUNTERS = {
-    "trening":        ("💪", "Trening"),
-    "medytacja":      ("🧘", "Medytacja"),
-    "sukces":         ("💎", "Sukces"),
-    "dziennik":       ("📝", "Dziennik"),
-    "daily_coaching": ("🔢", "Daily Coaching"),
-    "deep_work":      ("⚓️", "Deep Work"),
 }
 
 # Morning greeting time settings
 MORNING_GREETING_START_HOUR = 4
 MORNING_GREETING_END_HOUR = 6
 MORNING_GREETING_END_MINUTE = 55
+
+# Voice recording (cogs.voicerecord) settings
+RECORDING_NOTIFY_CHANNEL_ID = 1015575570760880168  # channel where Drive links are posted
+
+# Admin-only channel where scripts/momentum_usage_summary.py posts the daily
+# (admin-formatted) and weekly (Ludwik's-voice) bot-usage reports. Same private
+# admin channel as the recording notifications above.
+MOMENTUM_USAGE_CHANNEL_ID = 1015575570760880168
+RECORDING_MAX_MINUTES = 180  # warsztaty run >2h; the cap-stop now publishes correctly, but don't truncate them
+
+# Auto-record: start when a watched voice channel has >= AUTO_RECORD_MIN_MEMBERS
+# non-bot members, stop when it drops below. Manual /nagraj works independently.
+AUTO_RECORD_ENABLED = True
+AUTO_RECORD_CHANNEL_IDS = [1120658406160732160]  # voice channels watched for auto-record
+AUTO_RECORD_MIN_MEMBERS = 2
+
+# Channels where the "now recording" intro (data/now_recording.*) is played on start.
+START_SOUND_CHANNEL_IDS = [1120658406160732160]
+
+# Daily invite announcement (cogs.daily_invite)
+DAILY_INVITE_CHANNEL_ID = 1128649406640558110        # where the @here invite is posted
+DAILY_INVITE_VOICE_CHANNEL_ID = 1120658406160732160  # voice channel linked in the message
+DAILY_INVITE_TIME = "12:34"                           # Warsaw time (HH:MM)
+
+# After recording one of these voice channels stops, post a thank-you listing
+# everyone who participated to RECORDING_THANKYOU_CHANNEL_ID.
+RECORDING_THANKYOU_VOICE_CHANNEL_IDS = [1120658406160732160]
+RECORDING_THANKYOU_CHANNEL_ID = 1128649406640558110
+
+# The thank-you greeting and the AI summary are only posted when at least this
+# many distinct people took part in the recorded call (a 1-person call is skipped).
+RECORDING_MIN_PARTICIPANTS = 2
+
+# OpenAI transcription + summary (transcribe.py). Stays off unless OPENAI_API_KEY
+# is set in the environment. After a recording stops, the audio is transcribed and
+# an AI summary is posted to RECORDING_SUMMARY_CHANNEL_ID.
+RECORDING_SUMMARY_CHANNEL_ID = 1128649406640558110  # where the AI summary is posted
+OPENAI_TRANSCRIBE_MODEL = "whisper-1"  # must stay whisper-1: only it returns word timestamps
+OPENAI_SUMMARY_MODEL = "gpt-4o-mini"
+
+# Diarization (speaker-labeled transcripts). The MixingWaveSink already knows which
+# Discord member every audio frame came from, so we record a speaking timeline next
+# to the recording and attribute the Whisper transcript to speakers by timestamp —
+# no acoustic ML needed. Off only if explicitly disabled; otherwise on whenever
+# transcription is configured.
+DIARIZATION_ENABLED = True
+# Consecutive frames from the same speaker closer than this are treated as one turn,
+# so natural micro-pauses don't fragment a turn into many tiny segments. In 20 ms
+# frames: 25 = 0.5 s.
+DIARIZATION_GAP_FRAMES = 25
+
+# Momentum conversational summoning (cogs.przywolanie). Replies in-thread only
+# when called by name ("Momentum") or @mention; uses the same OPENAI_API_KEY as
+# transcribe.py.
+MOMENTUM_MODEL = "gpt-5.2"        # OpenAI model used for in-conversation replies
+MOMENTUM_CONTEXT_MESSAGES = 10    # how many recent messages to read as context
+# Sent as max_completion_tokens. CRITICAL: on a reasoning model (gpt-5.2) this
+# budget is shared by hidden reasoning tokens AND the visible reply — so it must
+# cover both. At 250 the low-effort reasoning could consume the whole budget on
+# a message with real conversation context, leaving finish_reason=length and an
+# EMPTY reply that the bot then mistook for silence. Reply brevity is enforced by
+# the system prompt ("zwięźle"), not by this ceiling, so keep generous headroom.
+MOMENTUM_MAX_TOKENS = 1000
+# Fallback budget used ONLY when the first attempt came back EMPTY with
+# finish_reason=length — i.e. hidden reasoning (and/or a genuinely long requested
+# answer, e.g. "napisz gotową instrukcję") consumed the whole MOMENTUM_MAX_TOKENS
+# budget before any visible text. That empty reply is otherwise indistinguishable
+# from silence and used to trigger the "Doprecyzuj jednym zdaniem" nudge even on a
+# perfectly clear, demanding prompt. We retry once with this larger ceiling so
+# big legitimate requests get answered, while normal replies keep the low cap
+# (and its lower latency/cost). A real [CISZA] returns finish_reason=stop and is
+# left untouched.
+MOMENTUM_MAX_TOKENS_RETRY = 4000
+MOMENTUM_TEMPERATURE = 0.8        # personality without chaos
+# gpt-5.2 is a reasoning model: left unset it "thinks" at its default effort
+# before every reply (seconds each), and that stacks across tool-call rounds.
+# Lower = faster/shallower. One of "none","low","medium","high","xhigh"; ""
+# omits the param entirely (for non-reasoning models). Auto-disabled at runtime
+# if the model rejects it.
+MOMENTUM_REASONING_EFFORT = "low"
+# Transport for the summon model calls. False = Chat Completions (current).
+# True = Responses API: chains tool rounds via previous_response_id so the model
+# reuses prior reasoning/context instead of re-sending it — lower latency on
+# multi-round coaching/advice replies. Rollout flag; flip on after a live check.
+MOMENTUM_USE_RESPONSES = False
+
+# Momentum can look up past meeting transcripts (saved by the recorder under
+# transcripts/) via OpenAI tool-calls, so it can answer e.g. "co powiedział Jakub
+# na wczorajszym spotkaniu". These bound that path.
+MOMENTUM_TRANSCRIPT_MAX_TOKENS = 1500  # grounded answers run longer; also shares the
+                                       # budget with reasoning tokens (see MOMENTUM_MAX_TOKENS)
+MOMENTUM_TRANSCRIPT_LIST_DAYS = 30     # default lookback when listing meetings
+MOMENTUM_TRANSCRIPT_MAX_CHARS = 80000  # cap a single transcript fed back to the model
+                                       # (~1h ≈ 29k chars; fits a full 120-min call)
+MOMENTUM_TOOL_ROUNDS = 4               # max list/read tool round-trips per summon
+
+# Powitania na kanale Deep Work (cogs.queue_cog). Bot wita wchodzących raz dziennie
+# powitaniem generowanym przez LLM (z fallbackiem na listę statyczną). Gdy ktoś
+# MOMENTUM_GREETING_MAX_UNANSWERED razy z rzędu nie odpowie, bot proponuje opt-out
+# (potem tylko krótkie "Cześć @user 👋"). Patrz greetings.py + scripts/greeting_prefs.sql.
+MOMENTUM_GREETING_LLM_ENABLED = True   # generuj powitania LLM (False → tylko lista statyczna)
+MOMENTUM_GREETING_TIMEOUT_S = 8        # twardy timeout generowania; potem fallback
+MOMENTUM_GREETING_MAX_UNANSWERED = 5   # po tylu powitaniach bez odpowiedzi pytamy o opt-out
+MOMENTUM_GREETING_MODEL = None         # None → MOMENTUM_MODEL
+
+# Safety / abuse limits (cogs.przywolanie):
+# - Only the owner may DM the bot; everyone else's DMs are ignored outright.
+# - Each non-owner may trigger at most MOMENTUM_DAILY_LIMIT summons per day
+#   (Warsaw-local), checked before the OpenAI call so throttled users cost
+#   zero tokens. The owner is exempt from both limits.
+MOMENTUM_OWNER_ID = 404038151565213696
+MOMENTUM_DAILY_LIMIT = 5
+
+# This project's Discord application identity. SIADLAXITY (1363266006516105456)
+# is a *separate* bot (the siadlak.VIP portal); if its token ever lands in
+# private.py the bot would silently act as the wrong identity (wrong channels,
+# "Missing Access"). main.py checks bot.user.id against this at startup and
+# refuses to run on a mismatch.
+MOMENTUM_BOT_ID = 1468726880395067412
+
+# Baza wiedzy (cogs.przywolanie + scripts/ingest_knowledge.py). Momentum może
+# przeszukać ~20k par temat→odpowiedź zapisanych w Supabase (tabela knowledge_base,
+# wyszukiwanie hybrydowe pgvector+FTS przez RPC match_knowledge) — ale tylko gdy
+# model uzna pytanie za istotne, więc zwykła rozmowa nie kosztuje tokenów bazy.
+# EMBED_DIMS musi zgadzać się z wymiarem vector() w scripts/knowledge_schema.sql.
+MOMENTUM_KB_ENABLED     = True
+MOMENTUM_KB_EMBED_MODEL = "text-embedding-3-large"  # model embeddingów (import + zapytanie)
+MOMENTUM_KB_EMBED_DIMS  = 1024                       # MUSI = vector(N) w schemacie
+MOMENTUM_KB_MATCH_COUNT = 3                          # ile tematów zwracać (~2000 tok.)
+
+# Coaching ma własny, MIESIĘCZNY limit per użytkownik (trwały — liczony w Supabase
+# przez RPC log_capped_month na tabeli activity_logs, activity_type='coaching').
+# Dotyczy obu wejść: /coaching-momentum oraz prośby w naturalnym języku. Właściciel
+# jest zwolniony. Reset następuje na początku kolejnego miesiąca (czas warszawski).
+MOMENTUM_COACHING_MONTHLY_LIMIT = 5
+
+# Oferta trybu coachingowego: gdy model uzna, że pytanie zadane naturalnie ma
+# potencjał na coś więcej niż szybką odpowiedź (patrz COACHING_OFFER_INSTRUCTION
+# w cogs/przywolanie.py), proponuje przejście w coaching przyciskami. Timeout to
+# czas (sekundy) na wybór, zanim oferta wygaśnie.
+MOMENTUM_COACHING_OFFER_ENABLED = True
+MOMENTUM_COACHING_OFFER_TIMEOUT = 120
+# Po pokazaniu oferty nie ponawiaj jej temu samemu userowi w tym samym kanale
+# przez tyle sekund — druga oferta w trwającej rozmowie to szum (in-memory,
+# zeruje się przy restarcie, jak DailyRateLimiter).
+MOMENTUM_COACHING_OFFER_COOLDOWN_S = 1800
+
+# /admin-task (cogs.admin_task) — owner-only tryb wykonawczy Momentum.
+# Szkice trafiają na serwer dopiero po kliknięciu [Wyślij] w ephemeralnym
+# podglądzie; samo wywołanie nic nie publikuje.
+ADMIN_TASK_TOOL_ROUNDS = 6        # max rund narzędziowych (czytaj_link/czytaj_kanal/wyslij)
+ADMIN_TASK_MAX_TOKENS = 1500      # budżet odpowiedzi; dzielony z reasoning (patrz MOMENTUM_MAX_TOKENS)
+ADMIN_TASK_CONTEXT_MESSAGES = 10  # ile wiadomości bieżącego kanału dokleić do zadania
+ADMIN_TASK_PREVIEW_TIMEOUT = 600  # s; podgląd szkicu wygasa bez wysyłki (< 15 min ważności webhooka)
+
+# =============================================================================
+# StudyLion port (spec: docs/superpowers/specs/2026-07-11-studylion-port-design.md)
+# Requires scripts/studylion_port.sql applied in Supabase.
+# =============================================================================
+
+# --- Monety (coin economy) ---
+COINS_EMOJI = "🪙"
+VOICE_COINS_PER_HOUR = 50          # StudyLion default: 50/h, pro-rated per second
+VOICE_COIN_DAILY_CAP_HOURS = 16    # coins mint for at most this many voice hours/day
+TASK_REWARD_COINS = 50             # per completed todo task (StudyLion default)
+TASK_REWARD_LIMIT_24H = 10         # max rewarded tasks per rolling 24h (StudyLion default)
+DONE_REWARD_COINS = 10             # bonus for /done activity log
+GM_REWARD_COINS = 10               # bonus for the GM morning check-in
+
+# --- Profil (/profil) ---
+PROFILE_MAX_TAGS = 5               # StudyLion profile badges cap
+PROFILE_TAG_MAX_LEN = 30
+
+# --- Todo (/todo) ---
+TODO_MAX_OPEN = 100                # max open (unticked) tasks per user
+TODO_MAX_CONTENT = 100             # max task length (StudyLion default)
+
+# --- Reminders (/przypomnij) ---
+REMINDER_MAX_PER_USER = 25         # StudyLion default (Discord select cap)
+REMINDER_MIN_REPEAT_SECONDS = 600  # min repeat interval (StudyLion default)
+REMINDER_MAX_CONTENT = 2000
+
+# --- Pomodoro (/pomodoro) ---
+POMODORO_DEFAULT_FOCUS_MIN = 25
+POMODORO_DEFAULT_BREAK_MIN = 5
+POMODORO_MAX_STAGE_MIN = 1440      # StudyLion's per-stage bound
+
+# --- Voice tracking ---
+# All voice channels are tracked except these (e.g. an AFK channel).
+UNTRACKED_VOICE_CHANNEL_IDS: list[int] = []
+VOICE_FLUSH_MINUTES = 5            # periodic flush; bounds restart loss to <5 min
+
+# --- Rangi (activity ranks) ---
+# (hours, role_id, reward_coins) — lifetime tracked voice hours thresholds.
+# Empty ⇒ the ranks cog stays dormant. StudyLion's template ladder for reference:
+# [(1, <id>, 1000), (4, <id>, 2000), (8, <id>, 3000), (16, <id>, 4000),
+#  (32, <id>, 5000), (64, <id>, 6000), (80, <id>, 7000)]
+VOICE_RANKS: list[tuple[int, int, int]] = []
+RANKS_ANNOUNCE_CHANNEL_ID = PROGRESS_CHANNEL_ID
+
+# --- Weekly Daily-Coaching digest DM (cogs/weekly_digest.py) ---
+WEEKLY_DIGEST_ENABLED = True
+WEEKLY_DIGEST_WEEKDAY = 4        # Monday=0 … Friday=4 (Warsaw)
+WEEKLY_DIGEST_TIME = "14:00"     # Warsaw wall-clock, checked once a minute
+WEEKLY_DIGEST_LOOKBACK_DAYS = 6  # inclusive <= filter: today-6 … today = a 7-day week, matches the DM's week label
+WEEKLY_DIGEST_CHANNEL_KEY = "1234-daily-coaching"  # kanal substring filter
+WEEKLY_DIGEST_PER_MEETING_CHARS = 8000  # per-transcript cap fed to the model
+WEEKLY_DIGEST_MAX_TOKENS = 2000  # completion budget for the announcement

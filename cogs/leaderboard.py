@@ -3,11 +3,34 @@ from discord.ext import commands
 from discord import app_commands
 from discord import Embed
 import logging
+from activity_embed import format_duration_pl
 from db import get_activity_leaderboard
 
 logger = logging.getLogger("momentum_bot.leaderboard")
 
-act = {"trening": "💪", "medytacja": "🧘", "sukces": "💎", "dziennik": "📝"}
+# Same categories as the unified progress card: activity value -> (emoji, label).
+# The join-based ones need get_activity_leaderboard from
+# scripts/unified_leaderboard.sql; 'coins'/'voice' (StudyLion port) need
+# scripts/studylion_port.sql. All rank within the current Warsaw month.
+CATEGORIES = {
+    "trening": ("💪", "Trening"),
+    "medytacja": ("🧘", "Medytacja"),
+    "sukces": ("💎", "Sukces"),
+    "dziennik": ("📝", "Dziennik"),
+    "daily_coaching": ("🔢", "Daily Coaching"),
+    "deep_work": ("⚓️", "Deep Work"),
+    "coins": ("🪙", "Monety"),
+    "voice": ("🎙️", "Głosowe"),
+}
+
+
+def _format_value(activity_type: str, count: int) -> str:
+    """'voice' ranks by seconds → render as a duration; the rest are counts."""
+    if activity_type == "voice":
+        return f"🎙️ {format_duration_pl(count)}"
+    if activity_type == "coins":
+        return f"🪙 {count}"
+    return f"🔥 Total: {count}"
 
 
 class leaderboard(commands.Cog):
@@ -17,13 +40,13 @@ class leaderboard(commands.Cog):
 
     @app_commands.command(
         name="leaderboard",
-        description=f'Pokaż leaderboard dla wybranej aktywności: {", ".join(act)}',
+        description="Pokaż leaderboard dla wybranej aktywności (ten miesiąc)",
     )
     @app_commands.describe(activity="Wybierz aktywność")
     @app_commands.choices(
         activity=[
-            app_commands.Choice(name=f"{emoji} {name.capitalize()}", value=name)
-            for name, emoji in act.items()
+            app_commands.Choice(name=f"{emoji} {label}", value=name)
+            for name, (emoji, label) in CATEGORIES.items()
         ]
     )
     async def leaderboard_command(
@@ -31,9 +54,9 @@ class leaderboard(commands.Cog):
     ):
         activity_type = activity.value
 
-        if activity_type not in act:
+        if activity_type not in CATEGORIES:
             await interaction.response.send_message(
-                f'Niepoprawna aktywność. Dostępne aktywności: {", ".join(act)}',
+                f'Niepoprawna aktywność. Dostępne aktywności: {", ".join(CATEGORIES)}',
                 ephemeral=True,
             )
             return
@@ -42,10 +65,10 @@ class leaderboard(commands.Cog):
             # Get leaderboard from Supabase
             entries = get_activity_leaderboard(activity_type, 10)
 
-            emoji = act[activity_type]
+            emoji, label = CATEGORIES[activity_type]
 
             embed = Embed(
-                title=f"🏆 Leaderboard dla {activity_type.capitalize()} {emoji}",
+                title=f"🏆 Leaderboard dla {label} {emoji}",
                 color=0x280586,
             )
 
@@ -63,7 +86,7 @@ class leaderboard(commands.Cog):
                         rank = entry["rank"]
                         embed.add_field(
                             name=f"{rank}. {user.display_name}",
-                            value=f"🔥 Total: {streak_count}",
+                            value=_format_value(activity_type, streak_count),
                             inline=False,
                         )
                     except Exception as e:

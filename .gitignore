@@ -2,10 +2,22 @@
 /linkdb.py
 /private.py
 # /requirements.txt  # Now tracked for Supabase migration
-/__pycache__
-/cogs/__pycache__
+__pycache__/
 images.py
 .vscode
 .env
 bot.log
+bot.log-*
+bot.log.*
+scripts/usage_summary.log
+bot.pid
 venv/
+gdrive_service_account.json
+recordings/
+transcripts/
+backups/
+/data/
+/Momentum/
+
+# Claude Code worktrees (session-local)
+.claude/worktrees/

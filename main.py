@@ -8,6 +8,8 @@ import logging
 import sys
 import os
 
+from config import MOMENTUM_BOT_ID
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -79,12 +81,36 @@ async def notify_status(message: str):
 async def on_ready():
     """Called when the bot is ready and connected to Discord."""
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+    # Identity guard: this project must run as Momentum. SIADLAXITY
+    # (1363266006516105456) is a separate app (the siadlak.VIP portal); a wrong
+    # token would otherwise silently act as that bot (wrong channels, "Missing
+    # Access"). Refuse to run rather than fail quietly.
+    if bot.user.id != MOMENTUM_BOT_ID:
+        logger.critical(
+            f"Wrong bot identity: logged in as {bot.user} (ID: {bot.user.id}), "
+            f"expected Momentum (ID: {MOMENTUM_BOT_ID}). The token in private.py "
+            f"belongs to a different Discord application — refusing to start. "
+            f"Fix DISCORD_TOKEN in private.py and restart."
+        )
+        await bot.close()
+        return
+
     logger.info(f"Connected to {len(bot.guilds)} servers")
 
-    # Sync slash commands
+    # Sync slash commands. This bot is single-server, so we register commands
+    # per-guild (they appear instantly, vs ~1h for global). Global and guild
+    # commands are separate namespaces — keeping both would list every command
+    # twice, so we copy commands to each guild and then clear the global set.
     try:
-        synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} commands")
+        for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
+            gsynced = await bot.tree.sync(guild=guild)
+            logger.info(f"Synced {len(gsynced)} commands to guild {guild.name} ({guild.id})")
+        # Remove global registrations so commands don't show up twice.
+        bot.tree.clear_commands(guild=None)
+        await bot.tree.sync()
+        logger.info("Cleared global commands (using per-guild commands)")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
@@ -114,6 +140,22 @@ EXTENSIONS = [
     "cogs.photo_reply",
     "cogs.meditation_voice",
     "cogs.session_tracker",
+    "cogs.voicerecord",  # /nagraj voice recording → Google Drive
+    "cogs.daily_invite",  # daily @here invite to the Daily Coaching channel
+    "cogs.przywolanie",  # Momentum replies when summoned by name in a conversation
+    "cogs.reboot",  # /momentum-reboot — owner restarts the bot from Discord
+    # --- StudyLion port, wave 1 (2026-07; needs scripts/studylion_port.sql) ---
+    "cogs.economy",  # monety: /portfel, /przelew, /monety-admin
+    "cogs.todo",  # /todo — lista zadań z nagrodami
+    "cogs.reminders",  # /przypomnij + /przypomnienia (DM)
+    "cogs.pomodoro",  # /pomodoro — wspólny timer na kanale głosowym
+    "cogs.voice_tracker",  # czas na głosowych → monety (wszystkie kanały)
+    "cogs.statystyki",  # /statystyki — osobista karta statystyk
+    "cogs.profil",  # /profil — karta profilu z tagami (needs scripts/profile_tags.sql)
+    "cogs.ranks",  # rangi za godziny na głosowych (VOICE_RANKS)
+    "cogs.shop",  # /sklep — kolory nicku za monety
+    "cogs.admin_task",  # /admin-task — owner-only tryb wykonawczy (podgląd + [Wyślij])
+    "cogs.weekly_digest",  # piątkowy DM z wzorem ogłoszenia-podsumowania Daily Coaching
 ]
 
 # Function to load extensions

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash test_bot.sh)",
+      "Bash(ffmpeg -y -i \"recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav\" -codec:a libmp3lame -qscale:a 4 /tmp/claude-0/-root-Momentum/bd990636-a3bd-4e22-9fa7-5942bf6e9fc9/scratchpad/test.mp3)",
+      "Bash(xxd recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav)",
+      "Bash(xxd -s 1500000000 -l 64 \"recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav\")",
+      "Bash(xxd)"
+    ]
+  }
+}

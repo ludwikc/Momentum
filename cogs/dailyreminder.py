@@ -36,11 +36,15 @@ class DailyReminderCog(commands.Cog):
     async def schedule_reminders(self):
         """Checks the current time every minute and sends reminders at specific times."""
         try:
-            now = datetime.datetime.now(self.polish_timezone).strftime("%H:%M")
+            now_dt = datetime.datetime.now(self.polish_timezone)
+            now = now_dt.strftime("%H:%M")
+            # Relative Discord timestamp counting down to the 13:00 end of the
+            # session (renders e.g. "za 15 minut" and updates live for each viewer).
+            end_ts = int(now_dt.replace(hour=13, minute=0, second=0, microsecond=0).timestamp())
             reminders = {
                 "12:34": "🕧 Witajcie na dzisiejszej sesji 12:34 Daily Coaching. <@272937604339466240> będzie nagrywać nasze spotkanie, aby potem je podsumować na Platformie. A więc bez zbędnych wstępów - zaczynajmy: co mogę dziś dla Was zrobić?",
-                "12:45": "Tak tylko przypominam, że zostało nam ~14 minut spotkania.",
-                "12:54": "⏰ Kończymy za ~5 minut.",
+                "12:45": f"Tak tylko przypominam, że zostało nam <t:{end_ts}:R> spotkania.",
+                "12:54": f"⏰ Kończymy <t:{end_ts}:R>.",
                 "12:59": "🕐 12:59, pora wracać do stawiania czoła swoim wyzwaniom! Dziękuję za dziś i widzimy się jutro o 12:34!"
             }
 

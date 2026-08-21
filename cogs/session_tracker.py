@@ -1,11 +1,10 @@
-import discord
 from discord.ext import commands, tasks
 import logging
 from datetime import datetime
 import pytz
 from db import log_capped_join, add_deep_work_time, get_user_activity_stats
 from config import PROGRESS_CHANNEL_ID
-from activity_embed import build_activity_embed
+from activity_embed import build_progress_embed
 
 DAILY_COACHING_CHANNEL_ID = 1120658406160732160
 DEEP_WORK_CHANNEL_ID = 1023996094524424313
@@ -40,13 +39,16 @@ class SessionTracker(commands.Cog):
     def cog_unload(self):
         self.flush_deep_work.cancel()
 
-    async def _post(self, member, activity_type: str, result: dict):
-        """Post the shared 'Aktywność' embed to the progress channel."""
+    async def _post(self, member, headline: str, hero_key: str | None = None):
         channel = self.bot.get_channel(PROGRESS_CHANNEL_ID)
         if not channel:
             return
-        all_stats = get_user_activity_stats(str(member.id))
-        embed = build_activity_embed(member, activity_type, result, all_stats)
+        try:
+            stats = get_user_activity_stats(str(member.id))
+        except Exception as e:
+            logger.error(f"Failed to fetch activity stats for {member.id}: {e}")
+            stats = None
+        embed = build_progress_embed(member, headline, stats, hero_key=hero_key)
         await channel.send(content=member.mention, embed=embed)
 
     @commands.Cog.listener()
@@ -66,7 +68,11 @@ class SessionTracker(commands.Cog):
                     str(member.id), "daily_coaching", DAILY_COACHING_MAX_PER_DAY
                 )
                 if result and result.get("logged"):
-                    await self._post(member, "daily coaching", result)
+                    n = result.get("monthly_count", 1)
+                    await self._post(
+                        member, f"To {n} Daily Coaching w tym miesiącu.",
+                        hero_key="daily_coaching",
+                    )
             except Exception as e:
                 logger.error(f"Daily Coaching tracking error for {member.id}: {e}")
 
@@ -79,7 +85,11 @@ class SessionTracker(commands.Cog):
                     str(member.id), "deep_work", DEEP_WORK_MAX_PER_DAY
                 )
                 if result and result.get("logged"):
-                    await self._post(member, "sesja Deep Work", result)
+                    n = result.get("monthly_count", 1)
+                    await self._post(
+                        member, f"To {n} sesja Deep Work w tym miesiącu.",
+                        hero_key="deep_work",
+                    )
             except Exception as e:
                 logger.error(f"Deep Work tracking error for {member.id}: {e}")
         elif before_id == DEEP_WORK_CHANNEL_ID:

@@ -3,7 +3,7 @@ import unittest
 from datetime import date, datetime
 
 import transcripts
-from transcripts import _datetime_of, find_orphans
+from transcripts import _datetime_of, find_orphans, render_document
 
 
 class DatetimeOfTest(unittest.TestCase):
@@ -45,6 +45,61 @@ class ListTranscriptsOrderTest(unittest.TestCase):
             [i["id"] for i in items],
             ["2026-08-04_12-34_daily_bbbbbb", "2026-08-04_06-31_warsztaty_aaaaaa"],
         )
+
+
+class RenderDocumentTest(unittest.TestCase):
+    def test_empty_text_returns_empty_string(self):
+        self.assertEqual(
+            render_document("", started=datetime(2026, 8, 4, 12, 34),
+                             channel_name="daily", rec_id="bbbbbb"),
+            "",
+        )
+        self.assertEqual(
+            render_document("   ", started=datetime(2026, 8, 4, 12, 34),
+                             channel_name="daily", rec_id="bbbbbb"),
+            "",
+        )
+
+    def test_frontmatter_fields(self):
+        doc = render_document(
+            "**Jakub:** cześć\n\n**Ada:** hej",
+            started=datetime(2026, 8, 4, 12, 34),
+            channel_name="ogólny", rec_id="bbbbbb",
+        )
+        self.assertTrue(doc.startswith("---\n"))
+        self.assertIn("data: 2026-08-04 12:34\n", doc)
+        self.assertIn("kanal: ogólny\n", doc)
+        self.assertIn("uczestnicy: Jakub, Ada\n", doc)
+        self.assertIn("id: 2026-08-04_12-34_og-lny_bbbbbb\n", doc)
+
+    def test_body_contains_speaker_markers(self):
+        doc = render_document(
+            "**Jakub:** cześć wszystkim",
+            started=datetime(2026, 8, 4, 12, 34),
+            channel_name="daily", rec_id="bbbbbb",
+        )
+        self.assertIn("**Jakub:** cześć wszystkim", doc)
+
+
+class SaveTranscriptWritesRenderDocumentTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self._orig = transcripts.TRANSCRIPTS_DIR
+        transcripts.TRANSCRIPTS_DIR = self._tmp.name
+
+    def tearDown(self):
+        transcripts.TRANSCRIPTS_DIR = self._orig
+        self._tmp.cleanup()
+
+    def test_saved_file_matches_render_document_output(self):
+        kwargs = dict(started=datetime(2026, 8, 4, 12, 34),
+                      channel_name="daily", rec_id="bbbbbb")
+        text = "**Jakub:** cześć\n\n**Ada:** hej"
+        path = transcripts.save_transcript(text, **kwargs)
+        self.assertIsNotNone(path)
+        with open(path, "r", encoding="utf-8") as f:
+            on_disk = f.read()
+        self.assertEqual(on_disk, render_document(text, **kwargs))
 
 
 class FindOrphansTest(unittest.TestCase):

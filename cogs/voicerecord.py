@@ -404,7 +404,15 @@ class VoiceRecord(commands.Cog):
                 )
                 msg += f": {info.get('webViewLink')}"
                 if transcript:
-                    await self._upload_transcript(mp3_path, transcript)
+                    doc = (
+                        transcripts.render_document(
+                            transcript, started=started,
+                            channel_name=channel_slug, rec_id=rec_id,
+                        )
+                        if started is not None and rec_id is not None
+                        else transcript
+                    )
+                    await self._upload_transcript(mp3_path, doc)
                 remote_md5 = info.get("md5Checksum")
                 local_md5 = await asyncio.to_thread(gdrive.local_md5, mp3_path)
                 if remote_md5 and remote_md5 == local_md5:
@@ -527,7 +535,15 @@ class VoiceRecord(commands.Cog):
                         msg = f"🎙️ Nagranie z **#{channel_name}**{suffix} gotowe: {link}"
                         # Store the transcript next to the audio (best-effort).
                         if transcript:
-                            await self._upload_transcript(mp3_path, transcript)
+                            doc = (
+                                transcripts.render_document(
+                                    transcript, started=started,
+                                    channel_name=channel_name, rec_id=rec_id,
+                                )
+                                if started is not None and rec_id is not None
+                                else transcript
+                            )
+                            await self._upload_transcript(mp3_path, doc)
                         # Only delete the single local copy once the Drive copy is
                         # verified byte-for-byte (local MD5 == Drive's md5Checksum).
                         # On any mismatch/missing hash, keep the local file so a
@@ -622,20 +638,20 @@ class VoiceRecord(commands.Cog):
             except OSError:
                 pass
 
-    async def _upload_transcript(self, mp3_path: str, transcript: str):
-        """Write the transcript to a .txt next to the audio and upload it to Drive."""
-        txt_path = (mp3_path[:-4] if mp3_path.endswith(".mp3") else mp3_path) + ".txt"
+    async def _upload_transcript(self, mp3_path: str, document: str):
+        """Write the transcript markdown next to the audio and upload it to Drive."""
+        md_path = (mp3_path[:-4] if mp3_path.endswith(".mp3") else mp3_path) + "-transcript.md"
         try:
-            with open(txt_path, "w", encoding="utf-8") as f:
-                f.write(transcript)
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write(document)
             await asyncio.to_thread(
-                gdrive.upload_file, txt_path, os.path.basename(txt_path), "text/plain"
+                gdrive.upload_file, md_path, os.path.basename(md_path), "text/markdown"
             )
         except Exception as e:
             logger.warning("Transcript upload failed: %s", e)
         finally:
             try:
-                os.remove(txt_path)
+                os.remove(md_path)
             except OSError:
                 pass
 

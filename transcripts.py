@@ -50,30 +50,47 @@ def extract_speakers(body: str) -> list[str]:
     return seen
 
 
+def _stem(started: datetime, channel_name: str, rec_id: str) -> str:
+    return f"{started.strftime('%Y-%m-%d_%H-%M')}_{_slug(channel_name)}_{rec_id}"
+
+
+def render_document(text: str, *, started: datetime, channel_name: str, rec_id: str) -> str:
+    """Full transcript document (frontmatter + diarized body) as written to disk.
+
+    Returns "" for empty/whitespace text. Pure — shared by save_transcript and
+    the Drive upload so both copies are byte-identical.
+    """
+    if not text or not text.strip():
+        return ""
+    stem = _stem(started, channel_name, rec_id)
+    speakers = extract_speakers(text)
+    header = (
+        "---\n"
+        f"data: {started.strftime('%Y-%m-%d %H:%M')}\n"
+        f"kanal: {(channel_name or '?').strip()}\n"
+        f"uczestnicy: {', '.join(speakers) if speakers else '(nieznani)'}\n"
+        f"id: {stem}\n"
+        "---\n\n"
+    )
+    return header + text.strip() + "\n"
+
+
 def save_transcript(text: str, *, started: datetime, channel_name: str, rec_id: str) -> Optional[str]:
     """Persist a transcript to transcripts/ with metadata. Returns the path (or None).
 
     Best-effort: never raises into the recording pipeline — a failed save just means
     Momentum can't recall this particular meeting later.
     """
-    if not text or not text.strip():
+    doc = render_document(text, started=started, channel_name=channel_name, rec_id=rec_id)
+    if not doc:
         return None
     try:
         os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
-        stem = f"{started.strftime('%Y-%m-%d_%H-%M')}_{_slug(channel_name)}_{rec_id}"
+        stem = _stem(started, channel_name, rec_id)
         path = os.path.join(TRANSCRIPTS_DIR, stem + ".md")
-        speakers = extract_speakers(text)
-        header = (
-            "---\n"
-            f"data: {started.strftime('%Y-%m-%d %H:%M')}\n"
-            f"kanal: {(channel_name or '?').strip()}\n"
-            f"uczestnicy: {', '.join(speakers) if speakers else '(nieznani)'}\n"
-            f"id: {stem}\n"
-            "---\n\n"
-        )
         with open(path, "w", encoding="utf-8") as f:
-            f.write(header + text.strip() + "\n")
-        logger.info("Transcript saved: %s (%d speakers)", path, len(speakers))
+            f.write(doc)
+        logger.info("Transcript saved: %s (%d speakers)", path, len(extract_speakers(text)))
         return path
     except Exception as e:
         logger.error("Failed to save transcript for %s: %s", rec_id, e)

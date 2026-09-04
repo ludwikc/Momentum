@@ -269,6 +269,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 27 | `shop` | Colour-role shop (DB-driven items, single-slot swap without refund, atomic debit + refund on role failure) | `/sklep`; `/sklep-admin dodaj|usun|lista` (manage_guild) |
 | 28 | `admin_task` | Owner-only tryb wykonawczy: agent (czytaj_link/czytaj_kanal/wyslij) czyta wskazane treści i szykuje szkice wiadomości głosem Momentum; okno bieżącego kanału doklejane zawsze (cichy summon "odpowiedz tutaj"); publikacja tylko po [Wyślij] w ephemeralnym podglądzie | `/admin-task <zadanie>` (owner) |
 | 29 | `weekly_digest` | Piątek 14:00: DM do ownera z gotowym wzorem ogłoszenia-podsumowania tygodnia Daily Coaching (głos Ludwika wg rewriter-discord, tag @LIFEHACKERZY, transkrypty z 7 dni przez gpt) | `/podsumowanie-tygodnia` (owner); tasks.loop 1m |
+| 30 | `admin_lookup` | `/admin transkrypt` — link do transkryptu (`-transcript.md`) + audio na Google Drive dla spotkania z danej daty (`RRRR-MM-DD`/`DD.MM.RRRR`/`dzisiaj`/`wczoraj`), grupowane po `(started, slug, rec_id)`; ephemeral, Discord Administrator | `/admin transkrypt <data>` (admin) |
 
 ---
 
@@ -291,7 +292,8 @@ updates. `RECORDING_MAX_MINUTES` is a hard safety stop. On startup the cog also 
 **On stop** (`_finish_and_publish`):
 1. Teardown, transcode WAV → MP3 (ffmpeg libmp3lame `-qscale:a 4`), delete WAV.
 2. If `transcribe.is_configured()`: transcribe (Whisper) + summarize (gpt-4o-mini), off-thread.
-3. If `gdrive.is_configured()`: upload the MP3, plus the transcript as a `.txt` alongside it;
+3. If `gdrive.is_configured()`: upload the MP3, plus the full transcript markdown (frontmatter +
+   diarized body, `transcripts.render_document`) as `<audio-stem>-transcript.md` alongside it;
    delete local copies. Otherwise keep the MP3 locally.
 4. Post the Drive link (or local path) to the **notify channel** (`RECORDING_NOTIFY_CHANNEL_ID`,
    mod-only) — this always happens.
@@ -314,7 +316,7 @@ publishing or the bot.
 `/przypomnij tekst: [za:|o:] [co:]`, `/przypomnienia [usun:]`,
 `/pomodoro <start|stop|status>`, `/statystyki [user]`, `/profil [user]`, `/rangi`, `/sklep`,
 `/sklep-admin <dodaj|usun|lista>` (manage_guild), `/admin-task <zadanie>` (owner),
-`/podsumowanie-tygodnia` (owner).
+`/podsumowanie-tygodnia` (owner), `/admin transkrypt <data>` (admin).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
 **Listeners:** `on_message` (gmlistener, photo_reply, przywolanie), `on_member_join`/`on_member_remove`
@@ -365,6 +367,20 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-08**
+- **Transkrypty jako markdown na Drive + `/admin transkrypt`** (spec:
+  `docs/superpowers/specs/2026-08-18-drive-transcript-md-admin-lookup.md`): nagrania
+  wysyłały na Drive gołego `.txt` obok MP3, mimo że lokalnie (`transcripts/*.md`) transkrypt
+  ma pełny frontmatter (data/kanał/uczestnicy) — Drive i dysk się rozjeżdżały. Wspólny
+  czysty renderer `transcripts.render_document` (używany przez `save_transcript` i przez
+  `voicerecord._upload_transcript`, oba call-site'y: pipeline + recovery sierot) trzyma obie
+  kopie bajt w bajt identyczne; Drive-owy plik to teraz `<audio-stem>-transcript.md`
+  (`text/markdown`) zamiast `.txt`. Nowy `gdrive.find_files(name_contains)` +
+  `parsers.parse_date_arg` zasilają nowy owner/admin-only cog `admin_lookup`
+  (`/admin transkrypt data:<RRRR-MM-DD|DD.MM.RRRR|dzisiaj|wczoraj>`) — ephemeral link do
+  transkryptu i audio danego spotkania, bez ręcznego grzebania w Drive. Jednorazowy
+  `scripts/backfill_drive_transcripts.py --dry-run` domyka historię: wgrywa lokalne `.md`
+  sprzed tej zmiany na Drive pod nową nazwą (join po `rec_id`, idempotentny, pomija
+  spotkania bez audio na Drive).
 - **Wizja w przywołaniach (admin-only)** — model nigdy nie widział załączników
   (okno budowane z samego `clean_content`), więc "zrób OCR z obrazka" kończyło
   się "nie widzę obrazka". Teraz obrazki (`image/*`, max 4) z wiadomości

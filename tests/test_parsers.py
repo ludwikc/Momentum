@@ -1,7 +1,8 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from parsers import (
+    parse_date_arg,
     parse_db_timestamp,
     parse_duration_pl,
     parse_index_ranges,
@@ -252,6 +253,31 @@ class TestParseRecordingFilename(unittest.TestCase):
             None,
         ):
             self.assertIsNone(parse_recording_filename(name), name)
+
+
+class TestParseDateArg(unittest.TestCase):
+    TODAY = date(2026, 8, 18)
+
+    def test_iso_format(self):
+        self.assertEqual(parse_date_arg("2026-08-04", today=self.TODAY), date(2026, 8, 4))
+
+    def test_dd_mm_rrrr_format(self):
+        self.assertEqual(parse_date_arg("04.08.2026", today=self.TODAY), date(2026, 8, 4))
+
+    def test_dzisiaj(self):
+        self.assertEqual(parse_date_arg("dzisiaj", today=self.TODAY), self.TODAY)
+
+    def test_wczoraj(self):
+        self.assertEqual(parse_date_arg("wczoraj", today=self.TODAY), date(2026, 8, 17))
+
+    def test_whitespace_and_case_insensitive(self):
+        self.assertEqual(parse_date_arg("  DZISIAJ  ", today=self.TODAY), self.TODAY)
+        self.assertEqual(parse_date_arg(" Wczoraj ", today=self.TODAY), date(2026, 8, 17))
+        self.assertEqual(parse_date_arg("  2026-08-04  ", today=self.TODAY), date(2026, 8, 4))
+
+    def test_garbage_returns_none(self):
+        for raw in ("", "nie-data", "2026/08/04", "32.13.2026", None):
+            self.assertIsNone(parse_date_arg(raw, today=self.TODAY), raw)
 
 
 if __name__ == "__main__":

@@ -69,6 +69,25 @@ def upload_file(local_path: str, name: str | None = None,
     return file
 
 
+def find_files(name_contains: str, *, page_size: int = 50) -> list[dict]:
+    """Files in Drive whose name contains the substring (only files this SA created).
+
+    Blocking — call via asyncio.to_thread. Returns [{"id", "name", "webViewLink",
+    "mimeType"}, ...] sorted by name. Escapes ' and \\ for the Drive query.
+    """
+    escaped = name_contains.replace("\\", "\\\\").replace("'", "\\'")
+    service = _get_service()
+    result = service.files().list(
+        q=f"name contains '{escaped}' and trashed = false",
+        fields="files(id, name, webViewLink, mimeType)",
+        pageSize=page_size,
+        orderBy="name",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    return result.get("files", [])
+
+
 def local_md5(path: str) -> str:
     """MD5 hex digest of a local file, matching Drive's md5Checksum field.
 

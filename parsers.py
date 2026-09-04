@@ -4,7 +4,7 @@ No discord/pytz imports on purpose: everything here is unit-tested with the
 system Python (tests/test_parsers.py). Timezone handling stays in the cogs.
 """
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 # One duration token: an amount + a unit. Longer unit words must precede their
@@ -170,6 +170,23 @@ def parse_message_link(text: str) -> tuple[int, int, int] | None:
 _RECORDING_FILENAME_RE = re.compile(
     r"^Lifehackerzy_(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})_(.+)_([0-9a-f]{6})\.(wav|mp3)$"
 )
+
+
+def parse_date_arg(raw: str, *, today: date) -> Optional[date]:
+    """User-supplied date: 'RRRR-MM-DD', 'DD.MM.RRRR', 'dzisiaj', 'wczoraj'."""
+    text = (raw or "").strip().lower()
+    if not text:
+        return None
+    if text == "dzisiaj":
+        return today
+    if text == "wczoraj":
+        return today - timedelta(days=1)
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def parse_recording_filename(name: str) -> Optional[tuple[datetime, str, str]]:

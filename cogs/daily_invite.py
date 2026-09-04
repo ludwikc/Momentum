@@ -9,6 +9,7 @@ from config import (
     DAILY_INVITE_CHANNEL_ID,
     DAILY_INVITE_VOICE_CHANNEL_ID,
     DAILY_INVITE_TIME,
+    MOMENTUM_OWNER_ID,
 )
 
 logger = logging.getLogger("momentum_bot.daily_invite")
@@ -44,12 +45,17 @@ class DailyInviteCog(commands.Cog):
             logger.error("Daily invite channel %s not found", DAILY_INVITE_CHANNEL_ID)
             return
 
+        target_time = now.replace(hour=12, minute=34, second=0, microsecond=0)
+        rel_time = f"<t:{int(target_time.timestamp())}:R>"
         message = (
-            f"@here, właśnie zaczynamy <#{DAILY_INVITE_VOICE_CHANNEL_ID}> - "
-            f"zapraszam, jeśli jest coś, co mogę dla Was zrobić :)"
+            f"@here <#{DAILY_INVITE_VOICE_CHANNEL_ID}> już {rel_time}. "
+            f"Zapraszam jeśli ja lub <@{MOMENTUM_OWNER_ID}> możemy coś dla Ciebie zrobić 🙂"
         )
         try:
-            await channel.send(message, allowed_mentions=discord.AllowedMentions(everyone=True))
+            await channel.send(
+                message,
+                allowed_mentions=discord.AllowedMentions(everyone=True, users=True),
+            )
             logger.info("Sent daily invite at %s", now.strftime("%H:%M"))
         except Exception as e:
             logger.error("Failed to send daily invite: %s", e)

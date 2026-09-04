@@ -38,7 +38,7 @@ START_SOUND_CHANNEL_IDS = [1120658406160732160]
 # Daily invite announcement (cogs.daily_invite)
 DAILY_INVITE_CHANNEL_ID = 1128649406640558110        # where the @here invite is posted
 DAILY_INVITE_VOICE_CHANNEL_ID = 1120658406160732160  # voice channel linked in the message
-DAILY_INVITE_TIME = "12:34"                           # Warsaw time (HH:MM)
+DAILY_INVITE_TIME = "12:32"                           # Warsaw time (HH:MM)
 
 # After recording one of these voice channels stops, post a thank-you listing
 # everyone who participated to RECORDING_THANKYOU_CHANNEL_ID.

@@ -5,7 +5,32 @@
       "Bash(ffmpeg -y -i \"recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav\" -codec:a libmp3lame -qscale:a 4 /tmp/claude-0/-root-Momentum/bd990636-a3bd-4e22-9fa7-5942bf6e9fc9/scratchpad/test.mp3)",
       "Bash(xxd recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav)",
       "Bash(xxd -s 1500000000 -l 64 \"recordings/Lifehackerzy_2026-06-23-12-33-50_1234-daily-coaching_781d05.wav\")",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(python *)",
+      "Bash(venv/bin/python -m py_compile transcripts.py gdrive.py parsers.py cogs/voicerecord.py cogs/admin_lookup.py main.py)",
+      "Bash(venv/bin/python -m py_compile transcripts.py gdrive.py parsers.py cogs/voicerecord.py cogs/admin_lookup.py main.py scripts/backfill_drive_transcripts.py)",
+      "Bash(python3 -m unittest discover tests)",
+      "Bash(ssh mikrus *)",
+      "Bash(systemctl is-active *)",
+      "Bash(venv/bin/python -m py_compile cogs/przywolanie.py summon.py tests/test_summon_vision.py)",
+      "Bash(venv/bin/python -m unittest discover tests)",
+      "Bash(venv/bin/python -m py_compile cogs/admin_task.py)",
+      "Bash(git -C /home/ludwikc/Momentum diff --stat summon.py cogs/przywolanie.py)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat\\(przywolanie\\): wizja — obrazki z przywołania idą do modelu \\(admin-only\\) *)",
+      "Bash(git push *)",
+      "Bash(sudo systemctl restart momentum-bot)",
+      "Bash(journalctl -u momentum-bot --since \"30 seconds ago\" --no-pager)",
+      "Bash(git commit -m 'docs: CLAUDE.md — wizja w przywołaniach \\(admin-only\\) *)",
+      "Bash(venv/bin/python -m py_compile cogs/daily_invite.py config.py)",
+      "Bash(git -C /home/ludwikc/Momentum remote -v)",
+      "Bash(git -C /home/ludwikc/Momentum log --oneline -5)",
+      "Bash(git commit *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(venv/bin/python -m py_compile cogs/daily_invite.py config.py cogs/queue_cog.py db.py)",
+      "Bash(journalctl -u momentum-bot --since \"1 minute ago\" --no-pager)",
+      "Bash(rm .claude/settings.local.json.tmp.805946.aa170cc8202d)"
     ]
   }
 }

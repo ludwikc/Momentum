@@ -44,7 +44,7 @@ global) then clears the global set so commands don't show up twice.
 main.py (core)
   ├─ load_dotenv() + logging → bot.log + stderr (logger "momentum_bot")
   ├─ intents: message_content, members, voice_states, guilds
-  ├─ load EXTENSIONS (30 cogs)
+  ├─ load EXTENSIONS (31 cogs)
   ├─ on_ready: per-guild command sync, then clear global
   └─ graceful shutdown on SIGINT/SIGTERM (posts offline notice)
 
@@ -106,7 +106,7 @@ Doc-only changes need no restart. (The old `run_bot.sh` / `bot.pid` / `nohup` fl
 ├── data/now_recording.mp3   # "now recording" intro sound
 ├── recordings/              # transient WAV/MP3 during a recording (gitignored)
 ├── run_bot.sh               # launcher (foreground / --daemon)
-└── cogs/                    # 30 feature extensions (see below)
+└── cogs/                    # 31 feature extensions (see below)
 ```
 
 Stray/unused (see [Known issues](#known-issues--cleanup)): `Momentum/` (nested stale copy),
@@ -152,6 +152,7 @@ All in `config.py`:
 | `VOICE_RANKS` / `RANKS_ANNOUNCE_CHANNEL_ID` | `[]` / progress channel | Rank ladder `(hours, role_id, reward)`; empty ⇒ ranks dormant |
 | `WEEKLY_DIGEST_ENABLED` / `_WEEKDAY` / `_TIME` | `True` / `4` / `"14:00"` | Piątkowy digest DM (Warsaw) |
 | `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `6` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
+| `EMBED_FIX_ENABLED` / `_HOSTS` / `_IGNORED_CHANNEL_IDS` | `True` / IG+TikTok+X → kk/vx/fx / `[]` | Naprawa podglądów social; klucz = host bez `www.`, **hosty docelowe nigdy nie mogą być kluczami** (pętla) |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`
@@ -270,6 +271,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 28 | `admin_task` | Owner-only tryb wykonawczy: agent (czytaj_link/czytaj_kanal/wyslij) czyta wskazane treści i szykuje szkice wiadomości głosem Momentum; okno bieżącego kanału doklejane zawsze (cichy summon "odpowiedz tutaj"); publikacja tylko po [Wyślij] w ephemeralnym podglądzie | `/admin-task <zadanie>` (owner) |
 | 29 | `weekly_digest` | Piątek 14:00: DM do ownera z gotowym wzorem ogłoszenia-podsumowania tygodnia Daily Coaching (głos Ludwika wg rewriter-discord, tag @LIFEHACKERZY, transkrypty z 7 dni przez gpt) | `/podsumowanie-tygodnia` (owner); tasks.loop 1m |
 | 30 | `admin_lookup` | `/admin transkrypt` — link do transkryptu (`-transcript.md`) + audio na Google Drive dla spotkania z danej daty (`RRRR-MM-DD`/`DD.MM.RRRR`/`dzisiaj`/`wczoraj`), grupowane po `(started, slug, rec_id)`; ephemeral, Discord Administrator | `/admin transkrypt <data>` (admin) |
+| 31 | `embed_fix` | Wiadomość będąca **wyłącznie** linkiem do IG/TikToka/X → odpowiedź tym samym adresem na domenie-proxy (podgląd działa) + wygaszenie embedu oryginału. Discord nie pozwala edytować treści cudzej wiadomości — `suppress` to jedyny dozwolony wyjątek i wymaga `manage_messages`; bez niego tryb zdegradowany (sama odpowiedź) | `on_message` (cały serwer) |
 
 ---
 
@@ -319,7 +321,7 @@ publishing or the bot.
 `/podsumowanie-tygodnia` (owner), `/admin transkrypt <data>` (admin).
 **Prefix:** `!hello`; legacy `!trening`/`!medytacja`/`!sukces`/`!dziennik`/`!done` (redirect to `/done`).
 
-**Listeners:** `on_message` (gmlistener, photo_reply, przywolanie), `on_member_join`/`on_member_remove`
+**Listeners:** `on_message` (gmlistener, photo_reply, przywolanie, queue_cog, embed_fix), `on_member_join`/`on_member_remove`
 (auto_assign_role), `on_voice_state_update` (queue_cog, meditation_voice, session_tracker,
 voicerecord, voice_tracker, pomodoro), custom `momentum_voice_flushed` (ranks ← voice_tracker).
 
@@ -365,6 +367,30 @@ Loose, not commitments (mirrors README):
 ---
 
 ## Changelog
+
+**2026-09**
+- **Naprawa podglądów social mediów** (`cogs/embed_fix.py`): linki do Instagrama
+  (i TikToka, i X-a) renderowały się na Discordzie jako martwa zajawka — żeby
+  zobaczyć rolkę, trzeba było wyjść do aplikacji. Teraz wiadomość będąca
+  **wyłącznie** gołym linkiem dostaje odpowiedź z tym samym adresem na domenie-proxy
+  (`kkinstagram.com` / `vxtiktok.com` / `fxtwitter.com`), a embed oryginału jest
+  wygaszany. Pierwotny pomysł („bot edytuje tę wiadomość") jest **niewykonalny** —
+  Discord nie pozwala botom zmieniać `content` cudzej wiadomości; jedyny wyjątek to
+  flaga `SUPPRESS_EMBEDS` (payload przy `message.edit(suppress=True)` to wyłącznie
+  `{"tts", "flags"}`), co wymaga `manage_messages` — **pierwszego takiego uprawnienia
+  w historii repo**. Bez niego cog schodzi do trybu zdegradowanego (sama odpowiedź),
+  logując `warning` raz na kanał (`_suppress_denied`, bo uprawnienia są per-kanał).
+  Dwie decyzje projektowe niosą bezpieczeństwo: (1) mapowanie hostów to **słownik ze
+  ścisłym dopasowaniem**, nie alternatywa w regexie — każde proxy jest sufiksem
+  oryginału (`kkinstagram.com` kończy się na `instagram.com`), a `x.com` złapałby
+  `netflix.com`; skoro hosty docelowe nie są kluczami, brak pętli jest gwarancją
+  strukturalną, pilnowaną testem `isdisjoint`. (2) odpowiedź leci z
+  `AllowedMentions.none()`, bo ścieżka URL-a może zawierać dosłowne `@everyone`
+  (`https://x.com/status/@everyone`), `main.py` tworzy Bota bez `allowed_mentions`
+  (domyślne mają `everyone=True`), a bot ma realne `MENTION_EVERYONE` — inaczej każdy
+  pingnąłby serwer przez bota. Kolejność jest celowa: **najpierw odpowiedź, potem
+  wygaszenie** — nigdy nie kasujemy podglądu, zanim nie damy zamiennika. Czysty helper
+  `parsers.rewrite_bare_social_link` + `TestRewriteBareSocialLink`.
 
 **2026-08**
 - **Transkrypty jako markdown na Drive + `/admin transkrypt`** (spec:

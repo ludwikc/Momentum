@@ -1,6 +1,7 @@
 import unittest
 from datetime import date, datetime, timezone
 
+from config import EMBED_FIX_HOSTS
 from parsers import (
     parse_date_arg,
     parse_db_timestamp,
@@ -10,6 +11,7 @@ from parsers import (
     parse_profile_tags,
     parse_recording_filename,
     parse_wallclock_pl,
+    rewrite_bare_social_link,
 )
 
 
@@ -278,6 +280,100 @@ class TestParseDateArg(unittest.TestCase):
     def test_garbage_returns_none(self):
         for raw in ("", "nie-data", "2026/08/04", "32.13.2026", None):
             self.assertIsNone(parse_date_arg(raw, today=self.TODAY), raw)
+
+
+class TestRewriteBareSocialLink(unittest.TestCase):
+    """Guards the two ways this helper could misfire on a live server: rewriting
+    a host it must not touch (every proxy is a *suffix* of its source, and
+    "x.com" is a suffix of netflix.com), and rewriting its own reply forever."""
+
+    HOSTS = EMBED_FIX_HOSTS
+
+    def fix(self, text):
+        return rewrite_bare_social_link(text, hosts=self.HOSTS)
+
+    def test_instagram_reel_keeps_path_and_query(self):
+        self.assertEqual(
+            self.fix("https://www.instagram.com/reel/DXxO9DRRfMk/?stkn=c2R4cHVmb2hvZGx2"),
+            "https://kkinstagram.com/reel/DXxO9DRRfMk/?stkn=c2R4cHVmb2hvZGx2",
+        )
+
+    def test_host_case_insensitive_but_path_case_preserved(self):
+        # Instagram ids są wrażliwe na wielkość liter — ścieżki nie wolno ruszać.
+        self.assertEqual(
+            self.fix("HTTPS://Instagram.COM/reel/DXxO9DRRfMk/"),
+            "https://kkinstagram.com/reel/DXxO9DRRfMk/",
+        )
+
+    def test_tiktok_and_x_and_twitter(self):
+        self.assertEqual(
+            self.fix("https://www.tiktok.com/@u/video/7123?is_from_webapp=1"),
+            "https://vxtiktok.com/@u/video/7123?is_from_webapp=1",
+        )
+        self.assertEqual(
+            self.fix("http://x.com/nasa/status/123"),
+            "https://fxtwitter.com/nasa/status/123",
+        )
+        self.assertEqual(
+            self.fix("https://twitter.com/nasa/status/123"),
+            "https://fxtwitter.com/nasa/status/123",
+        )
+
+    def test_surrounding_whitespace_is_stripped(self):
+        self.assertEqual(
+            self.fix("  https://instagram.com/p/ABC/  "),
+            "https://kkinstagram.com/p/ABC/",
+        )
+
+    def test_suffix_collision_hosts_not_matched(self):
+        # Regresja na pułapkę "x.com": jako fragment wzorca złapałby te hosty.
+        for raw in (
+            "https://netflix.com/watch/81234",
+            "https://phoenix.com/kontakt",
+            "https://linux.com/news",
+            "https://instagram.com@evil.example/reel/ABC/",
+        ):
+            self.assertIsNone(self.fix(raw), raw)
+
+    def test_already_fixed_link_not_rewritten(self):
+        # Bez tego bot przepisywałby własną odpowiedź w kółko.
+        for raw in (
+            "https://kkinstagram.com/reel/ABC/",
+            "https://www.kkinstagram.com/reel/ABC/",
+            "https://vxtiktok.com/@u/video/7",
+            "https://fxtwitter.com/nasa/status/1",
+        ):
+            self.assertIsNone(self.fix(raw), raw)
+
+    def test_target_hosts_are_never_source_hosts(self):
+        # Strukturalna gwarancja braku pętli, sprawdzana na prawdziwym configu.
+        self.assertTrue(set(self.HOSTS.values()).isdisjoint(self.HOSTS))
+
+    def test_angle_brackets_and_spoiler_return_none(self):
+        # Autor świadomie wyłączył podgląd — nie wtrącamy się.
+        for raw in (
+            "<https://instagram.com/reel/ABC/>",
+            "||https://instagram.com/reel/ABC/||",
+            "`https://instagram.com/reel/ABC/`",
+            "[opis](https://instagram.com/reel/ABC/)",
+        ):
+            self.assertIsNone(self.fix(raw), raw)
+
+    def test_link_must_be_the_whole_message(self):
+        for raw in (
+            "zobacz https://instagram.com/reel/ABC/",
+            "https://instagram.com/reel/ABC/ mocne",
+            "https://instagram.com/p/A/ https://instagram.com/p/B/",
+        ):
+            self.assertIsNone(self.fix(raw), raw)
+
+    def test_domain_root_returns_none(self):
+        for raw in ("https://instagram.com", "https://instagram.com/", "https://x.com/"):
+            self.assertIsNone(self.fix(raw), raw)
+
+    def test_garbage_returns_none(self):
+        for raw in ("", "   ", None, "instagram.com/reel/ABC/", "nie link"):
+            self.assertIsNone(self.fix(raw), raw)
 
 
 if __name__ == "__main__":

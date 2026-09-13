@@ -224,3 +224,21 @@ WEEKLY_DIGEST_LOOKBACK_DAYS = 6  # inclusive <= filter: today-6 … today = a 7-
 WEEKLY_DIGEST_CHANNEL_KEY = "1234-daily-coaching"  # kanal substring filter
 WEEKLY_DIGEST_PER_MEETING_CHARS = 8000  # per-transcript cap fed to the model
 WEEKLY_DIGEST_MAX_TOKENS = 2000  # completion budget for the announcement
+
+# --- Naprawa podglądów social mediów (cogs/embed_fix.py) ---
+# Gdy CAŁA treść wiadomości to jeden goły link, bot odpowiada tym samym adresem
+# na domenie-proxy (renderuje prawdziwy podgląd) i gasi embed oryginału
+# (wymaga uprawnienia "Zarządzanie wiadomościami").
+#
+# UWAGA: NIGDY nie dodawaj tu hosta DOCELOWEGO jako klucza — bot przepisywałby
+# własną odpowiedź w kółko. Klucz = host małymi literami, bez "www.".
+# Subdomeny (m., vm., l., mobile.) dodawaj dopiero PO sprawdzeniu na żywo, że
+# proxy je obsługuje; nieznana subdomena po prostu nie jest naprawiana.
+EMBED_FIX_ENABLED = True
+EMBED_FIX_HOSTS = {
+    "instagram.com": "kkinstagram.com",
+    "tiktok.com": "vxtiktok.com",
+    "twitter.com": "fxtwitter.com",
+    "x.com": "fxtwitter.com",
+}
+EMBED_FIX_IGNORED_CHANNEL_IDS: list[int] = []

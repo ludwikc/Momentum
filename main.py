@@ -157,6 +157,7 @@ EXTENSIONS = [
     "cogs.admin_task",  # /admin-task — owner-only tryb wykonawczy (podgląd + [Wyślij])
     "cogs.weekly_digest",  # piątkowy DM z wzorem ogłoszenia-podsumowania Daily Coaching
     "cogs.admin_lookup",  # /admin transkrypt — link do transkryptu z danej daty (admin)
+    "cogs.embed_fix",  # goły link social → podgląd przez proxy + wygaszenie oryginału
 ]
 
 # Function to load extensions

@@ -189,6 +189,44 @@ def parse_date_arg(raw: str, *, today: date) -> Optional[date]:
     return None
 
 
+# Goły link do social mediów: CAŁA treść wiadomości musi być jednym adresem ze
+# schematem. Host wyciągamy osobno i sprawdzamy DOKŁADNYM trafieniem w słowniku,
+# nigdy alternatywą w regexie: każde proxy jest sufiksem oryginału
+# (kkinstagram.com kończy się na "instagram.com"), a "x.com" jako wzorzec
+# złapałby też netflix.com i phoenix.com.
+_BARE_URL_RE = re.compile(r"https?://([^/?#\s]+)((?:[/?#]\S*)?)", re.IGNORECASE)
+
+
+def rewrite_bare_social_link(text: str, *, hosts: dict[str, str]) -> str | None:
+    """Treść będąca JEDNYM gołym linkiem → ten sam adres na hoście z podglądem.
+
+    ``hosts`` mapuje host źródłowy (małymi literami, bez ``www.``) na docelowy.
+    Ścieżka i query lecą DOSŁOWNIE — identyfikatory Instagrama są wrażliwe na
+    wielkość liter.
+
+    Zwraca None, gdy treść to nie dokładnie jeden obsługiwany adres: tekst wokół
+    linku, dwa linki, ``<https://...>`` i ``||...||`` (autor świadomie wyłączył
+    podgląd), sam korzeń domeny oraz KAŻDY host spoza słownika — w tym hosty
+    docelowe, dzięki czemu raz przepisany link nie jest przepisywany ponownie.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    m = _BARE_URL_RE.fullmatch(stripped)
+    if not m:
+        return None
+    host = m.group(1).lower()
+    if host.startswith("www."):
+        host = host[4:]
+    target = hosts.get(host)
+    if not target:
+        return None
+    rest = m.group(2)
+    if not rest.startswith("/") or len(rest) < 2:
+        return None  # sam korzeń domeny — nie ma czego naprawiać
+    return f"https://{target}{rest}"
+
+
 def parse_recording_filename(name: str) -> Optional[tuple[datetime, str, str]]:
     """Split a recorder filename into (started, channel_slug, rec_id).
 

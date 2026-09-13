@@ -271,7 +271,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 28 | `admin_task` | Owner-only tryb wykonawczy: agent (czytaj_link/czytaj_kanal/wyslij) czyta wskazane treści i szykuje szkice wiadomości głosem Momentum; okno bieżącego kanału doklejane zawsze (cichy summon "odpowiedz tutaj"); publikacja tylko po [Wyślij] w ephemeralnym podglądzie | `/admin-task <zadanie>` (owner) |
 | 29 | `weekly_digest` | Piątek 14:00: DM do ownera z gotowym wzorem ogłoszenia-podsumowania tygodnia Daily Coaching (głos Ludwika wg rewriter-discord, tag @LIFEHACKERZY, transkrypty z 7 dni przez gpt) | `/podsumowanie-tygodnia` (owner); tasks.loop 1m |
 | 30 | `admin_lookup` | `/admin transkrypt` — link do transkryptu (`-transcript.md`) + audio na Google Drive dla spotkania z danej daty (`RRRR-MM-DD`/`DD.MM.RRRR`/`dzisiaj`/`wczoraj`), grupowane po `(started, slug, rec_id)`; ephemeral, Discord Administrator | `/admin transkrypt <data>` (admin) |
-| 31 | `embed_fix` | Wiadomość będąca **wyłącznie** linkiem do IG/TikToka/X → odpowiedź tym samym adresem na domenie-proxy (podgląd działa) + wygaszenie embedu oryginału. Discord nie pozwala edytować treści cudzej wiadomości — `suppress` to jedyny dozwolony wyjątek i wymaga `manage_messages`; bez niego tryb zdegradowany (sama odpowiedź) | `on_message` (cały serwer) |
+| 31 | `embed_fix` | Wiadomość będąca **wyłącznie** linkiem do IG/TikToka/X → odpowiedź tym samym adresem na domenie-proxy (podgląd działa) + wygaszenie embedu oryginału. Discord nie pozwala edytować treści cudzej wiadomości — `suppress` to jedyny dozwolony wyjątek i wymaga `manage_messages` (bot ma je przez `ADMINISTRATOR`); przy zawężonych uprawnieniach tryb zdegradowany (sama odpowiedź) | `on_message` (cały serwer) |
 
 ---
 
@@ -349,8 +349,14 @@ weekly_digest 1m.
   happened once (4–12.09.2026). The mod-only alert in step 4 of the recording pipeline now makes
   it loud, but the underlying fix is enabling auto-recharge on the OpenAI account.
   *(Resolved 13.09.2026: credits topped up, summaries work again.)*
-- **`manage_messages` not granted yet** — `cogs/embed_fix.py` needs it to suppress the original
-  embed. Until granted it runs degraded (reply only) and logs one warning per channel.
+- **The bot holds `ADMINISTRATOR`** on the server via its own `Momentum` role (id
+  `1468729045389938720`, position 5) — verified against the Discord API on 13.09.2026, not
+  inferrable from this repo. That is why `cogs/embed_fix.py` can suppress other users'
+  embeds without any code-side permission work, and why channel overwrites never apply to
+  the bot. It also means every LLM-driven cog (`admin_task`, `przywolanie`) runs with full
+  server powers — a wide blast radius worth narrowing to explicit permissions someday.
+  A separate `Droids` role (`991273206319157319`) grants `manage_messages`, but it is
+  redundant while ADMINISTRATOR is in place.
 - **Hardcoded channel IDs** inside several cogs (GM, meditation, deep-work, photo thread, invite
   map) rather than centralized in `config.py` — fine for a single server.
 - **Superseded SQL scripts** — `scripts/unified_progress_stats.sql` and
@@ -399,9 +405,11 @@ Loose, not commitments (mirrors README):
   wygaszany. Pierwotny pomysł („bot edytuje tę wiadomość") jest **niewykonalny** —
   Discord nie pozwala botom zmieniać `content` cudzej wiadomości; jedyny wyjątek to
   flaga `SUPPRESS_EMBEDS` (payload przy `message.edit(suppress=True)` to wyłącznie
-  `{"tts", "flags"}`), co wymaga `manage_messages` — **pierwszego takiego uprawnienia
-  w historii repo**. Bez niego cog schodzi do trybu zdegradowanego (sama odpowiedź),
-  logując `warning` raz na kanał (`_suppress_denied`, bo uprawnienia są per-kanał).
+  `{"tts", "flags"}`), co wymaga `manage_messages`. Bot ma je **już od dawna** przez
+  `ADMINISTRATOR` na własnej roli — czego nie da się wyczytać z repo i co zostało
+  potwierdzone dopiero odpytaniem Discord API (patrz Known issues). Tryb zdegradowany
+  (sama odpowiedź + jeden `warning` na kanał, `_suppress_denied`) zostaje jako
+  zabezpieczenie, gdyby uprawnienia kiedyś zawężono.
   Dwie decyzje projektowe niosą bezpieczeństwo: (1) mapowanie hostów to **słownik ze
   ścisłym dopasowaniem**, nie alternatywa w regexie — każde proxy jest sufiksem
   oryginału (`kkinstagram.com` kończy się na `instagram.com`), a `x.com` złapałby

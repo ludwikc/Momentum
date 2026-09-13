@@ -58,6 +58,21 @@ _POLL_SECONDS = 0.25
 _GAP_SECONDS = DIARIZATION_GAP_FRAMES * 0.02
 # How stale sink.last_human_frame may be and still count as "talking right now".
 _FRESH_SECONDS = 0.15
+# No barge-in at all during the opening moment of a reply — see _wait_or_yield.
+_BARGEIN_GRACE_SECONDS = 0.75
+
+
+def _stop_playing(vc) -> None:
+    """Stop the bot's playback WITHOUT stopping the recording.
+
+    NEVER call ``vc.stop()`` here. ``VoiceRecvClient`` overrides it to stop
+    playing *and* listening (voice_recv `voice_client.py:169`), so on 13.09.2026
+    the first real barge-in tore down the recording sink 2 ms after the bot
+    finished speaking: the call kept going, the bot stayed connected, and both the
+    recording and every further reply were silently dead. ``stop_playing()`` is
+    the one that only touches playback.
+    """
+    vc.stop_playing()
 
 
 class TeeSource(discord.AudioSource):
@@ -295,10 +310,16 @@ class VoiceLive(commands.Cog):
             return
         try:
             if vc.is_playing():
-                vc.stop()
+                _stop_playing(vc)
             source = TeeSource(discord.FFmpegPCMAudio(mp3), sink.write_bot_frame)
             vc.play(source)
             await self._wait_or_yield(vc, sink)
+            # Tripwire for the class of bug that cost a live recording on
+            # 13.09.2026 (see _stop_playing): if anything on the playback path
+            # ever kills the listener again, say so instead of going quietly deaf.
+            if not vc.is_listening():
+                logger.error("Recording STOPPED by the playback path — the sink is "
+                             "no longer listening after a live reply. This is a bug.")
         except Exception:
             logger.exception("Playing the live reply failed")
         finally:
@@ -315,16 +336,25 @@ class VoiceLive(commands.Cog):
         mid-sentence every time. We require VOICE_LIVE_BARGEIN_SECONDS of
         continuous human audio before yielding the floor — then yield it
         immediately, because a person always outranks the bot.
+
+        The grace period exists because the asker is often still making noise
+        when the reply lands seconds after their question: on the first live test
+        the bot got cut off after one word ("Jestem") by the tail of the very
+        question it was answering. Nothing can barge in before the bot has had a
+        moment to start.
         """
         needed = max(1, int(VOICE_LIVE_BARGEIN_SECONDS / _POLL_SECONDS))
+        started = time.perf_counter()
         streak = 0
         while vc.is_playing():
             await asyncio.sleep(_POLL_SECONDS)
+            if time.perf_counter() - started < _BARGEIN_GRACE_SECONDS:
+                continue
             talking = (time.perf_counter() - sink.last_human_frame) < _FRESH_SECONDS
             streak = streak + 1 if talking else 0
             if streak >= needed:
                 logger.info("Barge-in — someone started talking, stopping playback")
-                vc.stop()
+                _stop_playing(vc)
                 return
 
 

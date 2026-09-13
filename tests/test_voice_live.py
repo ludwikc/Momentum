@@ -282,5 +282,98 @@ class TestSinkBotFrames(unittest.TestCase):
                     pass
 
 
+class _FakeVoiceClient:
+    """Mimics VoiceRecvClient's critical quirk: stop() also stops listening."""
+
+    def __init__(self, frames_to_play=100):
+        self._left = frames_to_play
+        self.listening = True
+        self.calls: list[str] = []
+
+    def is_playing(self) -> bool:
+        self._left -= 1
+        return self._left > 0
+
+    def is_listening(self) -> bool:
+        return self.listening
+
+    def stop(self):
+        self.calls.append("stop")
+        self.listening = False      # the trap — see voice_recv voice_client.py:169
+
+    def stop_playing(self):
+        self.calls.append("stop_playing")
+        self._left = 0
+
+
+class _FakeSink:
+    def __init__(self, talking: bool):
+        # perf_counter() far in the past = nobody talking; now = talking.
+        self.last_human_frame = time.perf_counter() if talking else 0.0
+
+    def refresh(self):
+        self.last_human_frame = time.perf_counter()
+
+
+@unittest.skipUnless(_HAS_VOICE_RECV, "needs discord (project venv)")
+class TestBargeInNeverStopsRecording(unittest.TestCase):
+    """Regression for 13.09.2026: barge-in called vc.stop(), which on a
+    VoiceRecvClient stops *receiving* too — it killed the live recording 2 ms
+    after the bot's first spoken reply, and the bot went deaf while staying in
+    the channel. Nothing on the playback path may ever call stop().
+    """
+
+    def setUp(self):
+        # Compress the real timings (0.25 s poll, 0.75 s grace, 1.0 s streak) so
+        # the suite doesn't sleep through them; the logic under test is unchanged.
+        from cogs import voice_live as cog_mod
+        self._mod = cog_mod
+        self._saved = (cog_mod._POLL_SECONDS, cog_mod._BARGEIN_GRACE_SECONDS,
+                       cog_mod.VOICE_LIVE_BARGEIN_SECONDS)
+        cog_mod._POLL_SECONDS = 0.01
+        cog_mod._BARGEIN_GRACE_SECONDS = 0.02
+        cog_mod.VOICE_LIVE_BARGEIN_SECONDS = 0.04
+
+    def tearDown(self):
+        (self._mod._POLL_SECONDS, self._mod._BARGEIN_GRACE_SECONDS,
+         self._mod.VOICE_LIVE_BARGEIN_SECONDS) = self._saved
+
+    def _run(self, talking: bool):
+        import asyncio as aio
+
+        from cogs.voice_live import VoiceLive
+
+        cog = VoiceLive.__new__(VoiceLive)          # no bot needed for this path
+        vc = _FakeVoiceClient()
+        sink = _FakeSink(talking)
+
+        async def drive():
+            if talking:
+                # Keep "someone is speaking" true for the whole playback.
+                async def keep_talking():
+                    while vc.is_listening() and vc._left > 0:
+                        sink.refresh()
+                        await aio.sleep(0.01)
+                task = aio.create_task(keep_talking())
+                await cog._wait_or_yield(vc, sink)
+                task.cancel()
+            else:
+                await cog._wait_or_yield(vc, sink)
+
+        aio.run(drive())
+        return vc
+
+    def test_barge_in_stops_playback_only(self):
+        vc = self._run(talking=True)
+        self.assertIn("stop_playing", vc.calls)
+        self.assertNotIn("stop", vc.calls)
+        self.assertTrue(vc.is_listening(), "barge-in must never stop the recording")
+
+    def test_quiet_playback_ends_without_stopping_anything(self):
+        vc = self._run(talking=False)
+        self.assertNotIn("stop", vc.calls)
+        self.assertTrue(vc.is_listening())
+
+
 if __name__ == "__main__":
     unittest.main()

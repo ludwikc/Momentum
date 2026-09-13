@@ -467,7 +467,20 @@ Loose, not commitments (mirrors README):
   tokeny kosztowały sekundy dwa razy: raz w modelu, raz w syntezie, przez co łańcuch
   przekraczał własny timeout. Z instrukcją: model 13,8 s → **6,0 s**, odpowiedź
   563 → ~300 znaków, całość STT 1,5 s + model 6,0 s + TTS 3,6 s ≈ **11 s**.
-  Nowe: `tts.py`, `voice_live.py`, `tests/test_voice_live.py` (31 testów).
+  **`vc.stop()` na `VoiceRecvClient` zabija NAGRYWANIE** — pierwszy test na żywo
+  (13.09.2026) kosztował nagranie: barge-in wołał `vc.stop()`, a voice_recv
+  nadpisuje tę metodę tak, że zatrzymuje odtwarzanie **i odbiór**
+  (`voice_client.py:169`). Sink zamknął się 2 ms po tym, jak bot skończył mówić:
+  rozmowa trwała dalej, bot siedział na kanale, a nagranie i wszystkie kolejne
+  odpowiedzi były martwe — bez jednego słowa gdziekolwiek. Na ścieżce odtwarzania
+  wolno wołać **wyłącznie `stop_playing()`** (helper `_stop_playing` z tym
+  wyjaśnieniem + test regresyjny `TestBargeInNeverStopsRecording`). Drugi
+  zabezpieczenie jest w `voicerecord._evaluate_auto`: „połączony, ale nie
+  słucha" to teraz wykryty stan, który **publikuje** to, co zdążyło się nagrać,
+  zamiast siedzieć z martwym sinkiem. Przy okazji barge-in dostał 0,75 s okresu
+  ochronnego i próg 1,0 s — bota ucinał ogon pytania, na które odpowiadał
+  (odpowiedź „Jestem" i cisza).
+  Nowe: `tts.py`, `voice_live.py`, `tests/test_voice_live.py` (33 testy).
   **Tier 2 (samodzielne wtrącanie) celowo poza zakresem** — kod to ~150 linii,
   ale dostrojenie „kiedy przerwać ludziom" to tygodnie na żywym Daily Coachingu.
 - **Porażka transkrypcji już nie jest cicha** — od 4 do 12.09 wyczerpane kredyty OpenAI

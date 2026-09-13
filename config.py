@@ -92,7 +92,9 @@ VOICE_LIVE_DAILY_LIMIT = 20        # wywołań na osobę na dobę (0 = bez limit
 # Jak długo człowiek musi mówić NIEPRZERWANIE w trakcie wypowiedzi bota, żeby go
 # uciszyć. Pojedyncza ramka nie wystarcza: na żywym spotkaniu ktoś prawie zawsze
 # rzuci "no właśnie" albo się zaśmieje, a bot milkłby po pół sekundy za każdym razem.
-VOICE_LIVE_BARGEIN_SECONDS = 0.6
+# Podniesione z 0,6 s po pierwszym teście na żywo (13.09.2026), w którym bot został
+# ucięty po jednym słowie przez ogon pytania, na które właśnie odpowiadał.
+VOICE_LIVE_BARGEIN_SECONDS = 1.0
 # Wypowiedź krótsza niż to ignorujemy (kaszlnięcie, "mhm") — nie ma czego słuchać.
 VOICE_LIVE_MIN_SECONDS = 0.8
 # Twardy sufit pojedynczej wypowiedzi; dalsze ramki są odrzucane (sufit pamięci).

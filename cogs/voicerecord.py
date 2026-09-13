@@ -131,6 +131,10 @@ class VoiceRecord(commands.Cog):
         self._suppressed: set[int] = set()
         # Serializes start/stop so rapid voice-state events can't double-trigger.
         self._lock = asyncio.Lock()
+        # True while the publish pipeline is running. Guards the "listener died"
+        # detector below from firing inside _teardown's own stop_listening() and
+        # publishing the same recording twice.
+        self._finishing = False
         # One orphan-recovery pass per process (on_ready re-fires on reconnects).
         self._recovery_ran = False
         self._recovery_task: asyncio.Task | None = None
@@ -458,6 +462,7 @@ class VoiceRecord(commands.Cog):
         # so the failure path below could no longer reach the Stop panel otherwise.
         panel = self._panel_msg
         channel, started = self.channel, self.start_time
+        self._finishing = True
         try:
             return await self._publish_pipeline(reason, suppress_auto=suppress_auto)
         except asyncio.CancelledError:
@@ -479,6 +484,8 @@ class VoiceRecord(commands.Cog):
                 except Exception:
                     pass
             return msg
+        finally:
+            self._finishing = False
 
     async def _publish_pipeline(self, reason: str | None = None, *, suppress_auto: bool = False) -> str:
         """Stop the recording, transcode, upload (or keep local), notify. Returns a status message."""
@@ -842,6 +849,23 @@ class VoiceRecord(commands.Cog):
                     self.channel.name if self.channel else "?",
                 )
                 await self._teardown()
+
+            # A voice client can stay *connected* while its listener dies — that
+            # is what VoiceRecvClient.stop() does (it stops playback AND
+            # receiving), and on 13.09.2026 a barge-in in cogs/voice_live.py did
+            # exactly that 2 ms after the bot finished speaking: the call went on,
+            # the bot sat in the channel, and the recording was over without one
+            # word anywhere. The recording cannot be resumed, but it can be
+            # published instead of silently lost.
+            if (not self._finishing and self.recording and self.vc is not None
+                    and self.vc.is_connected() and not self.vc.is_listening()):
+                logger.error(
+                    "Recording listener died while still connected to #%s — "
+                    "publishing what was captured",
+                    self.channel.name if self.channel else "?",
+                )
+                await self._finish_and_publish(reason="nagrywanie przerwane")
+                return
 
             # Stop: an auto recording whose channel dropped below the threshold.
             if self.recording and self.is_auto and self.channel is not None:

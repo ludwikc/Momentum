@@ -30,7 +30,20 @@
       "Bash(git pull *)",
       "Bash(venv/bin/python -m py_compile cogs/daily_invite.py config.py cogs/queue_cog.py db.py)",
       "Bash(journalctl -u momentum-bot --since \"1 minute ago\" --no-pager)",
-      "Bash(rm .claude/settings.local.json.tmp.805946.aa170cc8202d)"
+      "Bash(rm .claude/settings.local.json.tmp.805946.aa170cc8202d)",
+      "Read(//home/ludwikc/.ssh/**)",
+      "Read(//etc/**)",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 ula285 'echo OK')",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 root@ula285.mikrus.xyz 'echo OK')",
+      "Bash(ssh -o ConnectTimeout=5 root@ula285.mikrus.xyz 'echo OK')",
+      "Bash(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 root@ula285.mikrus.xyz 'echo OK; hostname; uptime')",
+      "Bash(ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o ConnectTimeout=8 root@ula285.mikrus.xyz 'echo OK')",
+      "Bash(ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o ConnectTimeout=8 ludwikc@ula285.mikrus.xyz 'echo OK')",
+      "Bash(sudo docker rm lobe-chat)",
+      "Bash(sudo docker builder prune -a -f)",
+      "Bash(sudo docker image prune -a -f)",
+      "Bash(sudo docker ps -a)",
+      "Bash(sudo docker images)"
     ]
   }
 }

@@ -152,7 +152,7 @@ All in `config.py`:
 | `VOICE_RANKS` / `RANKS_ANNOUNCE_CHANNEL_ID` | `[]` / progress channel | Rank ladder `(hours, role_id, reward)`; empty ⇒ ranks dormant |
 | `WEEKLY_DIGEST_ENABLED` / `_WEEKDAY` / `_TIME` | `True` / `4` / `"14:00"` | Piątkowy digest DM (Warsaw) |
 | `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `6` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
-| `EMBED_FIX_ENABLED` / `_HOSTS` / `_IGNORED_CHANNEL_IDS` | `True` / IG+TikTok+X → kk/vx/fx / `[]` | Naprawa podglądów social; klucz = host bez `www.`, **hosty docelowe nigdy nie mogą być kluczami** (pętla) |
+| `EMBED_FIX_ENABLED` / `_HOSTS` / `_IGNORED_CHANNEL_IDS` | `True` / IG+TikTok → kk/vx / `[]` | Naprawa podglądów social; klucz = host bez `www.`, **hosty docelowe nigdy nie mogą być kluczami** (pętla) |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`

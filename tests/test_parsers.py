@@ -287,7 +287,17 @@ class TestRewriteBareSocialLink(unittest.TestCase):
     a host it must not touch (every proxy is a *suffix* of its source, and
     "x.com" is a suffix of netflix.com), and rewriting its own reply forever."""
 
-    HOSTS = EMBED_FIX_HOSTS
+    # Własny słownik, nie ten z configu: testy sprawdzają FUNKCJĘ, nie bieżące
+    # ustawienia. Zostaje tu "x.com" (usunięty z produkcji, bo Discord dokładał
+    # dla niego drugi podgląd), bo to najgorszy przypadek dla dopasowania hosta —
+    # jest sufiksem netflix.com i phoenix.com. Gdyby ktoś kiedyś przywrócił go w
+    # configu, ta ochrona musi już działać.
+    HOSTS = {
+        "instagram.com": "kkinstagram.com",
+        "tiktok.com": "vxtiktok.com",
+        "twitter.com": "fxtwitter.com",
+        "x.com": "fxtwitter.com",
+    }
 
     def fix(self, text):
         return rewrite_bare_social_link(text, hosts=self.HOSTS)
@@ -346,8 +356,19 @@ class TestRewriteBareSocialLink(unittest.TestCase):
             self.assertIsNone(self.fix(raw), raw)
 
     def test_target_hosts_are_never_source_hosts(self):
-        # Strukturalna gwarancja braku pętli, sprawdzana na prawdziwym configu.
-        self.assertTrue(set(self.HOSTS.values()).isdisjoint(self.HOSTS))
+        # Strukturalna gwarancja braku pętli. Sprawdzana i na fixture, i na
+        # PRAWDZIWYM configu — to drugie łapie literówkę w EMBED_FIX_HOSTS,
+        # przez którą bot przepisywałby własną odpowiedź w kółko.
+        for hosts in (self.HOSTS, EMBED_FIX_HOSTS):
+            self.assertTrue(set(hosts.values()).isdisjoint(hosts), hosts)
+
+    def test_production_config_is_sane(self):
+        # Klucze muszą być małymi literami i bez "www." — parser normalizuje
+        # host do tej postaci przed lookupem, więc inny zapis nigdy nie trafi.
+        for src, dst in EMBED_FIX_HOSTS.items():
+            self.assertEqual(src, src.lower(), src)
+            self.assertFalse(src.startswith("www."), src)
+            self.assertTrue(dst and "/" not in dst, dst)
 
     def test_angle_brackets_and_spoiler_return_none(self):
         # Autor świadomie wyłączył podgląd — nie wtrącamy się.

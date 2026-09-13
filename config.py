@@ -234,11 +234,15 @@ WEEKLY_DIGEST_MAX_TOKENS = 2000  # completion budget for the announcement
 # własną odpowiedź w kółko. Klucz = host małymi literami, bez "www.".
 # Subdomeny (m., vm., l., mobile.) dodawaj dopiero PO sprawdzeniu na żywo, że
 # proxy je obsługuje; nieznana subdomena po prostu nie jest naprawiana.
+#
+# X/Twitter celowo POMINIĘTY: Discord renderuje dla nich własny podgląd, a skoro
+# nie gasimy już embedu oryginału, poprawka dawałaby dwa podglądy pod jedną
+# wiadomością. Instagram i TikTok tego problemu nie mają — tam natywny podgląd
+# i tak się nie pojawia. Gdybyś kiedyś dodał "x.com"/"twitter.com" z powrotem,
+# wróci też dublowanie.
 EMBED_FIX_ENABLED = True
 EMBED_FIX_HOSTS = {
     "instagram.com": "kkinstagram.com",
     "tiktok.com": "vxtiktok.com",
-    "twitter.com": "fxtwitter.com",
-    "x.com": "fxtwitter.com",
 }
 EMBED_FIX_IGNORED_CHANNEL_IDS: list[int] = []

@@ -11,7 +11,7 @@ reference for working on the running bot.
 
 - **Framework:** discord.py 2.7 (+ `discord-ext-voice-recv` for recording)
 - **Data store:** Supabase (PostgreSQL via RPC) — *migrated off MongoDB*
-- **External services:** Google Drive (recording storage), OpenAI (Whisper + gpt-4o-mini)
+- **External services:** Google Drive (recording storage), OpenAI (Whisper + gpt-4o-mini + TTS)
 - **Timezone:** everything time-based uses `Europe/Warsaw`
 - **Language:** Polish (user-facing); English (code/internal)
 
@@ -44,7 +44,7 @@ global) then clears the global set so commands don't show up twice.
 main.py (core)
   ├─ load_dotenv() + logging → bot.log + stderr (logger "momentum_bot")
   ├─ intents: message_content, members, voice_states, guilds
-  ├─ load EXTENSIONS (31 cogs)
+  ├─ load EXTENSIONS (32 cogs)
   ├─ on_ready: per-guild command sync, then clear global
   └─ graceful shutdown on SIGINT/SIGTERM (posts offline notice)
 
@@ -95,6 +95,9 @@ Doc-only changes need no restart. (The old `run_bot.sh` / `bot.pid` / `nohup` fl
 ├── gdrive.py                # Google Drive Shared-Drive upload helper
 ├── transcribe.py            # OpenAI Whisper transcription + gpt-4o-mini summary
 ├── dave_patch.py            # runtime DAVE (E2EE) decryption patch for voice_recv
+├── mixsink.py               # real-time mixing sink: RTP-positioned mix + diarization + live tap
+├── tts.py                   # OpenAI text-to-speech for live voice replies
+├── voice_live.py            # pure helpers for live voice: wake word, speech cleanup, PCM→WAV
 ├── activity_embed.py        # unified progress-card builder (activities + Daily Coaching + Deep Work + voice/tasks/coins) + Polish duration/plural helpers
 ├── parsers.py               # pure input parsers: durations ("3h", "1d 2h"), wall-clock ("16:00"), index ranges ("1,3-5") — unit-tested
 ├── pomodoro_math.py         # pure pomodoro stage arithmetic (last_started anchor) — unit-tested
@@ -106,7 +109,7 @@ Doc-only changes need no restart. (The old `run_bot.sh` / `bot.pid` / `nohup` fl
 ├── data/now_recording.mp3   # "now recording" intro sound
 ├── recordings/              # transient WAV/MP3 during a recording (gitignored)
 ├── run_bot.sh               # launcher (foreground / --daemon)
-└── cogs/                    # 31 feature extensions (see below)
+└── cogs/                    # 32 feature extensions (see below)
 ```
 
 Stray/unused (see [Known issues](#known-issues--cleanup)): `Momentum/` (nested stale copy),
@@ -153,6 +156,11 @@ All in `config.py`:
 | `WEEKLY_DIGEST_ENABLED` / `_WEEKDAY` / `_TIME` | `True` / `4` / `"14:00"` | Piątkowy digest DM (Warsaw) |
 | `WEEKLY_DIGEST_LOOKBACK_DAYS` / `_CHANNEL_KEY` / `_PER_MEETING_CHARS` / `_MAX_TOKENS` | `6` / `"1234-daily-coaching"` / `8000` / `2000` | Zakres i budżety digestu |
 | `EMBED_FIX_ENABLED` / `_HOSTS` / `_IGNORED_CHANNEL_IDS` | `True` / IG+TikTok → kk/vx / `[]` | Naprawa podglądów social; klucz = host bez `www.`, **hosty docelowe nigdy nie mogą być kluczami** (pętla) |
+| `VOICE_LIVE_ENABLED` / `_WAKE_WORDS` / `_WAKE_WINDOW_WORDS` | `True` / `("momentum",)` / `3` | Momentum mówi: słowo-klucz musi paść w pierwszych N słowach wypowiedzi (surowiej niż `summon.is_summon`) |
+| `VOICE_LIVE_ALLOW_EVERYONE` / `_CONTEXT_FROM_ALL` / `_DAILY_LIMIT` | `False` / `False` / `20` | Kto może wywołać głosem (domyślnie admin/owner, sprawdzane **przed** STT) · czy transkrybować też pozostałych dla kontekstu · limit na osobę/dobę |
+| `VOICE_LIVE_MIN_SECONDS` / `_MAX_SECONDS` / `_CONTEXT_UTTERANCES` | `0.8` / `30` / `12` | Próg „to nie kaszlnięcie" · sufit bufora wypowiedzi · ile wypowiedzi tworzy okno kontekstu |
+| `VOICE_LIVE_TIMEOUT_S` / `_MAX_REPLY_CHARS` / `_BARGEIN_SECONDS` | `25` / `600` / `0.6` | Cały łańcuch STT→model→TTS (po przekroczeniu odpowiedź porzucona) · cięcie odpowiedzi przed syntezą · ile **nieprzerwanej** mowy człowieka ucisza bota |
+| `VOICE_LIVE_TTS_MODEL` / `_TTS_VOICE` / `_TTS_SPEED` | `gpt-4o-mini-tts` / `onyx` / `1.0` | Synteza mowy (`tts.py`) |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
 `1021389566445375558` (gmlistener/gm), meditation voice `988452597549641758`
@@ -197,6 +205,24 @@ each transport-decrypted payload (`dave_session.decrypt(user_id, MediaType.audio
 Opus decoding. Discord now mandates DAVE/MLS E2EE on voice; without this every recording is silent
 ("corrupted stream"). Also makes decode failures non-fatal (emit a silence frame instead of killing
 the packet-router thread). `apply()` is idempotent and called at import of `voicerecord.py`.
+
+**`mixsink.py`** — `MixingWaveSink`, the recording sink. Sums every speaker onto one timeline
+positioned by **RTP timestamp** (not arrival time — jitter would crackle and drift), writes a
+single WAV from the router thread only, and emits a `<wav>.diarization.json` speaking timeline
+as a side-channel. Two more side-channels serve `voice_live`: `take_finished_utterances()` pops
+per-speaker PCM buffers once a speaker has been silent for the diarization gap, and
+`write_bot_frame()` mixes audio the bot itself plays back into the same timeline (reserved
+`ssrc = 0`, labelled "Momentum") so its replies reach Whisper and the summary.
+
+**`tts.py`** — `synthesize(text)` → temp mp3 via OpenAI TTS (`VOICE_LIVE_TTS_*`). Shaped like
+`transcribe.py`: same key, same `is_configured()`, blocking → `asyncio.to_thread`. They share one
+`OPENAI_API_KEY`, so an exhausted balance takes out STT, the model and speech together —
+classify with `transcribe.is_quota_error()`.
+
+**`voice_live.py`** — pure helpers (stdlib only): `has_wake_word()` (wake word must fall in the
+first N words — deliberately stricter than `summon.is_summon`, which matches anywhere; on voice a
+mid-sentence mention would make the bot talk over the room), `strip_for_speech()` (drops `<@id>`
+tokens, markdown, code blocks, URLs → "link"; trims on a sentence boundary), `pcm_to_wav()`.
 
 ---
 
@@ -272,6 +298,7 @@ Loaded in this order (`main.py` `EXTENSIONS`):
 | 29 | `weekly_digest` | Piątek 14:00: DM do ownera z gotowym wzorem ogłoszenia-podsumowania tygodnia Daily Coaching (głos Ludwika wg rewriter-discord, tag @LIFEHACKERZY, transkrypty z 7 dni przez gpt) | `/podsumowanie-tygodnia` (owner); tasks.loop 1m |
 | 30 | `admin_lookup` | `/admin transkrypt` — link do transkryptu (`-transcript.md`) + audio na Google Drive dla spotkania z danej daty (`RRRR-MM-DD`/`DD.MM.RRRR`/`dzisiaj`/`wczoraj`), grupowane po `(started, slug, rec_id)`; ephemeral, Discord Administrator | `/admin transkrypt <data>` (admin) |
 | 31 | `embed_fix` | Wiadomość będąca **wyłącznie** linkiem do IG/TikToka/X → odpowiedź tym samym adresem na domenie-proxy (podgląd działa) + wygaszenie embedu oryginału. Discord nie pozwala edytować treści cudzej wiadomości — `suppress` to jedyny dozwolony wyjątek i wymaga `manage_messages` (bot ma je przez `ADMINISTRATOR`); przy zawężonych uprawnieniach tryb zdegradowany (sama odpowiedź) | `on_message` (cały serwer) |
+| 32 | `voice_live` | **Momentum mówi**: w trakcie nagrania wypowiedź zaczynająca się od „Momentum" → STT (Whisper) → ten sam mózg co przywołania → TTS w kanale głosowym. Nie ma własnego połączenia — pożycza `vc` i `sink` z `voicerecord`. Głos bota wraca do miksu (`write_bot_frame`), więc jest w transkrypcie i podsumowaniu. Barge-in: człowiek mówiący ≥0,6 s ucisza bota. Domyślnie admin/owner, gating **przed** STT | `tasks.loop` 0.25s (poll sinka) |
 
 ---
 
@@ -286,10 +313,17 @@ drops below, it stops. One recording at a time, serialized by an `asyncio.Lock`;
 `auto_sweep` backstops missed voice-state events. `dave_patch.apply()` runs at import so E2EE audio
 decodes. Optional intro sound plays on `START_SOUND_CHANNEL_IDS`.
 
-**Capture** — `voice_recv.VoiceRecvClient` with a `SilenceGeneratorSink(WaveSink)` keeps the
-timeline intact during silence → WAV in `recordings/`, named
-`Lifehackerzy_<ts>_<channel-slug>_<rec_id>.wav`. Participants are accumulated from voice-state
+**Capture** — `voice_recv.VoiceRecvClient` with `mixsink.MixingWaveSink`, which sums every
+speaker onto one RTP-timestamped timeline (the library's `SilenceGeneratorSink(WaveSink)` combo
+would concatenate per-speaker frames and race two threads on the wave file — see `mixsink.py`)
+→ WAV in `recordings/`, named `Lifehackerzy_<ts>_<channel-slug>_<rec_id>.wav`, plus a
+`<wav>.diarization.json` speaking timeline. Participants are accumulated from voice-state
 updates. `RECORDING_MAX_MINUTES` is a hard safety stop. On startup the cog also recovers orphaned WAVs (recordings without a transcript, e.g. after a crash mid-recording) — transcode → transcribe → save → upload, best-effort.
+
+The sink is exposed as `VoiceRecord.sink` so `voice_live` can borrow it: it polls
+`take_finished_utterances()` for live speech and feeds the bot's own replies back through
+`write_bot_frame()`, so Momentum's voice is **in the mix** and flows through Whisper,
+diarization and the summary like any other speaker.
 
 **On stop** (`_finish_and_publish`):
 1. Teardown, transcode WAV → MP3 (ffmpeg libmp3lame `-qscale:a 4`), delete WAV.
@@ -330,7 +364,7 @@ recording and the thank-you kept publishing, so from the outside the pipeline lo
 (auto_assign_role), `on_voice_state_update` (queue_cog, meditation_voice, session_tracker,
 voicerecord, voice_tracker, pomodoro), custom `momentum_voice_flushed` (ranks ← voice_tracker).
 
-**Background tasks:** daily_invite 1m · dailyreminder 1m · auto_assign_role invite cache 1m ·
+**Background tasks:** voice_live utterance poll 0.25s · daily_invite 1m · dailyreminder 1m · auto_assign_role invite cache 1m ·
 meditation_voice straggler sweep 1m · voicerecord auto_sweep 60s · session_tracker deep-work flush 10m ·
 reminders due-poll 1m · voice_tracker flush 5m · pomodoro: one asyncio task per running timer ·
 weekly_digest 1m.
@@ -345,7 +379,8 @@ weekly_digest 1m.
   nowhere. Safe to delete.
 - **`validate_token()` in main.py** is imported but the call is commented out.
 - **OpenAI billing has no auto-recharge** — the balance hitting zero takes down transcription,
-  summaries, przywołania, greetings and the weekly digest at once (they share one key). It has
+  summaries, przywołania, greetings, the weekly digest and (since 09.2026) live voice replies
+  at once (they share one key). It has
   happened once (4–12.09.2026). The mod-only alert in step 4 of the recording pipeline now makes
   it loud, but the underlying fix is enabling auto-recharge on the OpenAI account.
   *(Resolved 13.09.2026: credits topped up, summaries work again.)*
@@ -393,6 +428,42 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-09**
+- **Momentum mówi — odpowiedzi głosowe na żywo** (`cogs/voice_live.py`; spec:
+  `docs/superpowers/specs/2026-09-13-voice-live-momentum-design.md`): w trakcie
+  nagrania wypowiedź zaczynająca się od „Momentum" idzie przez Whisper do tego
+  samego mózgu co przywołania (`przywolanie.generate_reply` — ta sama persona,
+  te same narzędzia) i wraca głosem do kanału. Świadomie **Tier 1**: bot nie
+  decyduje sam, kiedy się odezwać — decyduje człowiek, wołając go po imieniu.
+  Trzy rzeczy niosą ten feature:
+  **(1) VAD był już policzony.** Discord wysyła pakiety tylko wtedy, gdy ktoś
+  mówi, a `MixingWaveSink._track_speaker` od czasu diaryzacji sklejał ramki w
+  tury. Granica wypowiedzi na żywo to ta sama granica (`DIARIZATION_GAP_FRAMES`),
+  więc nie ma drugiego, rozjeżdżającego się podziału — i zero potrzeby na
+  `webrtcvad`. Bufory są **odpytywane z pętli cogu**, a nie wypychane callbackiem
+  z wątku routera: tura zamyka się dopiero przy NASTĘPNEJ ramce, więc po ostatnim
+  zdaniu przed ciszą callback nie padłby nigdy.
+  **(2) Głos bota wchodzi do miksu**, a nie jest doklejany do transkryptu po
+  fakcie. `write_bot_frame` + `TeeSource` na `vc.play()` wkładają wypowiedź
+  Momentum na tę samą oś czasu pod zarezerwowanym `ssrc = 0`, dzięki czemu
+  Whisper, diaryzacja, podsumowanie i (gdy powstaną) zakładki widzą zwykłego
+  mówcę i nie mają ANI JEDNEGO przypadku szczególnego. Bez tego archiwum
+  spotkania by kłamało: bot mówi, a w transkrypcie go nie ma. Klatki bota są z
+  konstrukcji ciągłe, więc write head kotwiczy raz i idzie o jeden tick na ramkę
+  — wyliczanie ticku z zegara per ramka zderzałoby dwie ramki w jeden kubełek.
+  **(3) Słowo-klucz musi paść w pierwszych 3 słowach** (`voice_live.has_wake_word`),
+  surowiej niż `summon.is_summon`, które łapie „momentum" gdziekolwiek. Na tekście
+  wzmianka w środku zdania jest nieszkodliwa; na głosie oznaczałaby, że bot wchodzi
+  ludziom w zdanie za każdym razem, gdy o nim wspomną. Reguła pozycyjna ma wbudowany
+  false positive („No i Momentum powiedział") — udokumentowany testem, nie obejściem.
+  Barge-in wymaga **0,6 s nieprzerwanej** mowy człowieka: pojedyncza ramka nie
+  wystarcza, bo na żywym spotkaniu ktoś co chwilę rzuci „no właśnie" i bot milkłby
+  w pół zdania. Gating (admin/owner) sprawdzany **przed** STT, więc cudze wypowiedzi
+  nie kosztują nic; `VOICE_LIVE_CONTEXT_FROM_ALL` kupuje kontekst całej rozmowy, gdy
+  odpowiedzi okażą się płytkie. Cały łańcuch jest time-boxowany
+  (`VOICE_LIVE_TIMEOUT_S`) — odezwanie się 40 s po pytaniu trafia już w inny temat.
+  Nowe: `tts.py`, `voice_live.py`, `tests/test_voice_live.py` (29 testów).
+  **Tier 2 (samodzielne wtrącanie) celowo poza zakresem** — kod to ~150 linii,
+  ale dostrojenie „kiedy przerwać ludziom" to tygodnie na żywym Daily Coachingu.
 - **Porażka transkrypcji już nie jest cicha** — od 4 do 12.09 wyczerpane kredyty OpenAI
   zabrały 9 dni transkryptów i podsumowań, a nikt nie zauważył, bo pipeline degradował się
   „ładnie": nagranie szło na Drive, podziękowanie dla uczestników się publikowało, a jedynym

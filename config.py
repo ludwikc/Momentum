@@ -67,6 +67,48 @@ DIARIZATION_ENABLED = True
 # frames: 25 = 0.5 s.
 DIARIZATION_GAP_FRAMES = 25
 
+# --- Momentum mówi: odpowiedzi głosowe na żywo (cogs/voice_live.py) ---
+# Działa wyłącznie w trakcie nagrania prowadzonego przez cogs/voicerecord.py —
+# pożycza jego połączenie głosowe i jego sink, nie zarządza własnym.
+VOICE_LIVE_ENABLED = True
+# Słowo-klucz musi paść w pierwszych N słowach wypowiedzi (konwencja "Hey Siri").
+# Luźniejsza reguła (jak summon.is_summon, które łapie "momentum" gdziekolwiek)
+# oznaczałaby, że bot odzywa się NA GŁOS przy każdej wzmiance o sobie w rozmowie —
+# na tekście to nie przeszkadza, na głosie wchodzi ludziom w zdanie.
+VOICE_LIVE_WAKE_WORDS = ("momentum",)
+VOICE_LIVE_WAKE_WINDOW_WORDS = 3
+# Kto może wywołać bota głosem. False → tylko administratorzy i owner (ten sam
+# gating co wizja w przywołaniach). Sprawdzany PRZED transkrypcją, więc cudze
+# wypowiedzi nie kosztują ani grosza w Whisperze.
+VOICE_LIVE_ALLOW_EVERYONE = False
+# Czy transkrybować TAKŻE wypowiedzi osób nieuprawnionych — wyłącznie po to, by
+# bot miał kontekst rozmowy ("Momentum, co sądzisz o tym, co mówi Jakub?").
+# Wywołać go nadal mogą tylko uprawnieni. False = taniej (Whisper tylko dla
+# uprawnionych), ale bot nie słyszy, co mówili inni. Przy 45-minutowym spotkaniu
+# True kosztuje rzędu 0,25 zł dziennie — włącz, jeśli odpowiedzi bez kontekstu
+# okażą się płytkie.
+VOICE_LIVE_CONTEXT_FROM_ALL = False
+VOICE_LIVE_DAILY_LIMIT = 20        # wywołań na osobę na dobę (0 = bez limitu)
+# Jak długo człowiek musi mówić NIEPRZERWANIE w trakcie wypowiedzi bota, żeby go
+# uciszyć. Pojedyncza ramka nie wystarcza: na żywym spotkaniu ktoś prawie zawsze
+# rzuci "no właśnie" albo się zaśmieje, a bot milkłby po pół sekundy za każdym razem.
+VOICE_LIVE_BARGEIN_SECONDS = 0.6
+# Wypowiedź krótsza niż to ignorujemy (kaszlnięcie, "mhm") — nie ma czego słuchać.
+VOICE_LIVE_MIN_SECONDS = 0.8
+# Twardy sufit pojedynczej wypowiedzi; dalsze ramki są odrzucane (sufit pamięci).
+VOICE_LIVE_MAX_SECONDS = 30
+# Ile ostatnich wypowiedzi (wszystkich mówców) tworzy okno kontekstu dla modelu.
+VOICE_LIVE_CONTEXT_UTTERANCES = 12
+# Cały łańcuch STT → model → TTS. Po przekroczeniu odpowiedź jest PORZUCANA:
+# odezwanie się 40 s po pytaniu trafia już w inny temat i brzmi jak awaria.
+VOICE_LIVE_TIMEOUT_S = 25
+# Odpowiedź dłuższa niż to jest ucinana na granicy zdania przed syntezą (TTS jest
+# płatne od znaku, a i tak nikt nie słucha bota przez minutę).
+VOICE_LIVE_MAX_REPLY_CHARS = 600
+VOICE_LIVE_TTS_MODEL = "gpt-4o-mini-tts"
+VOICE_LIVE_TTS_VOICE = "onyx"
+VOICE_LIVE_TTS_SPEED = 1.0
+
 # Momentum conversational summoning (cogs.przywolanie). Replies in-thread only
 # when called by name ("Momentum") or @mention; uses the same OPENAI_API_KEY as
 # transcribe.py.

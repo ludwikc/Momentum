@@ -54,7 +54,12 @@ from typing import Optional
 
 from discord.ext import voice_recv
 
-from config import DIARIZATION_GAP_FRAMES
+from config import (
+    DIARIZATION_GAP_FRAMES,
+    MOMENTUM_BOT_ID,
+    VOICE_LIVE_MAX_SECONDS,
+    VOICE_LIVE_MIN_SECONDS,
+)
 
 logger = logging.getLogger("momentum_bot.mixsink")
 
@@ -78,6 +83,35 @@ _REORDER_FRAMES = 100
 # — which would write a flood of silence and bury all subsequent real audio. The
 # slack only has to absorb rounding at the per-speaker anchor. 50 frames = 1 s.
 _FUTURE_GUARD_FRAMES = 50
+# ssrc reserved for audio the bot itself plays into the call (see write_bot_frame).
+# Discord never assigns 0, so this can't collide with a real speaker.
+_BOT_SSRC = 0
+# Live-tap bounds, in bytes, derived from the config seconds.
+_MAX_LIVE_BYTES = int(VOICE_LIVE_MAX_SECONDS / _FRAME_SECONDS) * _FRAME_BYTES
+_MIN_LIVE_BYTES = int(VOICE_LIVE_MIN_SECONDS / _FRAME_SECONDS) * _FRAME_BYTES
+# A gap longer than this between two bot frames means a new playback started, so
+# the bot write head re-anchors to the wall clock instead of continuing.
+_BOT_REANCHOR_SECONDS = 1.0
+# A live buffer this old means nobody is draining it — cogs/voice_live.py failed to
+# load, or its loop died. Evict rather than grow: the sink must never hold audio
+# hostage for a consumer that isn't there. The real consumer polls every 0.25 s,
+# so this threshold is orders of magnitude beyond normal.
+_LIVE_STALE_SECONDS = 60.0
+
+
+class _BotSpeaker:
+    """Stand-in "member" for the bot, so _track_speaker needs no special case.
+
+    It reads identity via getattr (display_name / name / id), so any object with
+    those attributes works.
+    """
+    __slots__ = ()
+    id = MOMENTUM_BOT_ID
+    display_name = "Momentum"
+    name = "Momentum"
+
+
+_BOT_SPEAKER = _BotSpeaker()
 
 
 class MixingWaveSink(voice_recv.AudioSink):
@@ -108,6 +142,19 @@ class MixingWaveSink(voice_recv.AudioSink):
         self._speakers: dict[int, dict] = {}      # ssrc -> {"id", "name"}
         self._open_seg: dict[int, dict] = {}      # ssrc -> {"start", "last"} (ticks)
         self._segments: list[dict] = []           # finalized {"ssrc","start","end"}
+        # Live side-channel (cogs/voice_live.py). Also a pure observer of the mix:
+        # per-speaker PCM is buffered so the cog can poll for finished utterances
+        # while the call is still running. Off unless the cog turns it on.
+        self.live_enabled = False
+        self._live: dict[int, dict] = {}          # ssrc -> {"user_id","name","pcm","first_tick","last_wall"}
+        # perf_counter() of the most recent frame from a *human*. Barge-in reads
+        # this to know a person started talking over the bot.
+        self.last_human_frame = 0.0
+        # Write head for the bot's own speech (see write_bot_frame): its frames are
+        # contiguous by construction, so they advance by exactly one tick each
+        # rather than being re-derived from a jittery wall clock per frame.
+        self._bot_next_tick: Optional[int] = None
+        self._bot_last_wall = 0.0
 
     def wants_opus(self) -> bool:
         return False              # we need decoded PCM to mix
@@ -172,6 +219,11 @@ class MixingWaveSink(voice_recv.AudioSink):
             # Record who spoke at this tick (diarization side-channel — see __init__).
             if ssrc is not None:
                 self._track_speaker(ssrc, user, tick)
+            # Live side-channels: a person is talking right now (barge-in), and
+            # their audio is buffered for on-the-fly transcription.
+            self.last_human_frame = now
+            if self.live_enabled and ssrc is not None:
+                self._live_append(ssrc, user, pcm, tick, now)
             # Finalize ticks that are safely behind the newest audio we've placed.
             self._flush_through(self._max_tick - _REORDER_FRAMES)
 
@@ -197,6 +249,122 @@ class MixingWaveSink(voice_recv.AudioSink):
             self._segments.append({"ssrc": ssrc, "start": seg["start"], "end": seg["last"] + 1})
             self._open_seg[ssrc] = {"start": tick, "last": tick}
 
+    # ----------------------------------------------------------------- live tap
+    # Everything below serves cogs/voice_live.py (Momentum answering out loud
+    # mid-call). Like the diarization side-channel above, the live buffers are a
+    # pure observer of the mix; write_bot_frame is the one *input*, and it goes
+    # through the same bucket/diarization path as any other speaker.
+
+    def _live_append(self, ssrc: int, user, pcm: bytes, tick: int, now: float) -> None:
+        """Buffer one frame of a speaker's in-progress utterance.
+
+        Caller must hold self._lock.
+        """
+        buf = self._live.get(ssrc)
+        if buf is None:
+            buf = self._live[ssrc] = {
+                "user_id": getattr(user, "id", None),
+                "name": (getattr(user, "display_name", None)
+                         or getattr(user, "name", None) or f"User-{ssrc}"),
+                "pcm": bytearray(),
+                "first_tick": tick,
+                "last_wall": now,
+            }
+        elif buf["user_id"] is None:
+            # The router can resolve the member a few frames into a stream; take
+            # the identity as soon as it lands (same reason _track_speaker does).
+            buf["user_id"] = getattr(user, "id", None)
+            name = getattr(user, "display_name", None) or getattr(user, "name", None)
+            if name:
+                buf["name"] = name
+        buf["last_wall"] = now
+        if len(buf["pcm"]) < _MAX_LIVE_BYTES:
+            buf["pcm"] += pcm
+        # Self-heal when there is no consumer (see _LIVE_STALE_SECONDS).
+        stale = [s for s, b in self._live.items() if now - b["last_wall"] > _LIVE_STALE_SECONDS]
+        for s in stale:
+            del self._live[s]
+        if stale:
+            logger.warning("Dropped %d stale live buffer(s) — is voice_live running?",
+                           len(stale))
+
+    def take_finished_utterances(self, now: float, gap_seconds: float) -> list[dict]:
+        """Pop and return the buffers of speakers silent for at least `gap_seconds`.
+
+        Called from the cog's polling loop rather than pushed from here on
+        purpose: a turn is only *closed* by the arrival of the next frame after a
+        gap, so when someone finishes a sentence and the room goes quiet, no
+        further frame ever arrives — a callback-based design would sit on that
+        last utterance forever. Polling closes it on the clock instead.
+
+        Buffers shorter than VOICE_LIVE_MIN_SECONDS are dropped (a cough, an
+        "mhm" — nothing worth an API call). Each returned dict is
+        ``{"user_id", "name", "pcm", "start", "seconds"}`` with ``start`` in
+        seconds from the beginning of the recording.
+        """
+        out: list[dict] = []
+        with self._lock:
+            if self._closed:
+                return out
+            done = [s for s, b in self._live.items() if now - b["last_wall"] >= gap_seconds]
+            for ssrc in done:
+                buf = self._live.pop(ssrc)
+                pcm = bytes(buf["pcm"])
+                if len(pcm) < _MIN_LIVE_BYTES:
+                    continue
+                out.append({
+                    "user_id": buf["user_id"],
+                    "name": buf["name"],
+                    "pcm": pcm,
+                    "start": round(buf["first_tick"] * _FRAME_SECONDS, 2),
+                    "seconds": round(len(pcm) / (_RATE * _CHANNELS * _WIDTH), 2),
+                })
+        return out
+
+    def write_bot_frame(self, pcm: bytes) -> None:
+        """Mix one 20 ms frame of the bot's *own* speech into the recording.
+
+        voice_recv never loops our outgoing audio back, so without this the bot
+        would speak in the call and be absent from its archive: no words in the
+        transcript, no turn in the diarization, nothing in the AI summary — the
+        recording would quietly misrepresent the meeting. Fed frame-by-frame from
+        cogs/voice_live.py's TeeSource while vc.play() runs.
+
+        Bot audio is generated locally (no RTP, no jitter buffer), so placement
+        anchors once to the wall clock and then advances one tick per frame —
+        the frames are contiguous by construction, and re-deriving each from a
+        jittery clock would collide two of them into one bucket (a doubled,
+        distorted frame) or leave holes. _track_speaker then labels the run under
+        a reserved ssrc, so everything downstream sees a normal speaker called
+        "Momentum" with no special case.
+        """
+        if not pcm:
+            return
+        if len(pcm) < _FRAME_BYTES:
+            pcm = pcm + _SILENCE[len(pcm):]
+        elif len(pcm) > _FRAME_BYTES:
+            pcm = pcm[:_FRAME_BYTES]
+
+        now = time.perf_counter()
+        with self._lock:
+            if self._closed:
+                return
+            if self._t0 is None:
+                self._t0 = now
+            if (self._bot_next_tick is None
+                    or now - self._bot_last_wall > _BOT_REANCHOR_SECONDS):
+                self._bot_next_tick = int(round((now - self._t0) / _FRAME_SECONDS))
+            self._bot_last_wall = now
+
+            tick = max(self._bot_next_tick, self._next_tick)
+            self._bot_next_tick = tick + 1
+            if tick > self._max_tick:
+                self._max_tick = tick
+            existing = self._buckets.get(tick)
+            self._buckets[tick] = audioop.add(existing, pcm, _WIDTH) if existing else pcm
+            self._track_speaker(_BOT_SSRC, _BOT_SPEAKER, tick)
+            self._flush_through(self._max_tick - _REORDER_FRAMES)
+
     def _flush_through(self, up_to: int) -> None:
         """Write every tick up to `up_to` in order, filling gaps with silence.
 
@@ -211,6 +379,7 @@ class MixingWaveSink(voice_recv.AudioSink):
             if self._closed:
                 return
             self._closed = True
+            self._live.clear()      # the call is over; nothing left to answer
             last = max(self._buckets) if self._buckets else self._next_tick - 1
             self._flush_through(last)
             try:

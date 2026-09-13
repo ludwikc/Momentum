@@ -34,6 +34,7 @@ from config import (
     RECORDING_MIN_PARTICIPANTS,
     DIARIZATION_ENABLED,
     MOMENTUM_OWNER_ID,
+    VOICE_LIVE_ENABLED,
 )
 
 # Add DAVE (E2EE) decryption support to voice_recv — without this, Discord's
@@ -111,6 +112,11 @@ class VoiceRecord(commands.Cog):
 
         # Active-recording state (one at a time).
         self.vc: voice_recv.VoiceRecvClient | None = None
+        # The active sink. Exposed (rather than kept local to _start) so
+        # cogs/voice_live.py can poll it for live utterances and mix the bot's
+        # own replies back into the recording — it deliberately owns no voice
+        # connection of its own.
+        self.sink: MixingWaveSink | None = None
         self.wav_path: str | None = None
         self.channel: discord.VoiceChannel | None = None
         self.start_time: datetime | None = None
@@ -174,6 +180,7 @@ class VoiceRecord(commands.Cog):
         # two threads race on the non-thread-safe wave file (corrupt header). See
         # mixsink.py for the full story.
         sink = MixingWaveSink(wav_path)
+        sink.live_enabled = VOICE_LIVE_ENABLED
         vc.listen(sink, after=self._on_listen_done)
 
         # Play the "now recording" announcement out loud — only on configured
@@ -188,6 +195,7 @@ class VoiceRecord(commands.Cog):
                     logger.warning("Failed to play start sound: %s", e)
 
         self.vc = vc
+        self.sink = sink
         self.wav_path = wav_path
         self.channel = channel
         self.start_time = datetime.now(self.warsaw)
@@ -237,6 +245,7 @@ class VoiceRecord(commands.Cog):
             except Exception as e:
                 logger.error("disconnect failed: %s", e)
         self.vc = None
+        self.sink = None
         self.wav_path = None
         self.channel = None
         self.start_time = None

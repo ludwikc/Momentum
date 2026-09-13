@@ -785,6 +785,11 @@ def _generate_reply(user_msg: str, today_str: str, coaching: bool = False,
     )
 
 
+# Public alias for other cogs (cogs/voice_live.py answers out loud with the same
+# brain, persona and tools as a text summon). Same trick as transcribe.join_words.
+generate_reply = _generate_reply
+
+
 async def _build_direct_user_msg(channel, bot_user_id: int) -> tuple[str, list[dict]]:
     """Fresh channel history → (prompt user-message, window), direct_mention=True.
 

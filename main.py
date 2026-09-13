@@ -158,6 +158,7 @@ EXTENSIONS = [
     "cogs.weekly_digest",  # piątkowy DM z wzorem ogłoszenia-podsumowania Daily Coaching
     "cogs.admin_lookup",  # /admin transkrypt — link do transkryptu z danej daty (admin)
     "cogs.embed_fix",  # goły link social → podgląd przez proxy + wygaszenie oryginału
+    "cogs.voice_live",  # "Momentum, …" na głosowym → odpowiedź głosem (wymaga voicerecord)
 ]
 
 # Function to load extensions

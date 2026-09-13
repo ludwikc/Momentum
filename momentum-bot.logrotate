@@ -1,4 +1,4 @@
-# logrotate policy for Momentum's bot.log
+# logrotate policy for Momentum's log files (bot.log + the cron logs).
 #
 # bot.log is written by Python's logging.FileHandler in main.py (see the systemd
 # unit: StandardOutput=journal, so systemd does NOT write this file). The bot
@@ -24,5 +24,36 @@
     delaycompress
     copytruncate
     dateext
+    su ludwikc ludwikc
+}
+
+# scripts/mikrus_stats.log — cron appends one "OK (200) posted…" line every 2 h
+# (9/day), and nobody ever reads it except to check the last run. `rotate 0` keeps
+# NO history at all: logrotate empties the file weekly and discards the copy.
+# copytruncate isn't strictly needed (the cron `>>` redirect opens and closes the
+# file each run, so there's no long-lived handle to invalidate), but it makes the
+# truncation atomic from the writer's point of view and costs nothing.
+#
+# NOTE: this file is tracked in git, so each weekly truncation shows up as a diff.
+# If that ever gets annoying, untrack it: `git rm --cached scripts/mikrus_stats.log`
+# plus a .gitignore entry — the log is pure runtime output, nothing depends on it
+# being in the repo.
+/home/ludwikc/Momentum/scripts/mikrus_stats.log {
+    weekly
+    rotate 0
+    missingok
+    notifempty
+    copytruncate
+    su ludwikc ludwikc
+}
+
+# scripts/usage_summary.log — same deal, written by the two momentum_usage_summary
+# cron jobs (23:55 daily, 23:57 Sundays). Not tracked in git.
+/home/ludwikc/Momentum/scripts/usage_summary.log {
+    weekly
+    rotate 0
+    missingok
+    notifempty
+    copytruncate
     su ludwikc ludwikc
 }

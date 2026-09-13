@@ -31,7 +31,6 @@
       "Bash(venv/bin/python -m py_compile cogs/daily_invite.py config.py cogs/queue_cog.py db.py)",
       "Bash(journalctl -u momentum-bot --since \"1 minute ago\" --no-pager)",
       "Bash(rm .claude/settings.local.json.tmp.805946.aa170cc8202d)",
-      "Read(//home/ludwikc/.ssh/**)",
       "Read(//etc/**)",
       "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 ula285 'echo OK')",
       "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 root@ula285.mikrus.xyz 'echo OK')",

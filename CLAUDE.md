@@ -357,6 +357,14 @@ weekly_digest 1m.
   server powers — a wide blast radius worth narrowing to explicit permissions someday.
   A separate `Droids` role (`991273206319157319`) grants `manage_messages`, but it is
   redundant while ADMINISTRATOR is in place.
+- **12 pre-September recordings will never get transcripts — this is closed, not pending.**
+  Audio is on Drive but no transcript exists anywhere and no diarization sidecar survived,
+  so any rebuild would be an unattributed wall of text. Owner's call on 13.09.2026: not
+  worth it. Do **not** re-open this as a backlog item. They are mostly the 06:30
+  `warsztaty` (23.06, 30.06, 07.07, 14.07, 04.08, 18.08, 25.08) plus a 22–24.06 cluster;
+  three of them (14/21/28.07) are the `_safety_stop` self-cancel bug fixed in 2026-08.
+  `scripts/backfill_missing_transcripts.py` will keep listing them — that is expected;
+  just don't pass `--apply` without `--only`.
 - **Hardcoded channel IDs** inside several cogs (GM, meditation, deep-work, photo thread, invite
   map) rather than centralized in `config.py` — fine for a single server.
 - **Superseded SQL scripts** — `scripts/unified_progress_stats.sql` and

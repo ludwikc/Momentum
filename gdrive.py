@@ -88,6 +88,27 @@ def find_files(name_contains: str, *, page_size: int = 50) -> list[dict]:
     return result.get("files", [])
 
 
+def download_file(file_id: str, dest_path: str) -> str:
+    """Download a Drive file by id to ``dest_path``. Returns the path.
+
+    Blocking (network + disk) — call via asyncio.to_thread from async code.
+    Needed because the pipeline deletes the local MP3 once the Drive copy is
+    md5-verified, so Drive is the only source left when a transcript has to be
+    rebuilt after the fact (see scripts/backfill_missing_transcripts.py).
+    """
+    from googleapiclient.http import MediaIoBaseDownload
+
+    service = _get_service()
+    request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
+    with open(dest_path, "wb") as fh:
+        downloader = MediaIoBaseDownload(fh, request, chunksize=8 * 1024 * 1024)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+    logger.info("Downloaded %s from Drive to %s", file_id, dest_path)
+    return dest_path
+
+
 def local_md5(path: str) -> str:
     """MD5 hex digest of a local file, matching Drive's md5Checksum field.
 

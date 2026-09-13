@@ -254,8 +254,10 @@ class VoiceLive(commands.Cog):
             return
 
         logger.info("Live summon from %s: %s", speaker, question)
-        user_msg = build_summon_prompt(list(self._window), self.bot.user.id,
-                                       direct_mention=True)
+        user_msg = voice_live.build_voice_prompt(
+            build_summon_prompt(list(self._window), self.bot.user.id,
+                                direct_mention=True)
+        )
         reply = await asyncio.to_thread(
             przywolanie.generate_reply, user_msg, day, False, True
         )

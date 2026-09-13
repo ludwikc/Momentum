@@ -100,11 +100,14 @@ VOICE_LIVE_MAX_SECONDS = 30
 # Ile ostatnich wypowiedzi (wszystkich mówców) tworzy okno kontekstu dla modelu.
 VOICE_LIVE_CONTEXT_UTTERANCES = 12
 # Cały łańcuch STT → model → TTS. Po przekroczeniu odpowiedź jest PORZUCANA:
-# odezwanie się 40 s po pytaniu trafia już w inny temat i brzmi jak awaria.
-VOICE_LIVE_TIMEOUT_S = 25
+# odezwanie się minutę po pytaniu trafia już w inny temat i brzmi jak awaria.
+# Zmierzone na produkcyjnym kluczu: STT 1,5 s + model 6 s + TTS 3,6 s ≈ 11 s.
+# 40 s to zapas na rundę narzędziową modelu (MOMENTUM_TOOL_ROUNDS), nie norma.
+VOICE_LIVE_TIMEOUT_S = 40
 # Odpowiedź dłuższa niż to jest ucinana na granicy zdania przed syntezą (TTS jest
-# płatne od znaku, a i tak nikt nie słucha bota przez minutę).
-VOICE_LIVE_MAX_REPLY_CHARS = 600
+# płatne od znaku i czasu). Z instrukcją głosową model schodzi do ~300 znaków,
+# więc ten limit gryzie tylko wyjątki.
+VOICE_LIVE_MAX_REPLY_CHARS = 450
 VOICE_LIVE_TTS_MODEL = "gpt-4o-mini-tts"
 VOICE_LIVE_TTS_VOICE = "onyx"
 VOICE_LIVE_TTS_SPEED = 1.0

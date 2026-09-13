@@ -159,7 +159,7 @@ All in `config.py`:
 | `VOICE_LIVE_ENABLED` / `_WAKE_WORDS` / `_WAKE_WINDOW_WORDS` | `True` / `("momentum",)` / `3` | Momentum mówi: słowo-klucz musi paść w pierwszych N słowach wypowiedzi (surowiej niż `summon.is_summon`) |
 | `VOICE_LIVE_ALLOW_EVERYONE` / `_CONTEXT_FROM_ALL` / `_DAILY_LIMIT` | `False` / `False` / `20` | Kto może wywołać głosem (domyślnie admin/owner, sprawdzane **przed** STT) · czy transkrybować też pozostałych dla kontekstu · limit na osobę/dobę |
 | `VOICE_LIVE_MIN_SECONDS` / `_MAX_SECONDS` / `_CONTEXT_UTTERANCES` | `0.8` / `30` / `12` | Próg „to nie kaszlnięcie" · sufit bufora wypowiedzi · ile wypowiedzi tworzy okno kontekstu |
-| `VOICE_LIVE_TIMEOUT_S` / `_MAX_REPLY_CHARS` / `_BARGEIN_SECONDS` | `25` / `600` / `0.6` | Cały łańcuch STT→model→TTS (po przekroczeniu odpowiedź porzucona) · cięcie odpowiedzi przed syntezą · ile **nieprzerwanej** mowy człowieka ucisza bota |
+| `VOICE_LIVE_TIMEOUT_S` / `_MAX_REPLY_CHARS` / `_BARGEIN_SECONDS` | `40` / `450` / `0.6` | Cały łańcuch STT→model→TTS (po przekroczeniu odpowiedź porzucona) · cięcie odpowiedzi przed syntezą · ile **nieprzerwanej** mowy człowieka ucisza bota |
 | `VOICE_LIVE_TTS_MODEL` / `_TTS_VOICE` / `_TTS_SPEED` | `gpt-4o-mini-tts` / `onyx` / `1.0` | Synteza mowy (`tts.py`) |
 
 A few channel IDs are still hardcoded inside cogs (not in config): GM channel
@@ -460,8 +460,14 @@ Loose, not commitments (mirrors README):
   w pół zdania. Gating (admin/owner) sprawdzany **przed** STT, więc cudze wypowiedzi
   nie kosztują nic; `VOICE_LIVE_CONTEXT_FROM_ALL` kupuje kontekst całej rozmowy, gdy
   odpowiedzi okażą się płytkie. Cały łańcuch jest time-boxowany
-  (`VOICE_LIVE_TIMEOUT_S`) — odezwanie się 40 s po pytaniu trafia już w inny temat.
-  Nowe: `tts.py`, `voice_live.py`, `tests/test_voice_live.py` (29 testów).
+  (`VOICE_LIVE_TIMEOUT_S`) — odezwanie się minutę po pytaniu trafia już w inny temat.
+  **Instrukcja głosowa (`voice_live.VOICE_MODE_INSTRUCTION`) to fix latencji, nie
+  stylu.** Zmierzone na produkcyjnym kluczu: bez niej model odpowiadał jak na kanale
+  tekstowym — 563 znaki z listą punktowaną, pogrubionym cytatem i oznaczeniem — a te
+  tokeny kosztowały sekundy dwa razy: raz w modelu, raz w syntezie, przez co łańcuch
+  przekraczał własny timeout. Z instrukcją: model 13,8 s → **6,0 s**, odpowiedź
+  563 → ~300 znaków, całość STT 1,5 s + model 6,0 s + TTS 3,6 s ≈ **11 s**.
+  Nowe: `tts.py`, `voice_live.py`, `tests/test_voice_live.py` (31 testów).
   **Tier 2 (samodzielne wtrącanie) celowo poza zakresem** — kod to ~150 linii,
   ale dostrojenie „kiedy przerwać ludziom" to tygodnie na żywym Daily Coachingu.
 - **Porażka transkrypcji już nie jest cicha** — od 4 do 12.09 wyczerpane kredyty OpenAI

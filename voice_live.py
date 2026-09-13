@@ -127,6 +127,25 @@ def _truncate(text: str, limit: int) -> str:
     return window.strip()
 
 
+# Appended to the summon prompt on the voice path. Without it the model answers
+# like it does on a text channel — a measured 563-char reply with bullet points,
+# a bolded quote and a mention — which is both unspeakable and slow: the tokens
+# cost seconds in the model AND seconds again in synthesis, and the chain was
+# overrunning its timeout. Brevity here is a latency fix as much as a style one.
+VOICE_MODE_INSTRUCTION = (
+    "UWAGA: odpowiadasz GŁOSEM, na żywo, w trakcie spotkania na kanale głosowym. "
+    "Maksymalnie 2–3 krótkie zdania i jeden konkret. Mów tak, jak się mówi: bez "
+    "markdownu, bez list, bez nagłówków, bez linków, bez oznaczania nikogo. "
+    "Nikt Cię nie czyta — Cię słychać, więc każde zdanie musi się dać wypowiedzieć "
+    "jednym tchem."
+)
+
+
+def build_voice_prompt(user_msg: str) -> str:
+    """Summon prompt + the voice-mode instruction, appended last so it wins."""
+    return f"{user_msg}\n\n{VOICE_MODE_INSTRUCTION}"
+
+
 def pcm_to_wav(pcm: bytes, path: str) -> str:
     """Write raw 48 kHz/stereo/16-bit PCM to ``path`` as a WAV. Returns ``path``.
 

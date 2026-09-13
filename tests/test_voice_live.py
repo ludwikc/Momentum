@@ -13,7 +13,14 @@ import wave
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from voice_live import has_wake_word, normalize_word, pcm_to_wav, strip_for_speech
+from voice_live import (
+    VOICE_MODE_INSTRUCTION,
+    build_voice_prompt,
+    has_wake_word,
+    normalize_word,
+    pcm_to_wav,
+    strip_for_speech,
+)
 
 try:
     from mixsink import _FRAME_BYTES, MixingWaveSink
@@ -127,6 +134,16 @@ class TestStripForSpeech(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(strip_for_speech(""), "")
         self.assertEqual(strip_for_speech(None), "")
+
+
+class TestBuildVoicePrompt(unittest.TestCase):
+    def test_instruction_goes_last(self):
+        out = build_voice_prompt("okno rozmowy\n\nOdezwij się.")
+        self.assertTrue(out.startswith("okno rozmowy"))
+        self.assertTrue(out.endswith(VOICE_MODE_INSTRUCTION))
+
+    def test_original_prompt_is_preserved(self):
+        self.assertIn("Odezwij się.", build_voice_prompt("Odezwij się."))
 
 
 class TestPcmToWav(unittest.TestCase):

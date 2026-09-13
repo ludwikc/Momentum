@@ -33,6 +33,7 @@ from config import (
     RECORDING_SUMMARY_CHANNEL_ID,
     RECORDING_MIN_PARTICIPANTS,
     DIARIZATION_ENABLED,
+    MOMENTUM_OWNER_ID,
 )
 
 # Add DAVE (E2EE) decryption support to voice_recv — without this, Discord's
@@ -505,6 +506,7 @@ class VoiceRecord(commands.Cog):
                 # publishing the recording). Done before any upload so the local
                 # MP3 is still on disk.
                 transcript = summary = None
+                transcribe_error = None
                 if transcribe.is_configured():
                     try:
                         text, words = await asyncio.to_thread(
@@ -524,6 +526,7 @@ class VoiceRecord(commands.Cog):
                             )
                     except Exception as e:
                         logger.error("Transcription/summary failed: %s", e)
+                        transcribe_error = e
 
                 suffix = f" ({reason})" if reason else ""
                 if gdrive.is_configured():
@@ -571,6 +574,27 @@ class VoiceRecord(commands.Cog):
                 else:
                     msg = (f"🎙️ Nagranie z **#{channel_name}**{suffix} zapisane lokalnie: `{mp3_path}`\n"
                            f"_(Google Drive nie jest skonfigurowany — ustaw GDRIVE_SA_JSON i GDRIVE_FOLDER_ID.)_")
+
+                # Do sierpnia 2026 porażka transkrypcji szła wyłącznie do bot.log,
+                # a nagranie i podziękowanie publikowały się normalnie — wyglądało
+                # to jak działający pipeline. Wyczerpane kredyty OpenAI zabrały tak
+                # 9 dni podsumowań, zanim ktokolwiek zauważył. Teraz każda wpadka
+                # ląduje na kanale mod-only razem z linkiem do audio.
+                if transcribe_error is not None:
+                    detail = str(transcribe_error)[:300]
+                    if transcribe.is_quota_error(str(transcribe_error)):
+                        msg += (
+                            f"\n\n🚨 <@{MOMENTUM_OWNER_ID}> **Transkrypcja padła: skończyły się "
+                            f"kredyty OpenAI.** To nie jest chwilowa awaria — każde kolejne "
+                            f"nagranie też będzie bez transkryptu i bez podsumowania, dopóki "
+                            f"nie doładujesz konta. Audio jest bezpieczne, transkrypt da się "
+                            f"odtworzyć później.\n`{detail}`"
+                        )
+                    else:
+                        msg += (
+                            f"\n\n⚠️ **Transkrypcja się nie powiodła** — bez transkryptu nie ma "
+                            f"też podsumowania na kanale. Audio jest bezpieczne.\n`{detail}`"
+                        )
 
                 # Post the AI summary (only for a real group call), regardless of
                 # where the audio ended up.
@@ -705,7 +729,15 @@ class VoiceRecord(commands.Cog):
         channel = self.bot.get_channel(RECORDING_NOTIFY_CHANNEL_ID)
         if channel:
             try:
-                await channel.send(message)
+                # users=True, bo alert o wyczerpanych kredytach woła ownera.
+                # everyone/roles zablokowane: te wiadomości wklejają m.in. echo
+                # tekstu błędu z API, którego treści nie kontrolujemy.
+                await channel.send(
+                    message,
+                    allowed_mentions=discord.AllowedMentions(
+                        everyone=False, roles=False, users=True
+                    ),
+                )
             except Exception as e:
                 logger.error("Failed to post to notify channel: %s", e)
 

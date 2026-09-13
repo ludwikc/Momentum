@@ -298,14 +298,19 @@ updates. `RECORDING_MAX_MINUTES` is a hard safety stop. On startup the cog also 
    diarized body, `transcripts.render_document`) as `<audio-stem>-transcript.md` alongside it;
    delete local copies. Otherwise keep the MP3 locally.
 4. Post the Drive link (or local path) to the **notify channel** (`RECORDING_NOTIFY_CHANNEL_ID`,
-   mod-only) — this always happens.
+   mod-only) — this always happens. **If step 2 failed, the failure is appended to that same
+   message** instead of dying in `bot.log`; when `transcribe.is_quota_error()` matches (exhausted
+   OpenAI credits — permanent, unlike a throttling 429) the alert also tags the owner, because
+   every subsequent recording will fail the same way.
 5. **Only if `≥ RECORDING_MIN_PARTICIPANTS` (2)**: post the thank-you ("…dzięki za dzisiejsze
    rozkminki!") tagging participants, and the **summary embed** to `RECORDING_SUMMARY_CHANNEL_ID`.
    The summary header is the recorded channel as a clickable mention + the date
    (`<#…> z dn. <t:…:D>`); the Drive link is deliberately **not** in the public summary.
 
 Everything in steps 2–3 is best-effort and wrapped — a transcription/Drive failure never blocks
-publishing or the bot.
+publishing or the bot. Best-effort is *not* silent though: see step 4. Degrading quietly here is
+what let an exhausted OpenAI balance eat 9 days of summaries (4–12.09.2026) unnoticed — the
+recording and the thank-you kept publishing, so from the outside the pipeline looked healthy.
 
 ---
 
@@ -339,8 +344,13 @@ weekly_digest 1m.
 - **Dead modules** — `linkdb.py` (old MongoDB string), `emoji.py`, `images.py` are imported
   nowhere. Safe to delete.
 - **`validate_token()` in main.py** is imported but the call is commented out.
-- **OpenAI summaries are blocked in production** by billing/quota on the OpenAI project
-  (`429 insufficient_quota`) — code is ready; recording + Drive upload work regardless.
+- **OpenAI billing has no auto-recharge** — the balance hitting zero takes down transcription,
+  summaries, przywołania, greetings and the weekly digest at once (they share one key). It has
+  happened once (4–12.09.2026). The mod-only alert in step 4 of the recording pipeline now makes
+  it loud, but the underlying fix is enabling auto-recharge on the OpenAI account.
+  *(Resolved 13.09.2026: credits topped up, summaries work again.)*
+- **`manage_messages` not granted yet** — `cogs/embed_fix.py` needs it to suppress the original
+  embed. Until granted it runs degraded (reply only) and logs one warning per channel.
 - **Hardcoded channel IDs** inside several cogs (GM, meditation, deep-work, photo thread, invite
   map) rather than centralized in `config.py` — fine for a single server.
 - **Superseded SQL scripts** — `scripts/unified_progress_stats.sql` and
@@ -369,6 +379,18 @@ Loose, not commitments (mirrors README):
 ## Changelog
 
 **2026-09**
+- **Porażka transkrypcji już nie jest cicha** — od 4 do 12.09 wyczerpane kredyty OpenAI
+  zabrały 9 dni transkryptów i podsumowań, a nikt nie zauważył, bo pipeline degradował się
+  „ładnie": nagranie szło na Drive, podziękowanie dla uczestników się publikowało, a jedynym
+  śladem był `logger.error` w `bot.log`. Teraz błąd transkrypcji jest doklejany do tej samej
+  wiadomości na kanale mod-only, która niesie link do audio (`RECORDING_NOTIFY_CHANNEL_ID`) —
+  nie da się go przegapić, nie oglądając logów. Nowy czysty helper
+  `transcribe.is_quota_error()` odróżnia wyczerpane środki (`insufficient_quota` /
+  `credit_balance_exhausted`) od przejściowego 429: pierwsze jest trwałe i psuje każde kolejne
+  nagranie, więc **taguje ownera**; drugie to zwykłe ostrzeżenie. Przy okazji `_notify` dostało
+  jawne `AllowedMentions(everyone=False, roles=False, users=True)` — ping ownera ma działać, ale
+  echo niekontrolowanego tekstu błędu z API nie może wywołać `@everyone`.
+  Testy: `tests/test_transcribe_errors.py` (z dosłownym tekstem produkcyjnego błędu).
 - **Naprawa podglądów social mediów** (`cogs/embed_fix.py`): linki do Instagrama
   (i TikToka, i X-a) renderowały się na Discordzie jako martwa zajawka — żeby
   zobaczyć rolkę, trzeba było wyjść do aplikacji. Teraz wiadomość będąca

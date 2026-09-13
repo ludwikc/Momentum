@@ -30,6 +30,23 @@ def is_configured() -> bool:
     return bool(os.getenv("OPENAI_API_KEY"))
 
 
+# Wyczerpane środki wyglądają jak zwykły 429, ale NIE są przejściowe: retry nic
+# nie da, a każde kolejne nagranie padnie tak samo. Rozróżnienie decyduje o tym,
+# czy alert na kanale mod-only tylko odnotowuje wpadkę, czy woła ownera.
+_QUOTA_MARKERS = ("insufficient_quota", "credit_balance_exhausted", "no credits remaining")
+
+
+def is_quota_error(message: str) -> bool:
+    """True when an OpenAI error means the account is out of credits.
+
+    Matches on the error *text* rather than the exception type because the same
+    ``RateLimitError`` covers both a transient per-minute throttle (retrying
+    helps) and an exhausted balance (retrying never helps). Mirrors
+    ``summon.is_param_compat_error``, which classifies OpenAI errors the same way.
+    """
+    return any(marker in (message or "").lower() for marker in _QUOTA_MARKERS)
+
+
 def _client():
     from openai import OpenAI
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

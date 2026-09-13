@@ -8,6 +8,12 @@ from parsers import rewrite_bare_social_link
 
 logger = logging.getLogger("momentum_bot.embed_fix")
 
+# Maskowany link: widoczny jest tylko dwukropek, a podgląd i tak się renderuje
+# (sprawdzone na żywo 13.09.2026 — Discord zwraca embed typu "video" zarówno dla
+# gołego URL-a, jak i dla tej formy). Czytelniejsze niż wklejanie długiego adresu
+# drugi raz pod wiadomością użytkownika.
+_REPLY_TEMPLATE = "Przesyłam zawartość linku[:]({url})"
+
 # Odpowiedź to goły URL, ale ŚCIEŻKA może zawierać dosłowne "@everyone"
 # (https://x.com/status/@everyone) — Discord parsuje wzmianki po samym tekście.
 # main.py tworzy Bota BEZ allowed_mentions, więc domyślne mają everyone=True,
@@ -23,11 +29,11 @@ class EmbedFix(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # Kanały, gdzie edycja cudzej wiadomości dostała 403 — nie ponawiamy i
-        # ostrzegamy raz. Uprawnienia są PER KANAŁ, więc jeden zamknięty kanał
-        # nie może wyłączyć wygaszania wszędzie. In-memory, zeruje się przy
-        # restarcie (wzorzec: _offer_last w przywolanie.py).
-        self._suppress_denied: set[int] = set()
+        # Kanały, na których wysyłka dostała 403 — ostrzegamy raz, zamiast przy
+        # każdym linku. Uprawnienia są PER KANAŁ, więc jeden zamknięty kanał nie
+        # może wyłączyć feature'u wszędzie. In-memory, zeruje się przy restarcie
+        # (wzorzec: _offer_last w przywolanie.py).
+        self._send_denied: set[int] = set()
         logger.info("EmbedFix cog initialized")
 
     @commands.Cog.listener()
@@ -41,7 +47,7 @@ class EmbedFix(commands.Cog):
         if not EMBED_FIX_ENABLED:
             return
         if message.guild is None:
-            return  # DM: nie ma manage_messages, edit i tak zwróciłby 403
+            return  # w DM z botem nie ma czego poprawiać
         if message.channel.id in EMBED_FIX_IGNORED_CHANNEL_IDS:
             return
         if message.attachments or message.stickers:
@@ -50,47 +56,38 @@ class EmbedFix(commands.Cog):
             return  # autor sam wyłączył podgląd — szanujemy to
 
         fixed = rewrite_bare_social_link(message.content, hosts=EMBED_FIX_HOSTS)
-        if not fixed or len(fixed) > 2000:
+        if not fixed:
+            return
+        content = _REPLY_TEMPLATE.format(url=fixed)
+        if len(content) > 2000:
             return
 
-        # Kolejność: NAJPIERW odpowiedź, POTEM wygaszenie. Odwrotna jest
-        # ładniejsza (flaga wyprzedza unfurler Discorda, oryginalny embed w ogóle
-        # się nie renderuje), ale gdy wysyłka padnie, zostawia użytkownika bez
-        # podglądu i bez odpowiedzi. Nigdy nie kasujemy, zanim nie damy zamiennika.
+        # Wiadomość autora zostaje NIETKNIĘTA — nie kasujemy jej i nie gasimy jej
+        # embedu. Bot potrafiłby ustawić SUPPRESS_EMBEDS na cudzej wiadomości
+        # (ma ADMINISTRATOR), ale świadomie tego nie robi: modyfikowanie cudzych
+        # wiadomości jest inwazyjne, a przy linkach do Instagrama natywny podgląd
+        # i tak się nie renderuje, więc nie ma czego gasić.
+        #
+        # Osobna wiadomość zamiast reply: podgląd ma stać sam, bez dymka
+        # "w odpowiedzi na", który przy każdym linku dokładał szumu.
         try:
-            await message.reply(fixed, mention_author=False, allowed_mentions=_NO_PINGS)
+            await message.channel.send(content, allowed_mentions=_NO_PINGS)
+        except discord.Forbidden:
+            # Brak prawa pisania na tym kanale — nie ma sensu ponawiać, ale
+            # logujemy raz per kanał, żeby nie zalać logu przy każdym linku.
+            if message.channel.id not in self._send_denied:
+                self._send_denied.add(message.channel.id)
+                logger.warning(
+                    "Brak prawa pisania na kanale %s — pomijam poprawianie linków "
+                    "tutaj do restartu.", message.channel.id,
+                )
         except discord.HTTPException as e:
-            # m.in. wiadomość skasowana w międzyczasie (400 na reference) albo
-            # brak prawa pisania. Nic nie wygaszamy — oryginał zostaje nietknięty.
             logger.warning(
-                "Nie udało się odpowiedzieć poprawionym linkiem na kanale %s: %s",
+                "Nie udało się wysłać poprawionego linku na kanale %s: %s",
                 message.channel.id, e,
             )
-            return
         except Exception as e:
-            logger.error("Błąd w embed_fix.on_message (odpowiedź): %s", e)
-            return
-
-        if message.channel.id in self._suppress_denied:
-            return
-        try:
-            # Edytujemy CUDZĄ wiadomość, ale payload to wyłącznie flags — na to
-            # wystarcza "Zarządzanie wiadomościami" (w wątku/forum liczone z kanału
-            # nadrzędnego). Świadomie bez pre-checku permissions_for: na Thread
-            # rzuca ClientException, gdy rodzic nie jest w cache.
-            await message.edit(suppress=True)
-        except discord.Forbidden:
-            self._suppress_denied.add(message.channel.id)
-            logger.warning(
-                "Brak uprawnienia 'Zarządzanie wiadomościami' na kanale %s — "
-                "oryginalny podgląd zostaje obok poprawionego linku. "
-                "Nie ponawiam do restartu.",
-                message.channel.id,
-            )
-        except discord.NotFound:
-            pass  # autor skasował wiadomość, zanim zdążyliśmy wygasić embed
-        except Exception as e:
-            logger.error("Błąd w embed_fix.on_message (wygaszenie): %s", e)
+            logger.error("Błąd w embed_fix.on_message: %s", e)
 
 
 async def setup(bot: commands.Bot):
